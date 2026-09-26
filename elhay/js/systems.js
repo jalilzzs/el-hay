@@ -105,6 +105,13 @@ DrivingSchool.checkProgress=function(carPos){
 
 /* ---- Police checkpoint ---- */
 const Police={cooldown:0,wanted:0};
+Police.addWanted=function(n){
+ Police.wanted=Math.max(0,Math.min(5,Police.wanted+n));
+ const box=$('wantedBox');
+ if(Police.wanted<=0){ box.style.display='none'; return; }
+ box.style.display='block'; box.textContent='🚨 '+'★'.repeat(Police.wanted)+'☆'.repeat(5-Police.wanted);
+ PoliceAI.trigger(Player.camera.position,Police.wanted);
+};
 Police.maybeTrigger=function(carPos,dt){
  Police.cooldown=Math.max(0,Police.cooldown-dt);
  if(Police.cooldown>0||!World.checkpointPos) return;
@@ -129,13 +136,13 @@ Police.comply=function(){
  if(fine>0){ if(Economy.cash>=fine) Economy.cash-=fine; else jail=true; }
  $('pPolice').classList.remove('open');
  if(impound){ Player.mode='walk'; }
- if(jail){ World.enterInterior('prison',Player.camera,outsidePos); }
+ if(jail){ Police.addWanted(1); World.enterInterior('prison',Player.camera,outsidePos); }
 };
 Police.payFine=function(){
  if(Economy.cash>=100){ Economy.cash-=100; $('pPolice').classList.remove('open'); }
  else Police.comply();
 };
-Police.flee=function(){ Police.wanted++; $('pPolice').classList.remove('open'); PoliceAI.trigger(Player.camera.position); };
+Police.flee=function(){ $('pPolice').classList.remove('open'); Police.addWanted(2); };
 
 /* ---- Multiplayer architecture stub (offline mode is the only implemented mode) ---- */
 const NetworkManager={ws:null,

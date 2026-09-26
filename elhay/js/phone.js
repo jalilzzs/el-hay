@@ -18,6 +18,7 @@ Phone.render=function(tabId){
  if(tabId==='contacts') Phone.renderContacts(body);
  else if(tabId==='camera') Phone.renderCamera(body);
  else if(tabId==='video') Phone.renderVideo(body);
+ else if(tabId==='shop') Phone.renderShop(body);
  else if(tabId==='delivery') Phone.renderDelivery(body);
  else if(tabId==='realestate') Phone.renderMarket(body);
  else if(tabId==='weapons') Phone.renderWeaponShop(body);
@@ -118,8 +119,27 @@ Phone.renderWeaponShop=function(body){
  });
 };
 
+Phone.renderShop=function(body){
+ body.innerHTML='<h3>Shop</h3>';
+ ['water','sandwich','soap','flowers'].forEach(id=>{
+  const it=ITEMS[id];
+  const row=document.createElement('div'); row.className='shopItem';
+  row.innerHTML='<span>'+it.name+' — $'+it.price+'</span>';
+  const btn=document.createElement('button'); btn.textContent='Buy'; btn.disabled=Economy.cash<it.price;
+  btn.onclick=()=>{ if(Economy.buy(id)){ UI.refreshHUD(); Phone.render('shop'); } };
+  row.appendChild(btn); body.appendChild(row);
+ });
+};
+
 Phone.initTabs=function(){
+ // Shop tab is injected here (rather than in index.html) to keep this fix contained to JS files.
+ const tabs=$('phoneTabs');
+ if(tabs && !tabs.querySelector('[data-tab="shop"]')){
+  const shopTab=document.createElement('button'); shopTab.className='ptab'; shopTab.dataset.tab='shop'; shopTab.textContent='Shop';
+  tabs.insertBefore(shopTab,tabs.querySelector('[data-tab="delivery"]')||null);
+ }
  document.querySelectorAll('.ptab').forEach(b=>b.onclick=()=>Phone.render(b.dataset.tab));
  $('phoneClose').onclick=Phone.close;
  $('phoneBtn').onclick=Phone.toggle;
+ $('phoneBtn').addEventListener('touchstart',e=>{ e.preventDefault(); e.stopPropagation(); Phone.toggle(); },{passive:false});
 };

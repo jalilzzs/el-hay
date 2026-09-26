@@ -1,0 +1,101 @@
+:root{--accent:#c9a24b;--bg:#0b0e11;--panel:rgba(15,20,24,.88);--text:#f1ece1;--dim:#a9a396;--border:rgba(201,162,75,.35);}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Segoe UI',Tahoma,sans-serif;color:var(--text);touch-action:none;}
+#c{position:fixed;inset:0;z-index:0}
+#hud{position:fixed;top:10px;left:10px;z-index:5;font-size:12px;color:var(--dim);background:rgba(0,0,0,.35);padding:6px 10px;border-radius:6px;display:none;line-height:1.5;white-space:pre-line}
+#prompt{position:fixed;bottom:22vh;left:50%;transform:translateX(-50%);z-index:6;background:rgba(0,0,0,.55);padding:8px 16px;border-radius:6px;font-size:13px;display:none}
+#crosshair{position:fixed;top:50%;left:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.6);z-index:5;display:none}
+#loading{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);gap:14px}
+#lbTrack{width:240px;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+#lbFill{width:0;height:100%;background:var(--accent);transition:width .2s}
+#lbLabel{font-size:12px;color:var(--dim);letter-spacing:1px;text-align:center;direction:ltr}
+
+#menu{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,#05070a,#0b0e11 55%,#0a1213)}
+#menuPanel{width:min(420px,88vw);padding:34px 28px;background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+#menuPanel h1{font-size:32px;color:var(--accent);text-align:center;margin:0}
+#menuPanel .sub{font-size:11px;color:var(--dim);text-align:center;letter-spacing:2px;margin:6px 0 24px}
+.btn{display:block;width:100%;border:1px solid var(--border);background:rgba(255,255,255,.02);color:var(--text);padding:12px 16px;font-size:15px;border-radius:8px;cursor:pointer;text-align:inherit;margin-bottom:9px}
+.btn:hover{background:rgba(201,162,75,.12);border-color:var(--accent)}
+.btn.sm{font-size:12px;color:var(--dim);border-color:transparent;background:transparent;padding:6px 12px;width:auto;display:inline-block;margin:0 4px}
+#menuFoot{display:flex;justify-content:center;margin-top:16px}
+.panel{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(3,4,5,.72)}
+.panel.open{display:flex}
+.card{width:min(460px,90vw);max-height:80vh;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px}
+.card h2{margin:0 0 16px;color:var(--accent);font-size:17px}
+.row{display:flex;justify-content:space-between;align-items:center;margin:12px 0;gap:10px;font-size:13px}
+select{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px}
+.close{margin-top:16px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
+
+#csLayer{position:fixed;inset:0;z-index:15;display:none;pointer-events:none}
+.lb{position:absolute;left:0;right:0;height:12vh;background:#000}#lbTop{top:0}#lbBot{bottom:0}
+#csSub{position:absolute;bottom:14vh;left:50%;transform:translateX(-50%);max-width:70vw;text-align:center;font-size:17px;color:#f5f0e6;text-shadow:0 2px 6px rgba(0,0,0,.8)}
+#csCard{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000;opacity:0;transition:opacity .8s;font-size:28px;color:var(--accent)}
+#csCard.show{opacity:1}
+#csSkip{position:absolute;bottom:22px;right:22px;pointer-events:auto;padding:7px 14px;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,.4);color:var(--dim);cursor:pointer;font-size:12px}
+
+/* ---------- MOBILE TOUCH UI ---------- */
+#touchUI{position:fixed;inset:0;z-index:8;display:none;pointer-events:none}
+#touchUI.active{display:block}
+#joyBase{position:absolute;bottom:26px;left:26px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);pointer-events:auto;}
+#joyStick{position:absolute;top:35px;left:35px;width:40px;height:40px;border-radius:50%;background:rgba(201,162,75,.55);pointer-events:none}
+#lookArea{position:absolute;top:0;right:0;width:55%;height:100%;pointer-events:auto}
+#touchInteract{position:absolute;bottom:100px;right:26px;width:64px;height:64px;border-radius:50%;background:rgba(201,162,75,.35);border:1px solid var(--accent);color:var(--text);font-size:13px;pointer-events:auto;display:flex;align-items:center;justify-content:center}
+#driveControls{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .25s}
+#driveControls.show{opacity:1}
+#driveControls button{position:absolute;pointer-events:auto;border-radius:50%;border:1px solid var(--border);background:rgba(0,0,0,.4);color:var(--text);font-size:20px}
+#btnGas{bottom:26px;right:26px;width:70px;height:70px;background:rgba(60,140,80,.4)}
+#btnBrake{bottom:110px;right:26px;width:70px;height:70px;background:rgba(180,60,50,.4)}
+#btnLeft{bottom:40px;left:150px;width:56px;height:56px}
+#btnRight{bottom:40px;left:216px;width:56px;height:56px}
+
+/* ---------- VITALS / CASH HUD ---------- */
+#vitalsBox{position:fixed;top:10px;right:10px;z-index:5;background:rgba(0,0,0,.4);padding:8px 12px;border-radius:8px;width:150px;display:none}
+.vbar{height:6px;background:rgba(255,255,255,.12);border-radius:3px;margin:4px 0;overflow:hidden}
+.vbar>i{display:block;height:100%;width:100%;transition:width .3s}
+.vbar.health>i{background:#c0392b}.vbar.energy>i{background:#e7c65a}.vbar.hunger>i{background:#c9834b}
+.vbar.thirst>i{background:#4a90b8}.vbar.hygiene>i{background:#6fae6f}
+#cashBox{position:fixed;top:10px;right:170px;z-index:5;background:rgba(0,0,0,.4);color:var(--accent);font-size:14px;padding:8px 12px;border-radius:8px;display:none}
+
+/* ---------- MISSION TRACKER ---------- */
+#missionBox{position:fixed;top:60px;left:10px;z-index:5;background:rgba(0,0,0,.4);padding:8px 12px;border-radius:8px;max-width:260px;font-size:12px;color:var(--dim);display:none}
+#missionBox b{color:var(--accent);display:block;font-size:13px;margin-bottom:3px}
+#missionBox button{margin-top:6px;font-size:11px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+
+/* ---------- MINIMAP ---------- */
+#minimap{position:fixed;top:10px;left:10px;z-index:5;width:130px;height:130px;border-radius:50%;border:2px solid var(--border);overflow:hidden;display:none}
+#minimap canvas{width:100%;height:100%}
+
+/* ---------- GENERIC SHOP / SYSTEM PANELS ---------- */
+.shopItem{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:13px}
+.shopItem button{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
+.shopItem button:hover{background:rgba(201,162,75,.15)}
+#invBtn{position:fixed;bottom:22px;right:110px;z-index:9;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(0,0,0,.4);color:var(--text);font-size:12px;cursor:pointer;display:none}
+
+/* ---------- CHECKPOINT / POLICE MODAL ---------- */
+#pPolice .card{border-color:#c0392b}
+#pPolice h2{color:#e07a5f}
+.policeBtns{display:flex;gap:8px;margin-top:14px}
+.policeBtns button{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.03);color:var(--text);cursor:pointer;font-size:12px}
+
+/* ---------- PHONE ---------- */
+#phoneBtn{position:fixed;bottom:22px;right:190px;z-index:9;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:rgba(0,0,0,.4);color:var(--text);font-size:16px;cursor:pointer}
+#phoneCard{width:min(360px,90vw);padding:0;overflow:hidden}
+#phoneTabs{display:flex;flex-wrap:wrap;background:rgba(0,0,0,.3);padding:6px;gap:4px}
+.ptab{flex:1 1 auto;font-size:10px;padding:6px 4px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer}
+.ptab.active{background:rgba(201,162,75,.15);color:var(--accent);border-color:var(--border)}
+#phoneBody{padding:16px;max-height:50vh;overflow-y:auto;font-size:13px}
+#phoneBody h3{color:var(--accent);font-size:14px;margin:0 0 10px}
+.chatLog{background:rgba(255,255,255,.03);border-radius:8px;padding:8px;margin:8px 0;max-height:120px;overflow-y:auto;font-size:12px;color:var(--dim)}
+.chatLog .me{color:var(--accent);text-align:right}
+#phoneCard .close{margin:12px 16px 16px}
+#photoThumb{max-width:100%;border-radius:8px;margin-top:8px}
+
+/* ---------- WEAPON HUD ---------- */
+#weaponHud{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:6;background:rgba(0,0,0,.45);padding:6px 14px;border-radius:8px;font-size:12px;color:var(--text);display:none;gap:8px}
+#whAmmo{color:var(--accent);margin-left:8px}
+#reticle{position:fixed;top:50%;left:50%;width:14px;height:14px;margin:-7px;border:2px solid rgba(255,255,255,.7);border-radius:50%;z-index:6;display:none}
+#wantedBox{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:7;background:#c0392b;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;display:none;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+#touchFire{position:absolute;bottom:180px;right:26px;width:56px;height:56px;border-radius:50%;background:rgba(180,60,50,.35);border:1px solid var(--border);pointer-events:auto;display:none;font-size:20px}
+#touchWeapon{position:absolute;bottom:180px;right:96px;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--border);pointer-events:auto;display:none;font-size:18px}
+#touchFire.show,#touchWeapon.show{display:flex;align-items:center;justify-content:center}

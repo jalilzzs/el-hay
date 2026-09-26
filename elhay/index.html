@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>El-Hay | الحي</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="crosshair"></div>
+<div id="hud"></div>
+<div id="prompt"></div>
+<div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري التحميل...</div></div>
+
+<div id="menu"><div id="menuPanel">
+<h1 id="mTitle">الحي</h1><div class="sub" id="mSub">CORE BUILD</div>
+<div class="row" style="margin-bottom:14px"><span id="lMode">Mode</span><select id="selMode"><option value="offline">Offline (Single-Player)</option><option value="multi">Multiplayer (stub)</option></select></div>
+<button class="btn" id="bNew">بدء لعبة جديدة</button>
+<button class="btn" id="bCont">استمرار اللعب</button>
+<button class="btn" id="bSet">الإعدادات</button>
+<div id="menuFoot"><button class="btn sm" id="bSup">الدعم</button><button class="btn sm" id="bPriv">الخصوصية</button><button class="btn sm" id="bTerm">الشروط</button></div>
+</div></div>
+
+<div class="panel" id="pSettings"><div class="card">
+<h2 id="sTitle">الإعدادات</h2>
+<div class="row"><span id="lLang">اللغة</span><select id="selLang"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option><option value="zh">中文</option></select></div>
+<div class="row"><span id="lQual">الجودة</span><select id="selQual"><option value="low">Low</option><option value="med" selected>Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></div>
+<div class="row"><span id="lFps">حد FPS</span><select id="selFps"><option value="30">30</option><option value="60" selected>60</option><option value="120">120</option><option value="0">Unlimited</option></select></div>
+<div class="row"><span id="lShow">عرض FPS</span><input type="checkbox" id="chkFps"></div>
+<div class="row"><span id="lCtrl">التحكم</span><select id="selCtrl"><option value="wasd">WASD</option><option value="arrows">Arrows</option></select></div>
+<button class="close" id="sClose">إغلاق</button>
+</div></div>
+
+<div class="panel" id="pLegal"><div class="card"><h2 id="lgTitle">—</h2><p id="lgBody" style="color:var(--dim);font-size:13px;line-height:1.6">—</p><button class="close" id="lgClose">إغلاق</button></div></div>
+
+<div id="vitalsBox">
+ <div class="vbar health"><i id="vHealth"></i></div>
+ <div class="vbar energy"><i id="vEnergy"></i></div>
+ <div class="vbar hunger"><i id="vHunger"></i></div>
+ <div class="vbar thirst"><i id="vThirst"></i></div>
+ <div class="vbar hygiene"><i id="vHygiene"></i></div>
+</div>
+<div id="cashBox">$0</div>
+<div id="missionBox"></div>
+<div id="minimap"><canvas id="mmCanvas" width="130" height="130"></canvas></div>
+<button id="invBtn">🎒</button>
+
+<div class="panel" id="pShop"><div class="card">
+ <h2 id="shopTitle">—</h2>
+ <div id="shopList"></div>
+ <button class="close" id="shopClose">إغلاق</button>
+</div></div>
+
+<div class="panel" id="pPolice"><div class="card" id="pPoliceCard">
+ <h2 id="polTitle">Police Checkpoint</h2>
+ <p id="polBody" style="color:var(--dim);font-size:13px"></p>
+ <div class="policeBtns">
+  <button id="polComply">Comply</button>
+  <button id="polPay">Pay Fine</button>
+  <button id="polFlee">Flee</button>
+ </div>
+</div></div>
+
+<div id="csLayer"><div class="lb" id="lbTop"></div><div class="lb" id="lbBot"></div><div id="csSub"></div><div id="csCard"></div><button id="csSkip">تخطي</button></div>
+
+<button id="phoneBtn">📱</button>
+<div class="panel" id="pPhone"><div class="card" id="phoneCard">
+ <div id="phoneTabs">
+  <button class="ptab" data-tab="contacts">Contacts</button>
+  <button class="ptab" data-tab="camera">Camera</button>
+  <button class="ptab" data-tab="video">Video</button>
+  <button class="ptab" data-tab="delivery">Delivery</button>
+  <button class="ptab" data-tab="realestate">Market</button>
+  <button class="ptab" data-tab="weapons">Weapons</button>
+ </div>
+ <div id="phoneBody"></div>
+ <button class="close" id="phoneClose">إغلاق</button>
+</div></div>
+
+<div id="wantedBox">🚨 WANTED</div>
+<div id="weaponHud">
+ <span id="whName">Fists</span><span id="whAmmo"></span>
+</div>
+<div id="reticle"></div>
+
+<!-- MOBILE TOUCH UI -->
+<div id="touchUI">
+  <div id="lookArea"></div>
+  <div id="joyBase"><div id="joyStick"></div></div>
+  <button id="touchInteract">E</button>
+  <button id="touchFire">🔥</button>
+  <button id="touchWeapon">🔄</button>
+  <div id="driveControls">
+    <button id="btnGas">▲</button>
+    <button id="btnBrake">▼</button>
+    <button id="btnLeft">◀</button>
+    <button id="btnRight">▶</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/128/examples/js/controls/PointerLockControls.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/world.js"></script>
+<script src="js/player.js"></script>
+<script src="js/cutscenes.js"></script>
+<script src="js/systems.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/npc.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/phone.js"></script>
+<script src="js/persistence.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

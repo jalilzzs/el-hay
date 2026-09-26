@@ -34,7 +34,10 @@ const TEX={
   g.fillStyle='#c0392b';g.fillRect(w/2-6,h/2-24,12,48);g.fillRect(w/2-24,h/2-6,48,12);}),
  police:canvasTex((g,w,h)=>{g.fillStyle='#5a5750';g.fillRect(0,0,w,h);for(let y=0;y<h;y+=18)g.fillRect(0,y,w,2,g.fillStyle='#3d3a35');
   g.fillStyle='#146b3a';g.beginPath();g.arc(w/2,h/2-20,20,0,7);g.fill();g.fillStyle='#c0392b';g.beginPath();g.arc(w/2,h/2-20,9,0,7);g.fill();}),
- road:canvasTex((g,w,h)=>{g.fillStyle='#2b2b2e';g.fillRect(0,0,w,h);g.fillStyle='#e7c65a';for(let y=0;y<h;y+=40)g.fillRect(w/2-2,y,4,24);},64,160),
+ road:canvasTex((g,w,h)=>{g.fillStyle='#2b2b2e';g.fillRect(0,0,w,h);},64,160),
+ roadStripe:canvasTex((g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#e7c65a';for(let y=0;y<h;y+=40)g.fillRect(w/2-2,y,4,24);},64,160),
+ grass:canvasTex((g,w,h)=>{g.fillStyle='#3f6b3a';g.fillRect(0,0,w,h);g.fillStyle='#365c32';
+  for(let i=0;i<80;i++){const x=Math.random()*w,y=Math.random()*h;g.fillRect(x,y,2,2);}}),
  sidewalk:canvasTex((g,w,h)=>{g.fillStyle='#9c988c';g.fillRect(0,0,w,h);g.strokeStyle='#7d7a70';for(let x=0;x<w;x+=16){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}})
 };
 Object.values(TEX).forEach(tx=>tx.repeat.set(1,1));
@@ -42,15 +45,38 @@ World.TEX=TEX;
 
 World.init=function(scene,renderer){
  World.scene=scene; World.renderer=renderer;
- const groundMat=new THREE.MeshStandardMaterial({map:TEX.sidewalk,roughness:1});
+ World.collidables=[]; // AABB list for wall collisions: landmarks (fixed) + active-chunk buildings (rebuilt on stream)
+
+ /* Layering fixes z-fighting: grass ground y=0, asphalt y=0.02, stripes y=0.04 (own thin
+    transparent layer). polygonOffset on both road layers also prevents flicker where the
+    horizontal and vertical road strips cross each other at the same y. */
+ const groundMat=new THREE.MeshStandardMaterial({map:TEX.grass,roughness:1});
+ TEX.grass.repeat.set(200,200);
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(2000,2000),groundMat);
- ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
- const roadMat=new THREE.MeshStandardMaterial({map:TEX.road,roughness:0.9});
- TEX.road.repeat.set(1,50);
- function makeRoad(x,z,w,l){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,l),roadMat);m.rotation.x=-Math.PI/2;m.position.set(x,0.01,z);m.receiveShadow=true;scene.add(m);}
- for(let i=-4;i<=4;i++){makeRoad(i*40,0,8,2000);makeRoad(0,i*40,2000,8);}
+ ground.rotation.x=-Math.PI/2; ground.position.y=0; ground.receiveShadow=true; scene.add(ground);
+
+ const ROAD_W=8, ROAD_HALF=ROAD_W/2, SIDEWALK_W=3;
+ const roadMat=new THREE.MeshStandardMaterial({map:TEX.road,roughness:0.9,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
+ const stripeMat=new THREE.MeshStandardMaterial({map:TEX.roadStripe,roughness:0.9,transparent:true,alphaTest:0.4,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+ const sidewalkMat=new THREE.MeshStandardMaterial({map:TEX.sidewalk,roughness:1});
+ TEX.road.repeat.set(1,50); TEX.roadStripe.repeat.set(1,50);
+ function makeRoad(x,z,w,l){
+  const asphalt=new THREE.Mesh(new THREE.PlaneGeometry(w,l),roadMat); asphalt.rotation.x=-Math.PI/2; asphalt.position.set(x,0.02,z); asphalt.receiveShadow=true; scene.add(asphalt);
+  const stripe=new THREE.Mesh(new THREE.PlaneGeometry(w,l),stripeMat); stripe.rotation.x=-Math.PI/2; stripe.position.set(x,0.04,z); scene.add(stripe);
+ }
+ // sidewalk strips flank every road on both sides, between the road edge and the grass
+ function makeSidewalk(x,z,w,l){
+  const s=new THREE.Mesh(new THREE.PlaneGeometry(w,l),sidewalkMat); s.rotation.x=-Math.PI/2; s.position.set(x,0.015,z); s.receiveShadow=true; scene.add(s);
+ }
+ for(let i=-4;i<=4;i++){
+  makeRoad(i*40,0,ROAD_W,2000); makeRoad(0,i*40,2000,ROAD_W);
+  makeSidewalk(i*40-ROAD_HALF-SIDEWALK_W/2,0,SIDEWALK_W,2000); makeSidewalk(i*40+ROAD_HALF+SIDEWALK_W/2,0,SIDEWALK_W,2000);
+  makeSidewalk(0,i*40-ROAD_HALF-SIDEWALK_W/2,2000,SIDEWALK_W); makeSidewalk(0,i*40+ROAD_HALF+SIDEWALK_W/2,2000,SIDEWALK_W);
+ }
+ World.roadClearance=ROAD_HALF+SIDEWALK_W+2; // buildings must stay this far from any road centerline
 
  buildLandmarks(scene);
+ World.landmarkCollidableCount=World.collidables.length;
  buildBillboardLandmarks(scene);
  buildInteriors(scene);
  World.playerCar=World.makeCar(-68,-18,0x274b52);
@@ -60,11 +86,41 @@ World.init=function(scene,renderer){
  World.npcs=[]; // populated by NPCPool (js/npc.js); World.keyNpcs (below) are the fixed named characters
  spawnKeyNpcs();
 
- const barrier=new THREE.Mesh(new THREE.BoxGeometry(6,0.4,0.4),new THREE.MeshStandardMaterial({color:0xd94b3a}));
- barrier.position.set(-20,0.6,30); scene.add(barrier);
- World.checkpointPos=new THREE.Vector3(-20,0,30);
+ World.checkpointBarrier=new THREE.Mesh(new THREE.BoxGeometry(6,0.4,0.4),new THREE.MeshStandardMaterial({color:0xd94b3a}));
+ scene.add(World.checkpointBarrier);
+ World.checkpointOfficer=spawnNPC(0,0);
+ World.checkpointOfficer.mesh.children[0].material.color.set(0x1f3b57); // force police-blue shirt
+ World.checkpointPos=new THREE.Vector3();
+ World.randomizeCheckpoint();
+
  World.chunks=new Map();
  World.updateChunks(0,0);
+};
+
+/* Randomized checkpoint: picks a random point along a random road centerline each session,
+   well clear of the spawn/landmark zone, and orients the barrier across that road. */
+World.randomizeCheckpoint=function(){
+ const vertical=Math.random()<0.5;
+ const k=(Math.floor(Math.random()*7)-3)*40; // one of the road lines, -120..120
+ const along=(Math.random()<0.5?-1:1)*(60+Math.random()*90); // 60..150 units out from center
+ let x,z,rotY;
+ if(vertical){ x=k; z=along; rotY=0; } else { x=along; z=k; rotY=Math.PI/2; }
+ World.checkpointBarrier.position.set(x,0.6,z); World.checkpointBarrier.rotation.y=rotY;
+ World.checkpointOfficer.mesh.position.set(x+(vertical?1.5:0),0,z+(vertical?0:1.5));
+ World.checkpointPos.set(x,0,z);
+};
+
+/* ---- Wall collision: simple AABB resolution, used by both the player and wandering NPCs ---- */
+World.resolveCollision=function(pos,radius){
+ for(const b of World.collidables){
+  const minX=b.min.x-radius, maxX=b.max.x+radius, minZ=b.min.z-radius, maxZ=b.max.z+radius;
+  if(pos.x>minX&&pos.x<maxX&&pos.z>minZ&&pos.z<maxZ){
+   const pushLeft=pos.x-minX, pushRight=maxX-pos.x, pushBack=pos.z-minZ, pushFwd=maxZ-pos.z;
+   const min=Math.min(pushLeft,pushRight,pushBack,pushFwd);
+   if(min===pushLeft) pos.x=minX; else if(min===pushRight) pos.x=maxX; else if(min===pushBack) pos.z=minZ; else pos.z=maxZ;
+  }
+ }
+ return pos;
 };
 
 /* ---- Landmarks: distinct, detailed buildings ---- */
@@ -72,7 +128,11 @@ const matRes=new THREE.MeshStandardMaterial({map:TEX.residential,roughness:0.85}
 const matRetail=new THREE.MeshStandardMaterial({map:TEX.retail,roughness:0.85});
 const matHosp=new THREE.MeshStandardMaterial({map:TEX.hospital,roughness:0.6});
 const matPolice=new THREE.MeshStandardMaterial({map:TEX.police,roughness:0.95});
-function block(scene,x,y,z,w,h,d,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;}
+function block(scene,x,y,z,w,h,d,mat){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);
+ World.collidables.push({min:new THREE.Vector3(x-w/2,0,z-d/2),max:new THREE.Vector3(x+w/2,h,z+d/2)});
+ return m;
+}
 function roofLedge(scene,x,y,z,w,d,color){const m=new THREE.Mesh(new THREE.BoxGeometry(w+0.6,0.3,d+0.6),new THREE.MeshStandardMaterial({color}));m.position.set(x,y,z);scene.add(m);return m;}
 
 World.landmarks={};
@@ -189,13 +249,23 @@ function buildBillboardLandmarks(scene){
  makeBillboard(scene,40,3,-30,Math.PI,'ad3.jpg','TELECOM+');
 }
 
-/* ---- NPCs ---- */
+/* ---- NPCs: simple anatomical humanoid (head/torso/arms/legs), randomized look ---- */
 const SKIN=[0xC68642,0x8D5524,0xE0AC69,0xF1C27D]; const OUTFIT=[0x3d5a6c,0x6b4226,0x4a4a48,0x7a5230,0x2f4a3e];
+const PANTS=[0x2b2f38,0x4a3a2a,0x1f1f1f,0x5a4632,0x30323a];
 function spawnNPC(x,z){
- const skin=SKIN[Math.floor(Math.random()*SKIN.length)], outfit=OUTFIT[Math.floor(Math.random()*OUTFIT.length)];
+ const skin=SKIN[Math.floor(Math.random()*SKIN.length)], outfit=OUTFIT[Math.floor(Math.random()*OUTFIT.length)], pants=PANTS[Math.floor(Math.random()*PANTS.length)];
+ const height=0.88+Math.random()*0.28; // per-NPC height/build variety
  const g=new THREE.Group();
- const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.28,0.75,4,8),new THREE.MeshStandardMaterial({color:outfit})); body.position.y=0.9; body.castShadow=true; g.add(body);
- const head=new THREE.Mesh(new THREE.SphereGeometry(0.18,10,10),new THREE.MeshStandardMaterial({color:skin})); head.position.y=1.55; g.add(head);
+ const skinMat=new THREE.MeshStandardMaterial({color:skin}), outfitMat=new THREE.MeshStandardMaterial({color:outfit}), pantsMat=new THREE.MeshStandardMaterial({color:pants});
+ const torso=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.55,0.26),outfitMat); torso.position.y=1.05; torso.castShadow=true; g.add(torso); // children[0] — used by weapons.js hit detection
+ const head=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,10),skinMat); head.position.y=1.48; g.add(head);
+ const armGeo=new THREE.CylinderGeometry(0.055,0.055,0.5,6);
+ const armL=new THREE.Mesh(armGeo,skinMat); armL.position.set(-0.27,1.05,0); armL.rotation.z=0.12; armL.castShadow=true; g.add(armL);
+ const armR=new THREE.Mesh(armGeo,skinMat); armR.position.set(0.27,1.05,0); armR.rotation.z=-0.12; armR.castShadow=true; g.add(armR);
+ const legGeo=new THREE.CylinderGeometry(0.08,0.075,0.62,6);
+ const legL=new THREE.Mesh(legGeo,pantsMat); legL.position.set(-0.12,0.5,0); legL.castShadow=true; g.add(legL);
+ const legR=new THREE.Mesh(legGeo,pantsMat); legR.position.set(0.12,0.5,0); legR.castShadow=true; g.add(legR);
+ g.scale.setScalar(height);
  g.position.set(x,0,z); World.scene.add(g);
  const entry={mesh:g,dir:Math.random()*Math.PI*2,timer:0};
  World.npcs.push(entry);
@@ -217,8 +287,14 @@ const lampGeo=new THREE.CylinderGeometry(0.08,0.08,3,6), lampMat=new THREE.MeshS
 const lampHeadGeo=new THREE.SphereGeometry(0.18,8,8), lampHeadMat=new THREE.MeshStandardMaterial({color:0xffe9b0,emissive:0xffcf7a,emissiveIntensity:0.6});
 function chunkKey(cx,cz){return cx+','+cz;}
 function hash(cx,cz){let h=cx*374761393+cz*668265263;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)/4294967295;}
+function clampAwayFromRoad(v){
+ const nearest=Math.round(v/40)*40, d=v-nearest;
+ if(Math.abs(d)<World.roadClearance) return nearest+(d<0?-World.roadClearance:World.roadClearance);
+ return v;
+}
 function buildChunk(cx,cz){
  const group=new THREE.Group();
+ group.userData.boxes=[];
  const count=6;
  const bMesh=new THREE.InstancedMesh(buildingGeo,bMatVariants[Math.abs(cx+cz)%2],count);
  bMesh.castShadow=true; bMesh.receiveShadow=true;
@@ -228,9 +304,11 @@ function buildChunk(cx,cz){
  for(let i=0;i<count;i++){
   const h=hash(cx*13+i,cz*7+i);
   const w=4+h*4, ht=5+h*14, d=4+((h*31)%1)*4;
-  const px=originX+(((i%3)-1)*World.CHUNK/3)+(h-0.5)*6, pz=originZ+((Math.floor(i/3)-0.5))*World.CHUNK/2+(h-0.5)*6;
+  let px=originX+(((i%3)-1)*World.CHUNK/3)+(h-0.5)*6, pz=originZ+((Math.floor(i/3)-0.5))*World.CHUNK/2+(h-0.5)*6;
+  px=clampAwayFromRoad(px); pz=clampAwayFromRoad(pz);
   dummy.position.set(px,ht/2,pz); dummy.scale.set(w/6,ht,d/6); dummy.updateMatrix();
   bMesh.setMatrixAt(i,dummy.matrix);
+  group.userData.boxes.push({min:new THREE.Vector3(px-w/2,0,pz-d/2),max:new THREE.Vector3(px+w/2,ht,pz+d/2)});
  }
  for(let i=0;i<4;i++){
   const px=originX+(i%2===0?-World.CHUNK/2+2:World.CHUNK/2-2), pz=originZ+(i<2?-World.CHUNK/2+2:World.CHUNK/2-2);
@@ -251,15 +329,21 @@ function buildChunk(cx,cz){
  }
  return group;
 }
+World.landmarkCollidableCount=0; // set right after buildLandmarks in init; chunk boxes are everything after this index
 World.updateChunks=function(px,pz){
  const ccx=Math.round(px/World.CHUNK), ccz=Math.round(pz/World.CHUNK);
  const wanted=new Set();
+ let changed=false;
  for(let dx=-World.RADIUS;dx<=World.RADIUS;dx++)for(let dz=-World.RADIUS;dz<=World.RADIUS;dz++){
   const cx=ccx+dx, cz=ccz+dz; if(Math.abs(cx)<=2&&Math.abs(cz)<=2) continue; // keep landmark/spawn area clear
   const key=chunkKey(cx,cz); wanted.add(key);
-  if(!World.chunks.has(key)){const g=buildChunk(cx,cz);World.scene.add(g);World.chunks.set(key,g);}
+  if(!World.chunks.has(key)){const g=buildChunk(cx,cz);World.scene.add(g);World.chunks.set(key,g);changed=true;}
  }
- for(const [key,g] of World.chunks){ if(!wanted.has(key)){World.scene.remove(g);World.chunks.delete(key);} }
+ for(const [key,g] of World.chunks){ if(!wanted.has(key)){World.scene.remove(g);World.chunks.delete(key);changed=true;} }
+ if(changed){
+  World.collidables.length=World.landmarkCollidableCount;
+  for(const g of World.chunks.values()) World.collidables.push(...g.userData.boxes);
+ }
 };
 
 World.applyQuality=function(){

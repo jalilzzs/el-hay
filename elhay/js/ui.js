@@ -1,5 +1,5 @@
 /* ============ UI: i18n, settings, menu/settings/legal wiring ============ */
-const GOOGLE_CLIENT_ID="", SUPABASE_URL="", SUPABASE_ANON_KEY="";
+const GOOGLE_CLIENT_ID="", SUPABASE_URL="https://xxmvqtwusuxwnlahqjow.supabase.co", SUPABASE_ANON_KEY="sb_publishable_CaOYoKEuTBpgvF3RUUd9bg_Zt0Y28ua";
 const LEGAL_DOCS={tos:"PLACEHOLDER Terms of Service.",priv:"PLACEHOLDER Privacy Policy.",sup:"PLACEHOLDER support@example.com"};
 const STORY_LOCATIONS={highSchoolName:"PLACEHOLDER_SCHOOL",prisonName:"PLACEHOLDER_PRISON"};
 const ASSET_PATHS={audio:"public/audio/",bill:"public/textures/billboards/",models:"public/models/"};

@@ -113,21 +113,23 @@ Player.update=function(dt){
    const v=new THREE.Vector3(fx/len,0,fz/len).multiplyScalar(speed*dt);
    if(IS_TOUCH){
     const yaw=Player.camera.rotation.y;
-    const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-v.z);
+    const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)).multiplyScalar(-v.z);
     const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)).multiplyScalar(v.x);
     Player.camera.position.add(forward).add(right);
    } else { Player.controls.moveRight(v.x); Player.controls.moveForward(-v.z); }
   }
   Player.camera.position.y=1.7;
+  World.resolveCollision(Player.camera.position,0.4);
  } else {
   const wantGas=IS_TOUCH?touch.gas:move.f, wantBrake=IS_TOUCH?touch.brake:move.b, wantL=IS_TOUCH?touch.steerL:move.l, wantR=IS_TOUCH?touch.steerR:move.r;
   if(wantGas) carVel.speed=Math.min(carVel.speed+dt*8,14);
   else if(wantBrake) carVel.speed=Math.max(carVel.speed-dt*8,-8);
   else carVel.speed*=0.94;
-  if(wantL) carVel.steer=Math.min(carVel.steer+dt*2,1); else if(wantR) carVel.steer=Math.max(carVel.steer-dt*2,-1); else carVel.steer*=0.85;
+  if(wantR) carVel.steer=Math.min(carVel.steer+dt*2,1); else if(wantL) carVel.steer=Math.max(carVel.steer-dt*2,-1); else carVel.steer*=0.85;
   World.playerCar.rotation.y+=carVel.steer*dt*(carVel.speed/14);
   World.playerCar.position.x+=Math.sin(World.playerCar.rotation.y)*carVel.speed*dt;
   World.playerCar.position.z+=Math.cos(World.playerCar.rotation.y)*carVel.speed*dt;
+  World.resolveCollision(World.playerCar.position,1.0);
   const camOff=new THREE.Vector3(0,2.4,6).applyAxisAngle(new THREE.Vector3(0,1,0),World.playerCar.rotation.y);
   Player.camera.position.copy(World.playerCar.position).add(camOff);
   Player.camera.lookAt(World.playerCar.position.x,World.playerCar.position.y+1,World.playerCar.position.z);

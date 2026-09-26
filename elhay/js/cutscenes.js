@@ -3,21 +3,30 @@ const Cutscenes={};
 const csLayer=$('csLayer'), csSub=$('csSub'), csCard=$('csCard'), csSkipBtn=$('csSkip');
 let csSkipped=false;
 csSkipBtn.addEventListener('click',()=>csSkipped=true);
-const V3=(x,y,z)=>new THREE.Vector3(x,y,z);
 
 /* Beats cover every story point from the brief: wake up/clock/keys/exit house, drive with radio,
    checkpoint stop (placeholder cause per earlier discussion — cousin pickup / contraband, not the
-   original minor-involving scenario), 5-year skip, walk out of prison into player control. */
-const BEATS=[
- {from:{p:V3(-75,1.6,-22),l:V3(-72,1.2,-22)},to:{p:V3(-70,1.6,-22),l:V3(-72,1,-22)},dur:3,sub:'cs1'},   // wake / clock 13:00
- {from:{p:V3(-70,1.6,-22),l:V3(-72,1,-22)},to:{p:V3(-66,1.7,-18),l:V3(-68,0.8,-18)},dur:3,sub:'cs2'},   // keys, exit house, to car
- {from:{p:V3(-60,2.2,-10),l:V3(-30,1,0)},to:{p:V3(-20,2.2,20),l:V3(-10,1,30)},dur:4.5,sub:'cs3'},       // drive, radio plays
- {from:{p:V3(-24,2,26),l:V3(-20,1,30)},to:{p:V3(-18,2,28),l:V3(-20,1,30)},dur:3,sub:'cs4'},             // pick up cousin
- {from:{p:V3(-16,1.6,29),l:V3(-19,1,30)},to:{p:V3(-19,1.4,30.5),l:V3(-20,1,30.5)},dur:3.5,sub:'cs5'},   // checkpoint stop
- {from:{p:V3(-19,1.4,30.5),l:V3(-20,1,30.5)},to:{p:V3(-21,1.3,31),l:V3(-22,1,31)},dur:3.5,sub:'cs6'},   // arrest
- {card:'cs7',dur:2.2},                                                                                   // 5 years later
- {from:{p:V3(30,1.7,66),l:V3(30,1.4,60)},to:{p:V3(30,1.7,58),l:V3(30,1.4,55)},dur:3.5,sub:'cs8'}         // exits prison gate
-];
+   original minor-involving scenario), 5-year skip, walk out of prison into player control.
+   Camera targets are computed fresh from live World object positions (not hardcoded coordinates)
+   so the sequence still frames correctly now that the checkpoint spawns at a random spot each
+   session, and so the camera looks directly at the actual house/car/officer/prison-gate meshes. */
+function offset(target,dx,dy,dz){ return new THREE.Vector3(target.x+dx,dy,target.z+dz); }
+function buildBeats(){
+ const home=World.landmarks.home.position, car=World.playerCar.position,
+       checkpoint=World.checkpointPos, officer=World.checkpointOfficer.mesh.position,
+       prison=World.landmarks.prison.position;
+ const midX=car.x+(checkpoint.x-car.x)*0.6, midZ=car.z+(checkpoint.z-car.z)*0.6;
+ return [
+  {from:{p:offset(home,-5,1.6,-3),l:offset(home,0,1,-6)},to:{p:offset(home,-2,1.6,-2),l:offset(home,0,1,-5)},dur:3,sub:'cs1'},
+  {from:{p:offset(home,-2,1.7,-2),l:new THREE.Vector3(car.x,0.8,car.z)},to:{p:offset(car,-3,1.8,2),l:new THREE.Vector3(car.x,0.8,car.z)},dur:3,sub:'cs2'},
+  {from:{p:offset(car,-3,2.2,2),l:new THREE.Vector3(midX,1,midZ)},to:{p:new THREE.Vector3(midX-3,2.2,midZ+2),l:new THREE.Vector3(checkpoint.x,1,checkpoint.z)},dur:4.5,sub:'cs3'},
+  {from:{p:new THREE.Vector3(midX-2,1.8,midZ+3),l:new THREE.Vector3(midX,0.9,midZ)},to:{p:new THREE.Vector3(midX-1,1.7,midZ+1.5),l:new THREE.Vector3(midX,0.9,midZ)},dur:3,sub:'cs4'},
+  {from:{p:offset(checkpoint,-4,1.6,3),l:officer},to:{p:offset(checkpoint,-2,1.4,1.5),l:officer},dur:3.5,sub:'cs5'},
+  {from:{p:offset(checkpoint,-2,1.4,1.5),l:officer},to:{p:offset(checkpoint,-1,1.3,0.8),l:officer},dur:3.5,sub:'cs6'},
+  {card:'cs7',dur:2.2},
+  {from:{p:offset(prison,0,1.7,10),l:offset(prison,0,1.4,4)},to:{p:offset(prison,0,1.7,3),l:offset(prison,0,1.4,-3)},dur:3.5,sub:'cs8'}
+ ];
+}
 const lerpV=(a,b,x)=>a.clone().lerp(b,x);
 function wait(ms){return new Promise(r=>setTimeout(r,ms));}
 async function playBeat(camera,b){
@@ -32,7 +41,8 @@ async function playBeat(camera,b){
 }
 Cutscenes.play=async function(camera,onDone){
  csSkipped=false; csLayer.style.display='block'; if(Player.controls) Player.controls.unlock();
- for(const b of BEATS){ if(csSkipped) break; await playBeat(camera,b); }
+ const beats=buildBeats();
+ for(const b of beats){ if(csSkipped) break; await playBeat(camera,b); }
  csLayer.style.display='none'; csSub.textContent=''; csCard.classList.remove('show');
  camera.position.set(30,1.7,55); camera.lookAt(30,1.4,40);
  Player.mode='walk';

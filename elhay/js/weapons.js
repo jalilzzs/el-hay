@@ -52,26 +52,26 @@ Weapons.refreshHUD=function(){
 /* ---- Police pursuit AI ---- */
 const PoliceAI={cars:[],active:false};
 PoliceAI.init=function(){
- for(let i=0;i<2;i++){
+ for(let i=0;i<4;i++){
   const car=World.makeCar(9999,9999,0x1a3a5c);
-  car.userData.speed=0; PoliceAI.cars.push(car);
+  car.userData.speed=0; car.visible=false; PoliceAI.cars.push(car);
  }
 };
-PoliceAI.trigger=function(playerPos){
- if(PoliceAI.active) return;
+PoliceAI.trigger=function(playerPos,wantedLevel){
  PoliceAI.active=true;
+ const activeCount=Math.min(PoliceAI.cars.length,1+(wantedLevel||1));
  PoliceAI.cars.forEach((car,i)=>{
-  const ang=Math.random()*Math.PI*2;
-  car.position.set(playerPos.x+Math.sin(ang)*30,0,playerPos.z+Math.cos(ang)*30);
+  car.visible=i<activeCount;
+  if(i<activeCount){ const ang=Math.random()*Math.PI*2; car.position.set(playerPos.x+Math.sin(ang)*30,0,playerPos.z+Math.cos(ang)*30); }
+  else car.position.set(9999,9999,9999);
  });
- $('wantedBox').style.display='block';
 };
-PoliceAI.clear=function(){ PoliceAI.active=false; Police.wanted=0; $('wantedBox').style.display='none';
- PoliceAI.cars.forEach(c=>c.position.set(9999,9999,9999)); };
+PoliceAI.clear=function(){ PoliceAI.active=false; PoliceAI.cars.forEach(c=>{c.visible=false;c.position.set(9999,9999,9999);}); Police.addWanted(-5); };
 PoliceAI.update=function(dt,playerPos){
  if(!PoliceAI.active) return;
  let caught=false;
  PoliceAI.cars.forEach(car=>{
+  if(!car.visible) return;
   const toPlayer=new THREE.Vector3().subVectors(playerPos,car.position); toPlayer.y=0;
   const dist=toPlayer.length();
   if(dist<0.1) return;

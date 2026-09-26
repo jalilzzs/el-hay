@@ -22,6 +22,7 @@ NPCPool.update=function(playerPos,dt){
   if(d>NPCPool.despawnRadius){ n.active=false; n.mesh.visible=false; n.mesh.position.set(9999,9999,9999); continue; }
   n.timer-=dt; if(n.timer<=0){ n.dir=Math.random()*Math.PI*2; n.timer=2+Math.random()*3; }
   n.mesh.position.x+=Math.sin(n.dir)*dt*1.2; n.mesh.position.z+=Math.cos(n.dir)*dt*1.2; n.mesh.rotation.y=n.dir;
+  World.resolveCollision(n.mesh.position,0.35);
  }
  const wanted=Math.min(NPCPool.size,10);
  if(activeCount<wanted){
@@ -52,5 +53,5 @@ NPCPool.react=function(n){
  const line=REACTIONS_HIT[Math.floor(Math.random()*REACTIONS_HIT.length)];
  UI.dom.prompt.textContent='💬 '+line; UI.dom.prompt.style.display='block';
  n.dir=Math.random()*Math.PI*2; // flee direction, roughly
- if(n.health<=0){ n.active=false; n.mesh.visible=false; n.mesh.position.set(9999,9999,9999); Police.wanted++; PoliceAI.trigger(Player.camera.position); }
+ if(n.health<=0){ n.active=false; n.mesh.visible=false; n.mesh.position.set(9999,9999,9999); Police.addWanted(1); }
 };

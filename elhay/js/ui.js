@@ -114,8 +114,23 @@ UI.initExtras=function(){
  $('shopClose').onclick=()=>$('pShop').classList.remove('open');
  $('invBtn').onclick=UI.openInventory;
  $('invBtn').addEventListener('touchstart',e=>{ e.preventDefault(); e.stopPropagation(); UI.openInventory(); },{passive:false});
+
+ // --- إضافة الدعم المباشر لزر E في اللمس ---
+ const touchInteract = $('touchInteract');
+ if(touchInteract){
+  const triggerInteract = (e)=>{
+   if(e) { e.preventDefault(); e.stopPropagation(); }
+   if(typeof Player !== 'undefined' && Player.interact) {
+    Player.interact();
+   }
+  };
+  touchInteract.onclick = triggerInteract;
+  touchInteract.addEventListener('touchstart', triggerInteract, {passive:false});
+ }
+
  $('polComply').onclick=Police.comply; $('polPay').onclick=Police.payFine; $('polFlee').onclick=Police.flee;
  $('vitalsBox').style.display='block'; $('cashBox').style.display='block'; $('invBtn').style.display='block';
  if(!IS_TOUCH) addEventListener('keydown',e=>{ if(e.code==='KeyI') UI.openInventory(); if(e.code==='KeyM') $('minimap').style.display=$('minimap').style.display==='none'?'block':'none'; });
  $('minimap').style.display='block';
 };
+

@@ -1,5 +1,5 @@
 /* ============ UI: i18n, settings, menu/settings/legal wiring ============ */
-const GOOGLE_CLIENT_ID="", SUPABASE_URL="https://xxmvqtwusuxwnlahqjow.supabase.co", SUPABASE_ANON_KEY="sb_publishable_CaOYoKEuTBpgvF3RUUd9bg_Zt0Y28ua";
+const GOOGLE_CLIENT_ID="", SUPABASE_URL="", SUPABASE_ANON_KEY="";
 const LEGAL_DOCS={tos:"PLACEHOLDER Terms of Service.",priv:"PLACEHOLDER Privacy Policy.",sup:"PLACEHOLDER support@example.com"};
 const STORY_LOCATIONS={highSchoolName:"PLACEHOLDER_SCHOOL",prisonName:"PLACEHOLDER_PRISON"};
 const ASSET_PATHS={audio:"public/audio/",bill:"public/textures/billboards/",models:"public/models/"};
@@ -113,6 +113,7 @@ UI.refreshHUD=function(){
 UI.initExtras=function(){
  $('shopClose').onclick=()=>$('pShop').classList.remove('open');
  $('invBtn').onclick=UI.openInventory;
+ $('invBtn').addEventListener('touchstart',e=>{ e.preventDefault(); e.stopPropagation(); UI.openInventory(); },{passive:false});
  $('polComply').onclick=Police.comply; $('polPay').onclick=Police.payFine; $('polFlee').onclick=Police.flee;
  $('vitalsBox').style.display='block'; $('cashBox').style.display='block'; $('invBtn').style.display='block';
  if(!IS_TOUCH) addEventListener('keydown',e=>{ if(e.code==='KeyI') UI.openInventory(); if(e.code==='KeyM') $('minimap').style.display=$('minimap').style.display==='none'?'block':'none'; });

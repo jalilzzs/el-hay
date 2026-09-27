@@ -18,6 +18,7 @@ NPCPool.update=function(playerPos,dt){
  for(const n of NPCPool.pool){
   if(!n.active) continue;
   activeCount++;
+  if(n.recruited) continue; // following the player now — Gang.update (systems.js) moves these instead
   const d=playerPos.distanceTo(n.mesh.position);
   if(d>NPCPool.despawnRadius){ n.active=false; n.mesh.visible=false; n.mesh.position.set(9999,9999,9999); continue; }
   n.timer-=dt; if(n.timer<=0){ n.dir=Math.random()*Math.PI*2; n.timer=2+Math.random()*3; }
@@ -41,9 +42,13 @@ NPCPool.nearest=function(pos,maxDist){
  return best;
 };
 
-/* Basic interactivity: greet on E, react/flee when hit by a weapon (see weapons.js) */
+/* Basic interactivity: greet on E (recruits into the gang the first time, if there's room),
+   react/flee when hit by a weapon (see weapons.js) */
 NPCPool.greet=function(n){
- const line=GREETINGS[Math.floor(Math.random()*GREETINGS.length)];
+ let line;
+ if(n.recruited){ line="Ready when you are."; }
+ else if(Gang.members.length<Gang.max){ Gang.recruit(n); line='Alright, I\'m with you.'; }
+ else { line=GREETINGS[Math.floor(Math.random()*GREETINGS.length)]+' (crew is full)'; }
  UI.dom.prompt.textContent='💬 '+line; UI.dom.prompt.style.display='block';
  clearTimeout(NPCPool._greetTimeout);
  NPCPool._greetTimeout=setTimeout(()=>{ UI.dom.prompt.style.display='none'; },1500);

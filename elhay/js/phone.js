@@ -82,14 +82,21 @@ Phone.renderDelivery=function(body){
 
 const PROPERTIES=[{id:'studio',name:'Studio Apartment',price:5000},{id:'flat2',name:'2-Room Flat',price:15000}];
 Phone.renderMarket=function(body){
- body.innerHTML='<h3>Real Estate & Vehicles</h3><p style="color:var(--dim);font-size:12px">Property ownership is tracked but does not yet unlock gameplay perks — flagged as a stub for a future pass.</p>';
+ body.innerHTML='<h3>Real Estate & Vehicles</h3><p style="color:var(--dim);font-size:12px">Owned properties are enterable in the world and can be set as your spawn point.</p>';
  Player.properties=Player.properties||[];
  PROPERTIES.forEach(p=>{
   const owned=Player.properties.includes(p.id);
+  const isSpawn=Player.spawnPoint===p.id;
   const row=document.createElement('div'); row.className='shopItem';
-  row.innerHTML='<span>'+p.name+' — $'+p.price+(owned?' (Owned)':'')+'</span>';
-  const btn=document.createElement('button'); btn.textContent='Buy'; btn.disabled=owned||Economy.cash<p.price;
-  btn.onclick=()=>{ if(Economy.cash>=p.price&&!owned){ Economy.cash-=p.price; Player.properties.push(p.id); UI.refreshHUD(); Phone.render('realestate'); } };
+  row.innerHTML='<span>'+p.name+' — $'+p.price+(owned?' (Owned)':'')+(isSpawn?' ★ Spawn':'')+'</span>';
+  const btn=document.createElement('button');
+  btn.textContent=owned?(isSpawn?'Spawn Set':'Set as Spawn'):'Buy';
+  btn.disabled=owned?isSpawn:Economy.cash<p.price;
+  btn.onclick=()=>{
+   if(!owned){ if(Economy.cash>=p.price){ Economy.cash-=p.price; Player.properties.push(p.id); UI.refreshHUD(); } }
+   else RealEstate.setSpawn(p.id);
+   Phone.render('realestate');
+  };
   row.appendChild(btn); body.appendChild(row);
  });
  body.insertAdjacentHTML('beforeend','<h3 style="margin-top:16px">Vehicles</h3>');
@@ -98,6 +105,15 @@ Phone.renderMarket=function(body){
   row.innerHTML='<span>'+c.name+' — $'+c.price+'</span>';
   const btn=document.createElement('button'); btn.textContent='Buy'; btn.disabled=Economy.cash<c.price;
   btn.onclick=()=>{ if(Vehicles.buy(c.id)){ UI.refreshHUD(); Phone.render('realestate'); } };
+  row.appendChild(btn); body.appendChild(row);
+ });
+ body.insertAdjacentHTML('beforeend','<h3 style="margin-top:16px">Garage — Summon Vehicle</h3>');
+ Vehicles.owned.forEach((v,i)=>{
+  const row=document.createElement('div'); row.className='shopItem';
+  const isCurrent=v.mesh===World.playerCar;
+  row.innerHTML='<span>'+v.name+(isCurrent?' (current)':'')+'</span>';
+  const btn=document.createElement('button'); btn.textContent='Summon Here'; btn.disabled=isCurrent;
+  btn.onclick=()=>{ Garage.summon(i); Phone.close(); };
   row.appendChild(btn); body.appendChild(row);
  });
 };

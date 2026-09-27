@@ -4,6 +4,10 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuf
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap; // soft shadow edges instead of the default hard PCF
+renderer.outputEncoding=THREE.sRGBEncoding; // r128 API — colorSpace/SRGBColorSpace is a later-version rename
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.05;
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xbfd4e6);
@@ -13,7 +17,15 @@ const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,500);
 camera.position.set(30,1.7,55);
 
 const hemi=new THREE.HemisphereLight(0xdfe9f5,0x2a2015,0.7); scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xffe6b8,1.3); sun.position.set(-40,60,-20); sun.castShadow=true; sun.shadow.mapSize.set(1024,1024); scene.add(sun);
+// Golden, crisp daylight sun: warm color, larger/higher-resolution shadow frustum so shadows stay
+// sharp across the play area instead of blurring out at a distance.
+const sun=new THREE.DirectionalLight(0xfff1d6,1.5); sun.position.set(-45,70,-25); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.near=1; sun.shadow.camera.far=220;
+sun.shadow.camera.left=-90; sun.shadow.camera.right=90; sun.shadow.camera.top=90; sun.shadow.camera.bottom=-90;
+sun.shadow.bias=-0.0004; sun.shadow.radius=2.2;
+scene.add(sun);
+World.setLights(hemi,sun);
 
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
@@ -36,6 +48,18 @@ function tryConnectMultiplayer(){
  if(gameMode!=='multi') return;
  NetworkManager.connect('wss://example-not-configured.invalid');
  console.info('[Multiplayer] stub only — staying in offline simulation.');
+}
+
+/* Respawn: if health hits 0, come back at the player's chosen spawn point (an owned property)
+   or the default home area if none is set yet. Gives Player.spawnPoint a real purpose beyond
+   just being saved data. Guarded so it only fires once per depletion, not every frame at 0 health. */
+let awaitingRespawn=false;
+function respawnPlayer(){
+ const poi=Player.spawnPoint && World.pois.find(p=>p.id===Player.spawnPoint);
+ const pos=poi?poi.pos:new THREE.Vector3(-70,1.7,-14);
+ camera.position.set(pos.x,1.7,pos.z);
+ Vitals.health=50; Player.mode='walk'; PoliceAI.clear();
+ UI.refreshHUD();
 }
 
 function startCutscene(){
@@ -63,9 +87,14 @@ function loop(now){
  const dt=Math.min(elapsed/1000,0.1); last=now;
  Player.update(dt); Player.updatePrompt();
  World.update(camera.position.x,camera.position.z,dt);
+ World.updateDayNight(dt);
  NPCPool.update(camera.position,dt);
+ Gang.update(dt);
  PoliceAI.update(dt,camera.position);
  Vitals.update(dt);
+ if(Vitals.health<=0 && !awaitingRespawn){ awaitingRespawn=true; respawnPlayer(); }
+ else if(Vitals.health>20){ awaitingRespawn=false; }
+ HeistSystem.tick(dt);
  MissionSystem.checkProgress(camera.position,World.playerCar.position,Player.mode);
  renderer.render(scene,camera);
  hudTick+=dt; if(hudTick>0.3){ hudTick=0; UI.refreshHUD(); Minimap.draw(camera); }

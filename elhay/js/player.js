@@ -72,29 +72,60 @@ function initTouchUI(){
 }
 function setDriveButtonsVisible(v){ if(!IS_TOUCH) return; $('driveControls').classList.toggle('show',v); }
 
-/* ---- Interact ---- */
+/* ---- Interact ----
+   Root cause of "E key unreliable": walk-mode interact checked car > door > shop > NPC in a
+   fixed priority order, so a car within 3 units always won even if a door or NPC was actually
+   closer. Also, once inside ANY interior other than 'home', pressing E just exited immediately —
+   'gunshop' and the safehouses had no counter/bed handling, only 'home' did. Both are real bugs,
+   not cosmetic. findInteractable() is now the single source of truth for both the prompt and the
+   actual action, so they can't disagree. */
+function findInteractable(p){
+ if(Player.mode==='drive') return {type:'exitCar',dist:0};
+ let best=null, bestD=3.2;
+ const car=Vehicles.nearbyDrivable(p);
+ if(car){ const d=p.distanceTo(car.mesh.position); if(d<bestD){bestD=d;best={type:'car',ref:car};} }
+ for(const e of World.entrances){ const d=p.distanceTo(e.pos); if(d<bestD){bestD=d;best={type:'door',ref:e};} }
+ for(const s of World.shops){ const d=p.distanceTo(s.pos); if(d<bestD){bestD=d;best={type:'shop',ref:s};} }
+ for(const n of NPC_DEFS){ const npc=World.keyNpcs[n.id]; if(npc){ const d=p.distanceTo(npc.mesh.position); if(d<bestD){bestD=d;best={type:'keyNpc',ref:n,npc};} } }
+ const pooled=NPCPool.nearest(p,bestD);
+ if(pooled) best={type:'pooledNpc',ref:pooled};
+ return best;
+}
+function interiorInteractable(p){
+ const a=World.activeInterior;
+ if((a==='home'||a==='studio'||a==='flat2')){
+  const bedPos=a==='home'?World.homeBedLocal:World.safehouseBedLocal[a];
+  if(bedPos && p.distanceTo(bedPos)<2.2) return {type:'sleep'};
+ }
+ if(a==='home' && World.homeToiletLocal && p.distanceTo(World.homeToiletLocal)<2.2) return {type:'toilet'};
+ if(a==='gunshop' && World.gunShopCounterLocal && p.distanceTo(World.gunShopCounterLocal)<2.2) return {type:'counter'};
+ return {type:'exit'};
+}
+
 Player.interact=function(){
+ if(document.querySelector('.panel.open')||UI.dom.menu.style.display!=='none'||$('pPhone').classList.contains('open')) return; // never interact through an open menu
  if(World.activeInterior){
-  if(World.activeInterior==='home'){
-   const p=Player.camera.position;
-   if(World.homeBedLocal && p.distanceTo(World.homeBedLocal)<2.2){ Vitals.sleep(); return; }
-   if(World.homeToiletLocal && p.distanceTo(World.homeToiletLocal)<2.2){ Vitals.useToilet(); return; }
-  }
+  const hit=interiorInteractable(Player.camera.position);
+  if(hit.type==='sleep'){ Vitals.sleep(); return; }
+  if(hit.type==='toilet'){ Vitals.useToilet(); return; }
+  if(hit.type==='counter'){ UI.openShop('gunshop'); return; }
   World.exitInterior(Player.camera,outsidePos); setDriveButtonsVisible(false); return;
  }
- const p=Player.camera.position;
- if(Player.mode==='walk'){
-  const car=Vehicles.nearbyDrivable(p);
-  if(car){ Vehicles.switchTo(car.mesh,car.registered); Player.mode='drive'; if(!IS_TOUCH) Player.controls.unlock(); UI.dom.crosshair.style.display='none'; setDriveButtonsVisible(true); Weapons.refreshHUD(); return; }
-  for(const e of World.entrances) if(p.distanceTo(e.pos)<3){ World.enterInterior(e.id,Player.camera,outsidePos); return; }
-  for(const s of World.shops) if(p.distanceTo(s.pos)<3){ UI.openShop(s.id); return; }
-  for(const n of NPC_DEFS){ const npc=World.keyNpcs[n.id]; if(npc && p.distanceTo(npc.mesh.position)<3){ UI.openRelationship(n.id); return; } }
-  const pooled=NPCPool.nearest(p,3); if(pooled){ NPCPool.greet(pooled); return; }
- } else {
+ const hit=findInteractable(Player.camera.position);
+ if(!hit) return;
+ if(hit.type==='exitCar'){
   Player.mode='walk'; Player.camera.position.set(World.playerCar.position.x+2,1.7,World.playerCar.position.z); setDriveButtonsVisible(false);
   if(!IS_TOUCH) UI.dom.crosshair.style.display='block';
-  Weapons.refreshHUD();
+  Weapons.refreshHUD(); return;
  }
+ if(hit.type==='car'){
+  Vehicles.switchTo(hit.ref.mesh,hit.ref.registered); Player.mode='drive'; if(!IS_TOUCH) Player.controls.unlock();
+  UI.dom.crosshair.style.display='none'; setDriveButtonsVisible(true); Weapons.refreshHUD(); return;
+ }
+ if(hit.type==='door'){ World.enterInterior(hit.ref.id,Player.camera,outsidePos); return; }
+ if(hit.type==='shop'){ UI.openShop(hit.ref.id); return; }
+ if(hit.type==='keyNpc'){ UI.openRelationship(hit.ref.id); return; }
+ if(hit.type==='pooledNpc'){ NPCPool.greet(hit.ref); return; }
 };
 
 /* ---- Update ---- */
@@ -141,23 +172,20 @@ Player.update=function(dt){
 Player.updatePrompt=function(){
  const d=UI.dom;
  if(World.activeInterior){
-  if(World.activeInterior==='home'){
-   const p=Player.camera.position;
-   if(World.homeBedLocal && p.distanceTo(World.homeBedLocal)<2.2){ d.prompt.textContent='E: Sleep'; d.prompt.style.display='block'; return; }
-   if(World.homeToiletLocal && p.distanceTo(World.homeToiletLocal)<2.2){ d.prompt.textContent='E: Use Bathroom'; d.prompt.style.display='block'; return; }
-  }
-  d.prompt.textContent=t('exitBld'); d.prompt.style.display='block'; return;
+  const hit=interiorInteractable(Player.camera.position);
+  const labels={sleep:'E: Sleep',toilet:'E: Use Bathroom',counter:'E: Browse Weapons',exit:t('exitBld')};
+  d.prompt.textContent=labels[hit.type]; d.prompt.style.display='block'; return;
  }
- const p=Player.camera.position; let shown=false;
- if(Player.mode==='walk'){
-  const car=Vehicles.nearbyDrivable(p);
-  if(car){d.prompt.textContent=t('enterCar');shown=true;}
-  else{
-   for(const e of World.entrances) if(p.distanceTo(e.pos)<3){d.prompt.textContent=t('enterBld')+' — '+e.name;shown=true;break;}
-   if(!shown) for(const s of World.shops) if(p.distanceTo(s.pos)<3){d.prompt.textContent='E: '+s.name;shown=true;break;}
-   if(!shown) for(const n of NPC_DEFS){ const npc=World.keyNpcs[n.id]; if(npc && p.distanceTo(npc.mesh.position)<3){d.prompt.textContent='E: Talk to '+n.name;shown=true;break;} }
-   if(!shown){ const pooled=NPCPool.nearest(p,3); if(pooled){ d.prompt.textContent='E: Greet'; shown=true; } }
-  }
- } else { d.prompt.textContent=t('exitCar'); shown=true; }
- d.prompt.style.display=shown?'block':'none';
+ const hit=findInteractable(Player.camera.position);
+ if(!hit){ d.prompt.style.display='none'; return; }
+ const labelFor={
+  exitCar:()=>t('exitCar'),
+  car:()=>t('enterCar'),
+  door:()=>{ const locked=hit.ref.ownable && !(Player.properties&&Player.properties.includes(hit.ref.id));
+   return locked?('🔒 '+hit.ref.name+' (not owned — buy via Phone)'):(t('enterBld')+' — '+hit.ref.name); },
+  shop:()=>'E: '+hit.ref.name,
+  keyNpc:()=>'E: Talk to '+hit.ref.name,
+  pooledNpc:()=>'E: Greet',
+ };
+ d.prompt.textContent=labelFor[hit.type](); d.prompt.style.display='block';
 };

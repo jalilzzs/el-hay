@@ -1,5 +1,5 @@
 /* ============ UI: i18n, settings, menu/settings/legal wiring ============ */
-const GOOGLE_CLIENT_ID="", SUPABASE_URL="https://xxmvqtwusuxwnlahqjow.supabase.co", SUPABASE_ANON_KEY="sb_publishable_CaOYoKEuTBpgvF3RUUd9bg_Zt0Y28ua";
+const GOOGLE_CLIENT_ID="", SUPABASE_URL="", SUPABASE_ANON_KEY="";
 const LEGAL_DOCS={tos:"PLACEHOLDER Terms of Service.",priv:"PLACEHOLDER Privacy Policy.",sup:"PLACEHOLDER support@example.com"};
 const STORY_LOCATIONS={highSchoolName:"PLACEHOLDER_SCHOOL",prisonName:"PLACEHOLDER_PRISON"};
 const ASSET_PATHS={audio:"public/audio/",bill:"public/textures/billboards/",models:"public/models/"};
@@ -79,6 +79,16 @@ UI.openShop=function(id){
  } else if(id==='cityHall'){
   shopTitleEl.textContent='City Hall';
   shopListEl.appendChild(row('Marital status: '+(Player.married?('Married to '+(NPC_DEFS.find(n=>n.id===Player.spouse)||{}).name):'Single'),'Divorce',()=>{ if(Relationships.divorce()) UI.openShop('cityHall'); UI.refreshHUD(); },!Player.married));
+ } else if(id==='gunshop'){
+  shopTitleEl.textContent='Gun Shop';
+  [{id:'pistol',price:800,ammoPrice:5},{id:'rifle',price:2500,ammoPrice:8}].forEach(entry=>{
+   const w=ARSENAL[entry.id], owned=Weapons.owned.includes(entry.id);
+   shopListEl.appendChild(row(w.name+(owned?' (Owned)':' — $'+entry.price),owned?'Buy Ammo x20':'Buy',()=>{
+    if(!owned){ if(Economy.cash<entry.price) return; Economy.cash-=entry.price; Weapons.buy(entry.id,20); }
+    else{ const cost=entry.ammoPrice*20; if(Economy.cash<cost) return; Economy.cash-=cost; Weapons.buy(entry.id,20); }
+    UI.refreshHUD(); Weapons.refreshHUD(); UI.openShop('gunshop');
+   }));
+  });
  }
  UI.dom.pShop=UI.dom.pShop||$('pShop'); UI.dom.pShop.classList.add('open');
 };
@@ -114,23 +124,8 @@ UI.initExtras=function(){
  $('shopClose').onclick=()=>$('pShop').classList.remove('open');
  $('invBtn').onclick=UI.openInventory;
  $('invBtn').addEventListener('touchstart',e=>{ e.preventDefault(); e.stopPropagation(); UI.openInventory(); },{passive:false});
-
- // --- إضافة الدعم المباشر لزر E في اللمس ---
- const touchInteract = $('touchInteract');
- if(touchInteract){
-  const triggerInteract = (e)=>{
-   if(e) { e.preventDefault(); e.stopPropagation(); }
-   if(typeof Player !== 'undefined' && Player.interact) {
-    Player.interact();
-   }
-  };
-  touchInteract.onclick = triggerInteract;
-  touchInteract.addEventListener('touchstart', triggerInteract, {passive:false});
- }
-
  $('polComply').onclick=Police.comply; $('polPay').onclick=Police.payFine; $('polFlee').onclick=Police.flee;
  $('vitalsBox').style.display='block'; $('cashBox').style.display='block'; $('invBtn').style.display='block';
  if(!IS_TOUCH) addEventListener('keydown',e=>{ if(e.code==='KeyI') UI.openInventory(); if(e.code==='KeyM') $('minimap').style.display=$('minimap').style.display==='none'?'block':'none'; });
  $('minimap').style.display='block';
 };
-

@@ -35,17 +35,41 @@ const TEX={
  police:canvasTex((g,w,h)=>{g.fillStyle='#5a5750';g.fillRect(0,0,w,h);for(let y=0;y<h;y+=18)g.fillRect(0,y,w,2,g.fillStyle='#3d3a35');
   g.fillStyle='#146b3a';g.beginPath();g.arc(w/2,h/2-20,20,0,7);g.fill();g.fillStyle='#c0392b';g.beginPath();g.arc(w/2,h/2-20,9,0,7);g.fill();}),
  road:canvasTex((g,w,h)=>{g.fillStyle='#2b2b2e';g.fillRect(0,0,w,h);},64,160),
- roadStripe:canvasTex((g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#e7c65a';for(let y=0;y<h;y+=40)g.fillRect(w/2-2,y,4,24);},64,160),
+ roadStripe:canvasTex((g,w,h)=>{g.clearRect(0,0,w,h);
+  g.fillStyle='#e7c65a';for(let y=0;y<h;y+=40)g.fillRect(w/2-2,y,4,24); // yellow dashed center line
+  g.fillStyle='#f0ece2';g.fillRect(4,0,3,h);g.fillRect(w-7,0,3,h); // solid white edge lines
+ },64,160),
  grass:canvasTex((g,w,h)=>{g.fillStyle='#3f6b3a';g.fillRect(0,0,w,h);g.fillStyle='#365c32';
   for(let i=0;i<80;i++){const x=Math.random()*w,y=Math.random()*h;g.fillRect(x,y,2,2);}}),
- sidewalk:canvasTex((g,w,h)=>{g.fillStyle='#9c988c';g.fillRect(0,0,w,h);g.strokeStyle='#7d7a70';for(let x=0;x<w;x+=16){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}})
+ sidewalk:canvasTex((g,w,h)=>{g.fillStyle='#b0aca0';g.fillRect(0,0,w,h);
+  g.strokeStyle='#8f8b7e';g.lineWidth=1.5;
+  for(let x=0;x<=w;x+=16){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}
+  for(let y=0;y<=h;y+=16){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke();}
+  g.strokeStyle='#c7c3b6';g.lineWidth=0.75;
+  for(let x=1;x<w;x+=16){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke();}
+ })
 };
 Object.values(TEX).forEach(tx=>tx.repeat.set(1,1));
 World.TEX=TEX;
 
+/* Road/sidewalk geometry constants, promoted to module scope so every prop-placement helper
+   (billboards, streetlamps, signs, trees) shares one definition of "where the sidewalk is" —
+   this is what actually fixes props landing on driving lanes, not a one-off coordinate tweak. */
+const ROAD_HALF=4, SIDEWALK_W=3, SIDEWALK_MID=ROAD_HALF+SIDEWALK_W/2;
+/* Returns a position+facing on the sidewalk beside a given road line.
+   axis 'x': a vertical road at fixed x=coord (runs along Z) — 'along' is the Z position.
+   axis 'z': a horizontal road at fixed z=coord (runs along X) — 'along' is the X position.
+   side: 1 or -1, which side of the road. faceRotY points the prop's front back toward the road. */
+function sidewalkSpot(axis,coord,along,side){
+ const off=side*SIDEWALK_MID;
+ if(axis==='x') return {x:coord+off,z:along,faceRotY:side>0?-Math.PI/2:Math.PI/2};
+ return {x:along,z:coord+off,faceRotY:side>0?Math.PI:0};
+}
+
 World.init=function(scene,renderer){
  World.scene=scene; World.renderer=renderer;
  World.collidables=[]; // AABB list for wall collisions: landmarks (fixed) + active-chunk buildings (rebuilt on stream)
+ World.npcs=[]; // populated by NPCPool (js/npc.js); World.keyNpcs (below) are the fixed named characters
 
  /* Layering fixes z-fighting: grass ground y=0, asphalt y=0.02, stripes y=0.04 (own thin
     transparent layer). polygonOffset on both road layers also prevents flicker where the
@@ -55,7 +79,6 @@ World.init=function(scene,renderer){
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(2000,2000),groundMat);
  ground.rotation.x=-Math.PI/2; ground.position.y=0; ground.receiveShadow=true; scene.add(ground);
 
- const ROAD_W=8, ROAD_HALF=ROAD_W/2, SIDEWALK_W=3;
  const roadMat=new THREE.MeshStandardMaterial({map:TEX.road,roughness:0.9,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1});
  const stripeMat=new THREE.MeshStandardMaterial({map:TEX.roadStripe,roughness:0.9,transparent:true,alphaTest:0.4,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
  const sidewalkMat=new THREE.MeshStandardMaterial({map:TEX.sidewalk,roughness:1});
@@ -69,21 +92,24 @@ World.init=function(scene,renderer){
   const s=new THREE.Mesh(new THREE.PlaneGeometry(w,l),sidewalkMat); s.rotation.x=-Math.PI/2; s.position.set(x,0.015,z); s.receiveShadow=true; scene.add(s);
  }
  for(let i=-4;i<=4;i++){
-  makeRoad(i*40,0,ROAD_W,2000); makeRoad(0,i*40,2000,ROAD_W);
-  makeSidewalk(i*40-ROAD_HALF-SIDEWALK_W/2,0,SIDEWALK_W,2000); makeSidewalk(i*40+ROAD_HALF+SIDEWALK_W/2,0,SIDEWALK_W,2000);
-  makeSidewalk(0,i*40-ROAD_HALF-SIDEWALK_W/2,2000,SIDEWALK_W); makeSidewalk(0,i*40+ROAD_HALF+SIDEWALK_W/2,2000,SIDEWALK_W);
+  makeRoad(i*40,0,ROAD_HALF*2,2000); makeRoad(0,i*40,2000,ROAD_HALF*2);
+  makeSidewalk(i*40-SIDEWALK_MID,0,SIDEWALK_W,2000); makeSidewalk(i*40+SIDEWALK_MID,0,SIDEWALK_W,2000);
+  makeSidewalk(0,i*40-SIDEWALK_MID,2000,SIDEWALK_W); makeSidewalk(0,i*40+SIDEWALK_MID,2000,SIDEWALK_W);
  }
  World.roadClearance=ROAD_HALF+SIDEWALK_W+2; // buildings must stay this far from any road centerline
 
  buildLandmarks(scene);
  World.landmarkCollidableCount=World.collidables.length;
+ // Decorative police cruiser + officer outside the station entrance (matching the reference composition)
+ const cruiser=World.makeCar(50,-50,0x151515,'police'); cruiser.rotation.y=Math.PI/4;
+ const officer=spawnNPC(58,-52); officer.mesh.children[0].material.color.set(0x1f3b57);
  buildBillboardLandmarks(scene);
  buildInteriors(scene);
- World.playerCar=World.makeCar(-68,-18,0x274b52);
+ World.playerCar=World.makeCar(-68,-18,0x274b52,'sedan');
  World.parkedCars=[];
- for(let i=0;i<5;i++){const c=World.makeCar(-40+i*20,10,[0x8a3a3a,0x3a5a8a,0x555,0x2f6b4a,0x9c7a3a][i]);c.rotation.y=Math.random()*Math.PI;World.parkedCars.push(c);}
+ const parkedTypes=['sedan','hatchback','sedan','hatchback','sedan'];
+ for(let i=0;i<5;i++){const c=World.makeCar(-40+i*20,10,[0x8a3a3a,0x3a5a8a,0x555,0x2f6b4a,0x9c7a3a][i],parkedTypes[i]);c.rotation.y=Math.random()*Math.PI;World.parkedCars.push(c);}
 
- World.npcs=[]; // populated by NPCPool (js/npc.js); World.keyNpcs (below) are the fixed named characters
  spawnKeyNpcs();
 
  World.checkpointBarrier=new THREE.Mesh(new THREE.BoxGeometry(6,0.4,0.4),new THREE.MeshStandardMaterial({color:0xd94b3a}));
@@ -135,11 +161,30 @@ function block(scene,x,y,z,w,h,d,mat){
 }
 function roofLedge(scene,x,y,z,w,d,color){const m=new THREE.Mesh(new THREE.BoxGeometry(w+0.6,0.3,d+0.6),new THREE.MeshStandardMaterial({color}));m.position.set(x,y,z);scene.add(m);return m;}
 
+/* Signboards: canvas-texture planes mounted on facades. Three.js TextGeometry would need a
+   loaded font JSON asset, which this project has no pipeline for — a textured plane gets the
+   same visual result (readable Arabic signage on the building) without that dependency. */
+function signboardTex(text,bg,fg){
+ return canvasTex((g,w,h)=>{
+  g.fillStyle=bg; g.fillRect(0,0,w,h);
+  g.strokeStyle='rgba(0,0,0,0.3)'; g.lineWidth=5; g.strokeRect(3,3,w-6,h-6);
+  g.fillStyle=fg; g.font='bold 66px "Segoe UI",Tahoma,sans-serif'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(text,w/2,h/2+2);
+ },512,128);
+}
+function mountSignboard(scene,x,y,z,rotY,w,h,text,bg,fg){
+ const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:signboardTex(text,bg,fg)}));
+ mesh.position.set(x,y,z); mesh.rotation.y=rotY; scene.add(mesh); return mesh;
+}
+
 World.landmarks={};
 const matCafe=new THREE.MeshStandardMaterial({color:0x7a5230,roughness:0.8});
 const matDeal=new THREE.MeshStandardMaterial({color:0x3d5a6c,roughness:0.6});
 const matSchool=new THREE.MeshStandardMaterial({color:0xb8a06a,roughness:0.8});
 const matHall=new THREE.MeshStandardMaterial({color:0xe3d9c0,roughness:0.7});
+const matBank=new THREE.MeshStandardMaterial({color:0xcfc9b8,roughness:0.5,metalness:0.1});
+const matGunShop=new THREE.MeshStandardMaterial({color:0x3a3a3a,roughness:0.9});
+const matSafehouse=new THREE.MeshStandardMaterial({map:TEX.residential2,roughness:0.85});
 function buildLandmarks(scene){
  World.landmarks.hospital=block(scene,-60,0,-60,14,10,14,matHosp); roofLedge(scene,-60,10.15,-60,14,14,0xffffff);
  World.landmarks.police=block(scene,60,0,-60,12,9,12,matPolice); roofLedge(scene,60,9.15,-60,12,12,0x3d3a35);
@@ -152,6 +197,17 @@ function buildLandmarks(scene){
  World.landmarks.dealership=block(scene,60,0,20,12,5,14,matDeal);
  World.landmarks.drivingSchool=block(scene,-40,0,40,10,5,10,matSchool);
  World.landmarks.cityHall=block(scene,0,0,40,12,8,12,matHall); roofLedge(scene,0,8.15,40,12,12,0xe3d9c0);
+ // Phase 2 additions — placed in verified-clear pockets, well clear of roads and existing landmarks
+ World.landmarks.bank=block(scene,-60,0,20,14,10,14,matBank); roofLedge(scene,-60,10.15,20,14,14,0xcfc9b8);
+ World.landmarks.gunshop=block(scene,60,0,-20,8,5,8,matGunShop);
+ World.landmarks.studio=block(scene,20,0,20,8,6,8,matSafehouse);
+ World.landmarks.flat2=block(scene,-20,0,-60,8,6,8,matSafehouse);
+ // Signboards, matching the reference image's readable facade signage.
+ // Each building's front wall points AWAY from its own center, through its entrance — the sign's
+ // rotation/offset must follow that same outward direction, or it renders back-face-culled (invisible).
+ mountSignboard(scene,60,7.5,-53.7,0,4.2,1.1,'مركز الشرطة','#1f3b57','#ffffff');
+ mountSignboard(scene,-60,7.5,12.7,Math.PI,3.2,1.1,'البنك','#f2f0e6','#1f3b57');
+ mountSignboard(scene,30,9.5,49.7,Math.PI,3.6,1.1,'السجن','#1c1c1c','#e0e0e0');
 }
 
 /* Unified point-of-interest registry: drives entrances, minimap markers, mission waypoints, shops */
@@ -165,6 +221,10 @@ World.pois=[
  {id:'dealership',name:'Dealership',type:'shop',pos:new THREE.Vector3(60,1,13),color:'#3d5a6c'},
  {id:'drivingSchool',name:'Driving School',type:'shop',pos:new THREE.Vector3(-40,1,35),color:'#b8a06a'},
  {id:'cityHall',name:'City Hall',type:'shop',pos:new THREE.Vector3(0,1,35),color:'#e3d9c0'},
+ {id:'bank',name:'Bank',type:'interior',pos:new THREE.Vector3(-60,1,13),color:'#cfc9b8'},
+ {id:'gunshop',name:'Gun Shop',type:'interior',pos:new THREE.Vector3(60,1,-16),color:'#3a3a3a'},
+ {id:'studio',name:'Studio Apartment',type:'interior',pos:new THREE.Vector3(20,1,16),color:'#e3c9a0',ownable:true},
+ {id:'flat2',name:'2-Room Flat',type:'interior',pos:new THREE.Vector3(-20,1,-56),color:'#e3c9a0',ownable:true},
 ];
 World.entrances=World.pois.filter(p=>p.type==='interior');
 World.shops=World.pois.filter(p=>p.type==='shop');
@@ -187,9 +247,37 @@ function buildInteriors(scene){
  const bed=new THREE.Mesh(new THREE.BoxGeometry(2,0.6,3),new THREE.MeshStandardMaterial({color:0x8b5e3c})); bed.position.set(-3,-1.7,-3); home.add(bed);
  const toilet=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.8),new THREE.MeshStandardMaterial({color:0xf2f6fa})); toilet.position.set(3,-1.6,3); home.add(toilet);
  World.homeBedLocal=new THREE.Vector3(-3,50-1.7,-3); World.homeToiletLocal=new THREE.Vector3(3,50-1.6,3);
+
+ // Bank: lobby + vault door trigger + collectible cash bags (heist loop, driven by systems.js HeistSystem)
+ makeInterior(scene,'bank',0xd9d4c4,0xb8ae94,0x8a7a4a);
+ const bank=World.interiors.bank;
+ const vaultDoor=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.3,0.3,16),new THREE.MeshStandardMaterial({color:0x8a8a8a,metalness:0.7,roughness:0.3}));
+ vaultDoor.rotation.x=Math.PI/2; vaultDoor.position.set(0,-0.3,-4.5); bank.add(vaultDoor);
+ World.bankVaultLocal=new THREE.Vector3(0,50-0.3,-4.5);
+ const bagPositions=[[-3,-1.7,-3],[-1,-1.7,-3],[1,-1.7,-3],[3,-1.7,-3],[0,-1.7,-1]];
+ World.cashBags=bagPositions.map(p=>{
+  const bag=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.4,0.35),new THREE.MeshStandardMaterial({color:0x2f6b4a}));
+  bag.position.set(p[0],p[1],p[2]); bank.add(bag);
+  return {mesh:bag,localPos:new THREE.Vector3(p[0],50+p[1],p[2]),collected:false};
+ });
+
+ // Gun Shop: small interior with a counter trigger (opens the weapon shop panel)
+ makeInterior(scene,'gunshop',0x2a2a2a,0x1c1c1c,0x8a2020);
+ const counter=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.9,0.8),new THREE.MeshStandardMaterial({color:0x4a3a2a})); counter.position.set(0,-1.55,-3.5); World.interiors.gunshop.add(counter);
+ World.gunShopCounterLocal=new THREE.Vector3(0,50-1.55,-3.5);
+
+ // Safehouses: purchasable, gated by Player.properties — each gets a bed like home
+ makeInterior(scene,'studio',0xe7d9be,0xc7a97a,0x8a5a3a);
+ makeInterior(scene,'flat2',0xe7d9be,0xc7a97a,0x8a5a3a);
+ [['studio',-3,-3],['flat2',-3,-3]].forEach(([id,bx,bz])=>{
+  const b=new THREE.Mesh(new THREE.BoxGeometry(2,0.6,3),new THREE.MeshStandardMaterial({color:0x8b5e3c})); b.position.set(bx,-1.7,bz); World.interiors[id].add(b);
+ });
+ World.safehouseBedLocal={studio:new THREE.Vector3(-3,50-1.7,-3), flat2:new THREE.Vector3(-3,50-1.7,-3)};
 }
 World.enterInterior=function(name,camera,outsidePos){
  if(World.activeInterior) return;
+ const poi=World.pois.find(p=>p.id===name);
+ if(poi && poi.ownable && !(Player.properties&&Player.properties.includes(name))) return; // locked until purchased
  outsidePos.copy(camera.position);
  Object.values(World.interiors).forEach(i=>i.visible=false);
  World.interiors[name].visible=true; World.activeInterior=name;
@@ -200,21 +288,47 @@ World.exitInterior=function(camera,outsidePos){
  World.interiors[World.activeInterior].visible=false; World.activeInterior=null; camera.position.copy(outsidePos);
 };
 
-/* ---- Detailed vehicle factory: wheels, glass, lights ---- */
-World.makeCar=function(x,z,color){
+/* ---- Detailed vehicle factory: hood/cabin/trunk proportions (not a stretched box), wheels,
+   glass, lights. type: 'sedan' (default) | 'hatchback' | 'police' — real variety, not just color. ---- */
+function policeDecalTex(){
+ return canvasTex((g,w,h)=>{ g.clearRect(0,0,w,h); g.fillStyle='#111'; g.font='bold '+(h*0.6)+'px sans-serif';
+  g.textAlign='center'; g.textBaseline='middle'; g.fillText('POLICE',w/2,h/2); },256,64);
+}
+const policeDecal=policeDecalTex();
+World.makeCar=function(x,z,color,type){
+ type=type||'sedan';
  const g=new THREE.Group();
- const body=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.65,3.6),new THREE.MeshStandardMaterial({color,metalness:0.5,roughness:0.35}));
- body.position.y=0.5; body.castShadow=true; g.add(body);
- const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.5,1.9),new THREE.MeshPhysicalMaterial({color:0x0e1b1d,transparent:true,opacity:0.55,roughness:0.1}));
- cabin.position.set(0,1.0,-0.15); g.add(cabin);
+ const bodyMat=new THREE.MeshStandardMaterial({color:type==='police'?0x151515:color,metalness:0.5,roughness:0.35});
+ const isHatch=type==='hatchback';
+ const bodyLen=isHatch?3.5:4.3, hoodLen=isHatch?0.65:0.95, trunkLen=isHatch?0.35:0.85;
+ const midLen=bodyLen-hoodLen-trunkLen;
+ const lower=new THREE.Mesh(new THREE.BoxGeometry(1.78,0.34,bodyLen),bodyMat); lower.position.y=0.35; lower.castShadow=true; g.add(lower);
+ const hood=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.22,hoodLen),bodyMat); hood.position.set(0,0.57,bodyLen/2-hoodLen/2); hood.castShadow=true; g.add(hood);
+ const trunk=new THREE.Mesh(new THREE.BoxGeometry(1.7,isHatch?0.5:0.26,trunkLen),bodyMat); trunk.position.set(0,isHatch?0.68:0.6,-(bodyLen/2-trunkLen/2)); trunk.castShadow=true; g.add(trunk);
+ const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.48,midLen*0.92),new THREE.MeshPhysicalMaterial({color:0x0e1b1d,transparent:true,opacity:0.55,roughness:0.1}));
+ cabin.position.set(0,0.9,(hoodLen-trunkLen)*0.15); g.add(cabin);
  const lightMat=new THREE.MeshStandardMaterial({color:0xfff3c0,emissive:0xffdd88,emissiveIntensity:0.8});
  const tailMat=new THREE.MeshStandardMaterial({color:0x990000,emissive:0x660000,emissiveIntensity:0.6});
- [[-0.6,0.55,1.82],[0.6,0.55,1.82]].forEach(p=>{const l=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.05),lightMat);l.position.set(p[0],p[1],p[2]);g.add(l);});
- [[-0.6,0.55,-1.82],[0.6,0.55,-1.82]].forEach(p=>{const l=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.12,0.05),tailMat);l.position.set(p[0],p[1],p[2]);g.add(l);});
+ [[-0.62,0.42,bodyLen/2-0.05],[0.62,0.42,bodyLen/2-0.05]].forEach(p=>{const l=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.13,0.06),lightMat);l.position.set(p[0],p[1],p[2]);g.add(l);});
+ [[-0.62,0.42,-(bodyLen/2-0.05)],[0.62,0.42,-(bodyLen/2-0.05)]].forEach(p=>{const l=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.13,0.06),tailMat);l.position.set(p[0],p[1],p[2]);g.add(l);});
  const wheelMat=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.9});
- [[-0.9,0.32,1.2],[0.9,0.32,1.2],[-0.9,0.32,-1.2],[0.9,0.32,-1.2]].forEach(p=>{
-  const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.28,12),wheelMat);
-  wheel.rotation.z=Math.PI/2; wheel.position.set(p[0],p[1],p[2]); wheel.castShadow=true; g.add(wheel);});
+ const wheelX=0.92, wheelZ=bodyLen/2-0.75;
+ [[-wheelX,0.33,wheelZ],[wheelX,0.33,wheelZ],[-wheelX,0.33,-wheelZ],[wheelX,0.33,-wheelZ]].forEach(p=>{
+  const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.26,14),wheelMat);
+  wheel.rotation.z=Math.PI/2; wheel.position.set(p[0],p[1],p[2]); wheel.castShadow=true; g.add(wheel);
+ });
+ if(type==='police'){
+  const doorMat=new THREE.MeshStandardMaterial({color:0xf2f2f2});
+  [-1,1].forEach(side=>{ const panel=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.26,midLen*0.85),doorMat); panel.position.set(side*0.9,0.42,0); g.add(panel); });
+  const barBase=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.1,0.32),new THREE.MeshStandardMaterial({color:0x1a1a1a})); barBase.position.set(0,1.16,0.25); g.add(barBase);
+  const red=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.09,0.28),new THREE.MeshStandardMaterial({color:0xff2222,emissive:0xff0000,emissiveIntensity:1})); red.position.set(-0.22,1.22,0.25); g.add(red);
+  const blue=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.09,0.28),new THREE.MeshStandardMaterial({color:0x2244ff,emissive:0x0033ff,emissiveIntensity:1})); blue.position.set(0.22,1.22,0.25); g.add(blue);
+  [-1,1].forEach(side=>{
+   const decal=new THREE.Mesh(new THREE.PlaneGeometry(midLen*0.75,0.28),new THREE.MeshBasicMaterial({map:policeDecal,transparent:true}));
+   decal.position.set(side*0.905,0.42,0); decal.rotation.y=side>0?Math.PI/2:-Math.PI/2; g.add(decal);
+  });
+  g.userData.lightBar={red,blue};
+ }
  g.position.set(x,0,z); World.scene.add(g); return g;
 };
 
@@ -231,7 +345,7 @@ function applyBillboardTexture(mat,fileName){
  if(billboardResolved[fileName]==='fail') return;
  if(billboardResolved[fileName] instanceof THREE.Texture){ mat.map=billboardResolved[fileName]; mat.needsUpdate=true; return; }
  new THREE.TextureLoader().load(ASSET_PATHS.bill+fileName,
-  tex=>{ tex.colorSpace=THREE.SRGBColorSpace; billboardResolved[fileName]=tex; mat.map=tex; mat.needsUpdate=true; },
+  tex=>{ tex.encoding=THREE.sRGBEncoding; billboardResolved[fileName]=tex; mat.map=tex; mat.needsUpdate=true; }, // r128 API: .encoding, not .colorSpace
   undefined, ()=>{ billboardResolved[fileName]='fail'; });
 }
 function makeBillboard(parent,x,y,z,rotY,fileName,label){
@@ -243,10 +357,35 @@ function makeBillboard(parent,x,y,z,rotY,fileName,label){
  applyBillboardTexture(mat,fileName);
  return mesh;
 }
+/* Previously these sat at (0,-8), (-30,-2), (40,-30) — x=0, x=40 are literally road centerlines
+   and z=-2 is inside the road's own width, so all three were standing in driving lanes. Every
+   position below now comes from sidewalkSpot(), which guarantees a point on an actual sidewalk. */
 function buildBillboardLandmarks(scene){
- makeBillboard(scene,0,3,-8,0,'ad1.jpg','EL-HAY COLA');
- makeBillboard(scene,-30,3,-2,Math.PI/2,'ad2.jpg','SOUK MARKET');
- makeBillboard(scene,40,3,-30,Math.PI,'ad3.jpg','TELECOM+');
+ let p=sidewalkSpot('x',0,-25,1); makeBillboard(scene,p.x,3,p.z,p.faceRotY,'ad1.jpg','EL-HAY COLA');
+ p=sidewalkSpot('z',-40,-50,-1); makeBillboard(scene,p.x,3,p.z,p.faceRotY,'ad2.jpg','SOUK MARKET');
+ p=sidewalkSpot('x',40,-50,1); makeBillboard(scene,p.x,3,p.z,p.faceRotY,'ad3.jpg','TELECOM+');
+}
+
+/* ---- Street furniture: traffic signs & low-poly trees, always placed via sidewalkSpot ---- */
+function trafficSignTex(){
+ return canvasTex((g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  g.fillStyle='#c0392b'; g.beginPath(); g.arc(w/2,h/2,w/2-4,0,Math.PI*2); g.fill();
+  g.fillStyle='#fff'; g.beginPath(); g.arc(w/2,h/2,w/2-12,0,Math.PI*2); g.fill();
+  g.fillStyle='#1c1c1c'; g.font='bold '+(w*0.34)+'px sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('40',w/2,h/2+2);
+ },96,96);
+}
+const signMat=new THREE.MeshStandardMaterial({color:0x333,roughness:0.7});
+const signBoardMat=new THREE.MeshStandardMaterial({map:trafficSignTex(),roughness:0.6});
+function makeTrafficSign(parent,x,z){
+ const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,2.2,6),signMat); pole.position.set(x,1.1,z); parent.add(pole);
+ const board=new THREE.Mesh(new THREE.CircleGeometry(0.35,16),signBoardMat); board.position.set(x,2.1,z); board.rotation.y=Math.PI/2; parent.add(board);
+}
+const treeTrunkMat=new THREE.MeshStandardMaterial({color:0x6b4a30,roughness:0.9});
+const treeFoliageMat=new THREE.MeshStandardMaterial({color:0x3f7a3f,roughness:0.85});
+function makeTree(parent,x,z){
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,1.4,6),treeTrunkMat); trunk.position.set(x,0.7,z); trunk.castShadow=true; parent.add(trunk);
+ const foliage=new THREE.Mesh(new THREE.ConeGeometry(0.85,1.8,8),treeFoliageMat); foliage.position.set(x,2.1,z); foliage.castShadow=true; parent.add(foliage);
 }
 
 /* ---- NPCs: simple anatomical humanoid (head/torso/arms/legs), randomized look ---- */
@@ -310,22 +449,36 @@ function buildChunk(cx,cz){
   bMesh.setMatrixAt(i,dummy.matrix);
   group.userData.boxes.push({min:new THREE.Vector3(px-w/2,0,pz-d/2),max:new THREE.Vector3(px+w/2,ht,pz+d/2)});
  }
- for(let i=0;i<4;i++){
-  const px=originX+(i%2===0?-World.CHUNK/2+2:World.CHUNK/2-2), pz=originZ+(i<2?-World.CHUNK/2+2:World.CHUNK/2-2);
-  dummy.position.set(px,1.5,pz); dummy.scale.set(1,1,1); dummy.updateMatrix(); lampPoles.setMatrixAt(i,dummy.matrix);
-  dummy.position.set(px,3.05,pz); dummy.updateMatrix(); lampHeads.setMatrixAt(i,dummy.matrix);
- }
+ // Streetlamps: one on each side of each road bordering this chunk, evenly spaced via sidewalkSpot
+ // (previously a raw corner-offset guess; now guaranteed to sit on the actual sidewalk strip).
+ const lampSpots=[
+  sidewalkSpot('x',originX,originZ+15,1), sidewalkSpot('x',originX,originZ-15,-1),
+  sidewalkSpot('z',originZ,originX+15,1), sidewalkSpot('z',originZ,originX-15,-1),
+ ];
+ lampSpots.forEach((s,i)=>{
+  dummy.position.set(s.x,1.5,s.z); dummy.scale.set(1,1,1); dummy.updateMatrix(); lampPoles.setMatrixAt(i,dummy.matrix);
+  dummy.position.set(s.x,3.05,s.z); dummy.updateMatrix(); lampHeads.setMatrixAt(i,dummy.matrix);
+ });
  bMesh.instanceMatrix.needsUpdate=true; lampPoles.instanceMatrix.needsUpdate=true; lampHeads.instanceMatrix.needsUpdate=true;
  group.add(bMesh,lampPoles,lampHeads);
 
- // parked curb cars per chunk (proximity-spawned detail)
+ // Trees + a traffic sign, at sidewalk offsets distinct from the lamps (±8 vs. lamps' ±15)
+ let s=sidewalkSpot('x',originX,originZ+8,1); makeTree(group,s.x,s.z);
+ s=sidewalkSpot('z',originZ,originX-8,-1); makeTree(group,s.x,s.z);
+ s=sidewalkSpot('x',originX,originZ-8,-1); makeTrafficSign(group,s.x,s.z);
+
+ // Curb-parked car, proximity-spawned: sits right at the road edge (the curb), not deep in the chunk
  if(hash(cx*3,cz*5)>0.55){
-  const pc=World.makeCar(originX+World.CHUNK/2-4,originZ+(hash(cx,cz)-0.5)*20,[0x8a3a3a,0x3a5a8a,0x555555,0x2f6b4a][Math.floor(hash(cx,cz+1)*4)]);
+  s=sidewalkSpot('x',originX,originZ+(hash(cx,cz)-0.5)*20,1);
+  const curbX=originX+ROAD_HALF+0.9; // just outside the driving lane, at the curb
+  const pc=World.makeCar(curbX,s.z,[0x8a3a3a,0x3a5a8a,0x555555,0x2f6b4a][Math.floor(hash(cx,cz+1)*4)],hash(cx,cz+2)>0.5?'hatchback':'sedan');
   pc.rotation.y=Math.PI/2; group.add(pc);
  }
- // proximity-spawned sidewalk billboard, tied to this chunk's lifecycle (no leak on despawn)
+ // Proximity-spawned sidewalk billboard — previously used z=originZ unmodified, which is exactly
+ // a horizontal road's centerline (every chunk origin sits on a road intersection). Now via sidewalkSpot.
  if(hash(cx*17,cz*19)>0.7){
-  makeBillboard(group,originX-World.CHUNK/2+3,3,originZ,Math.PI/2,'ad_generic.jpg','SIDEWALK AD');
+  s=sidewalkSpot('x',originX,originZ+5,-1);
+  makeBillboard(group,s.x,3,s.z,s.faceRotY,'ad_generic.jpg','SIDEWALK AD');
  }
  return group;
 }
@@ -349,4 +502,37 @@ World.updateChunks=function(px,pz){
 World.applyQuality=function(){
  const m={low:{pr:1,sh:false,fog:200},med:{pr:1.5,sh:true,fog:150},high:{pr:2,sh:true,fog:120},ultra:{pr:2,sh:true,fog:80}}[S.qual]||{pr:1.5,sh:true,fog:150};
  World.renderer.setPixelRatio(Math.min(devicePixelRatio,m.pr)); World.renderer.shadowMap.enabled=m.sh; World.scene.fog.far=m.fog;
+};
+
+/* ---- Day/Night cycle: smooth sun position/color/intensity, ambient tint, fog color, streetlamp emission ---- */
+World.dayNight={time:12,speedPerSec:24/1200}; // noon start (matches the bright reference image); full 24h cycle takes 20 real minutes
+World.setLights=function(hemi,sun){ World._hemi=hemi; World._sun=sun; };
+const DAYNIGHT_SKY_NIGHT=new THREE.Color(0x0b1220), DAYNIGHT_SKY_DAY=new THREE.Color(0xbfd4e6), DAYNIGHT_TMP=new THREE.Color();
+World.updateDayNight=function(dt){
+ World.dayNight.time=(World.dayNight.time+World.dayNight.speedPerSec*dt)%24;
+ const angle=((World.dayNight.time-6)/24)*Math.PI*2; // 0 at 6am
+ const sunHeight=Math.sin(angle);
+ const dayAmt=Math.max(0,sunHeight);
+ if(World._sun){
+  World._sun.position.set(Math.cos(angle)*80,Math.max(5,sunHeight*80),Math.sin(angle)*24-20);
+  World._sun.intensity=0.15+dayAmt*1.15;
+  const warmth=1-Math.min(1,Math.abs(sunHeight)*2);
+  World._sun.color.setRGB(1,0.85-warmth*0.15,0.7-warmth*0.25);
+ }
+ if(World._hemi){
+  World._hemi.intensity=0.25+dayAmt*0.5;
+  World._hemi.color.setHSL(0.58,0.4,0.5+dayAmt*0.3);
+  World._hemi.groundColor.setHSL(0.08,0.3,0.15+dayAmt*0.15);
+ }
+ if(World.scene){
+  DAYNIGHT_TMP.copy(DAYNIGHT_SKY_NIGHT).lerp(DAYNIGHT_SKY_DAY,dayAmt);
+  World.scene.background.copy(DAYNIGHT_TMP);
+  if(World.scene.fog) World.scene.fog.color.copy(DAYNIGHT_TMP);
+ }
+ const wantLit=sunHeight<0.15;
+ if(World._lampsLit!==wantLit){
+  World._lampsLit=wantLit;
+  lampHeadMat.emissiveIntensity=wantLit?1.4:0.15;
+  lampHeadMat.color.set(wantLit?0xffe9b0:0x554433);
+ }
 };

@@ -29,6 +29,8 @@ for(let i=0;i<30;i++){
  const target=tpl.type==='talk'?NPC_POOL[i%NPC_POOL.length]:SPOTS[i%SPOTS.length];
  MISSIONS.push({id:11+i,title:tpl.title+' #'+(i+1),desc:tpl.desc,type:tpl.type,target,reward:{cash:40+Math.floor(Math.random()*60)}});
 }
+// Bank Heist beat, spliced in as an early-crew-building milestone rather than appended at the end
+MISSIONS.splice(4,0,{id:'heist',title:'The Big Score',desc:'Recruit some backup, then hit the bank vault. Grab every bag before the police catch on.',type:'heist',target:null,reward:{cash:0}});
 
 const MissionSystem={index:0,active:false};
 MissionSystem.start=function(){ MissionSystem.index=0; MissionSystem.active=true; MissionSystem.render(); };
@@ -41,6 +43,7 @@ MissionSystem.complete=function(){
  MissionSystem.render();
 };
 MissionSystem.notifyTalk=function(npcId){ const m=MissionSystem.current(); if(m&&m.type==='talk'&&m.target===npcId) MissionSystem.complete(); };
+MissionSystem.notifyHeist=function(){ const m=MissionSystem.current(); if(m&&m.type==='heist') MissionSystem.complete(); };
 MissionSystem.checkProgress=function(playerPos,carPos,mode){
  const m=MissionSystem.current(); if(!m) return;
  if(m.type==='goto' && playerPos.distanceTo(new THREE.Vector3(m.target.x,playerPos.y,m.target.z))<5) MissionSystem.complete();

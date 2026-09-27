@@ -20,6 +20,9 @@ Persistence.serialize=function(){
   license:License.has,
   vitals:{health:Vitals.health,energy:Vitals.energy,hunger:Vitals.hunger,thirst:Vitals.thirst,hygiene:Vitals.hygiene},
   properties:Player.properties||[],
+  spawnPoint:Player.spawnPoint||null,
+  wanted:Police.wanted,
+  gangCount:Gang.members.length, // members re-recruited fresh from the pool on load, not the same individuals
   weaponsOwned:Weapons.owned, weaponsReserve:Weapons.reserve,
   playerPos:Player.camera?{x:Player.camera.position.x,y:Player.camera.position.y,z:Player.camera.position.z}:null,
  };
@@ -60,6 +63,12 @@ Persistence.apply=function(data){
  License.has=!!data.license;
  if(data.vitals) Object.assign(Vitals,data.vitals);
  Player.properties=data.properties||[];
+ Player.spawnPoint=data.spawnPoint||null;
+ if(typeof data.wanted==='number' && data.wanted>0) Police.addWanted(data.wanted);
+ if(data.gangCount){
+  const candidates=NPCPool.pool.filter(n=>n.active&&!n.recruited);
+  for(let i=0;i<Math.min(data.gangCount,candidates.length);i++) Gang.recruit(candidates[i]);
+ }
  if(data.weaponsOwned) Weapons.owned=data.weaponsOwned;
  if(data.weaponsReserve) Weapons.reserve=data.weaponsReserve;
  if(data.vehicles) data.vehicles.forEach(v=>{ const mesh=World.makeCar(v.x,v.z,0x555555); Vehicles.owned.push({mesh,registered:v.registered,name:v.name}); });

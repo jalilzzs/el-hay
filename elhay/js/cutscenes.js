@@ -1,27 +1,34 @@
 /* ============ Cutscenes: Full Intro Sequence Director ============ */
 const Cutscenes = {};
 
-// دالة آمنة لجلب العناصر من الصفحة
 const getEl = id => document.getElementById(id);
 
 let csSkipped = false;
 
-// قائمة بكل أزرار وعناصر الواجهة لإخفائها بالكامل أثناء الكاتسين
-const uiElements = [
-  'touchUI', 'hud', 'vitalsBox', 'cashBox', 'minimap', 
-  'weaponHud', 'wantedBox', 'reticle', 'crosshair', 
-  'invBtn', 'phoneBtn', 'sprintBtn', 'interactBtn', 'interactPrompt'
-];
-
-// دالة التحكم بظهور وإخفاء الواجهة والأزرار
+// دالة التحكم بإخفاء وإظهار الواجهة والأزرار بشمولية
 function setUIHidden(hide) {
-  uiElements.forEach(id => {
+  // 1. إخفاء/إظهار عناصر بالـ ID
+  const ids = [
+    'touchUI', 'hud', 'vitalsBox', 'cashBox', 'minimap', 'miniMap', 'map',
+    'weaponHud', 'wantedBox', 'reticle', 'crosshair', 
+    'invBtn', 'inventoryBtn', 'phoneBtn', 'sprintBtn', 
+    'interactBtn', 'interactPrompt', 'actionBtn', 'eBtn', 'btnE'
+  ];
+  
+  ids.forEach(id => {
     const el = getEl(id);
     if (el) el.style.display = hide ? 'none' : '';
   });
+
+  // 2. إخفاء/إظهار عناصر بالـ Class لتغطية الخريطة والمحفظة والأزرار بأي تسمية
+  const selectors = ['.minimap', '.map-container', '.inventory-btn', '.interaction-prompt', '.touch-button'];
+  selectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(el => {
+      el.style.display = hide ? 'none' : '';
+    });
+  });
 }
 
-// دالة آمنة لجلب النص تجنباً لتعطل السكربت عند غياب دالة t()
 function safeText(key) {
   if (typeof t === 'function') {
     try { return t(key); } catch (e) {}
@@ -35,7 +42,6 @@ function offset(target, dx, dy, dz) {
 }
 
 function buildBeats() {
-  // حماية جلب الأحداثيات لمنع التجمد
   const home = window.World?.landmarks?.home?.position || new THREE.Vector3(0, 0, 0);
   const car = window.World?.playerCar?.position || new THREE.Vector3(10, 0, 10);
   const checkpoint = window.World?.checkpointPos || new THREE.Vector3(50, 0, 50);
@@ -96,7 +102,6 @@ async function playBeat(camera, b) {
 
 let finishFn = null;
 
-// التفاعل مع زر التخطي
 const csSkipBtn = getEl('csSkip');
 if (csSkipBtn) {
   csSkipBtn.addEventListener('click', () => {
@@ -111,7 +116,7 @@ Cutscenes.play = async function(camera, onDone) {
   const csLayer = getEl('csLayer');
   if (csLayer) csLayer.style.display = 'block';
 
-  // 1. إخفاء جميع أزرار الواجهة عند بدء العرض
+  // إخفاء كل أزرار اللعبة والواجهة
   setUIHidden(true);
 
   if (window.Player) {
@@ -123,14 +128,13 @@ Cutscenes.play = async function(camera, onDone) {
   finishFn = () => { if (done) return; done = true; finish(); };
 
   function finish() {
-    // 2. إخفاء طبقة العرض والبطاقات
     if (csLayer) csLayer.style.display = 'none';
     const csSub = getEl('csSub');
     const csCard = getEl('csCard');
     if (csSub) csSub.textContent = '';
     if (csCard) csCard.classList.remove('show');
 
-    // 3. إعادة إظهار جميع أزرار اللعب والواجهة
+    // إرجاع كل عناصر الواجهة والأزرار للظهور
     setUIHidden(false);
 
     if (camera) {

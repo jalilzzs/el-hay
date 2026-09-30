@@ -58,20 +58,35 @@ MissionSystem.render=function(){
  if(m.type==='story'){ $('misContinue').onclick=MissionSystem.complete; }
 };
 
-/* ---- Minimap: top-down, fixed north-up, player + landmarks + active waypoint ---- */
-const Minimap={scale:1.6};
-Minimap.draw=function(camera){
- const cv=$('mmCanvas'); if(!cv||$('minimap').style.display==='none') return;
+/* ---- Minimap: top-down, fixed north-up, custom icons per POI type, player + waypoint.
+   Toggleable full-screen overlay via clicking the small map or pressing M. ---- */
+const Minimap={scale:1.6,fullscreenOpen:false};
+const POI_ICONS={hospital:'🏥',police:'🚓',prison:'🔒',home:'🏠',store:'🛒',cafe:'☕',
+ dealership:'🚗',drivingSchool:'🚦',cityHall:'🏛️',bank:'🏦',gunshop:'🔫',studio:'🏠',flat2:'🏠'};
+function drawMinimapTo(cv,camera,scale){
+ if(!cv) return;
  const ctx=cv.getContext('2d'); const w=cv.width,h=cv.height;
  ctx.clearRect(0,0,w,h); ctx.fillStyle='#141a1e'; ctx.fillRect(0,0,w,h);
  const px=camera.position.x, pz=camera.position.z;
- const toMap=(x,z)=>({mx:w/2+(x-px)*Minimap.scale, my:h/2+(z-pz)*Minimap.scale});
- World.pois.forEach(p=>{ const m=toMap(p.pos.x,p.pos.z); if(m.mx<0||m.mx>w||m.my<0||m.my>h) return;
-  ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(m.mx,m.my,4,0,7); ctx.fill(); });
+ const toMap=(x,z)=>({mx:w/2+(x-px)*scale, my:h/2+(z-pz)*scale});
+ World.pois.forEach(p=>{ const m=toMap(p.pos.x,p.pos.z); if(m.mx<-20||m.mx>w+20||m.my<-20||m.my>h+20) return;
+  ctx.font=(scale>2?'20px':'13px')+' sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(POI_ICONS[p.id]||'📍',m.mx,m.my);
+ });
  const mission=MissionSystem.current();
  if(mission && mission.target && mission.target.x!==undefined){
   const m=toMap(mission.target.x,mission.target.z);
-  ctx.strokeStyle='#e7c65a'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(m.mx,m.my,7,0,7); ctx.stroke();
+  ctx.strokeStyle='#e7c65a'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(m.mx,m.my,scale>2?12:7,0,7); ctx.stroke();
  }
- ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(w/2,h/2,5,0,7); ctx.fill();
+ ctx.save(); ctx.translate(w/2,h/2); ctx.rotate(-camera.rotation.y);
+ ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(0,-7); ctx.lineTo(5,6); ctx.lineTo(-5,6); ctx.closePath(); ctx.fill();
+ ctx.restore();
+}
+Minimap.draw=function(camera){
+ if($('minimap').style.display!=='none') drawMinimapTo($('mmCanvas'),camera,Minimap.scale);
+ if(Minimap.fullscreenOpen) drawMinimapTo($('fullMapCanvas'),camera,0.7);
+};
+Minimap.toggleFullscreen=function(){
+ Minimap.fullscreenOpen=!Minimap.fullscreenOpen;
+ $('fullMap').classList.toggle('open',Minimap.fullscreenOpen);
 };

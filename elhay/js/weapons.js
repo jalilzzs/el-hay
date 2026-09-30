@@ -84,7 +84,7 @@ PoliceAI.update=function(dt,playerPos){
  if(caught){
   PoliceAI.clear();
   Economy.cash=Math.max(0,Economy.cash-150);
-  World.enterInterior('prison',Player.camera,outsidePos);
+  Prison.arrest(Player.camera,outsidePos);
   UI.refreshHUD();
  }
 };

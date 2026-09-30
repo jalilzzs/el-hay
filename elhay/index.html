@@ -22,6 +22,15 @@ body {
   padding: 0;
   overflow: hidden;
   background-color: #000;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Canvas اللعبة */
+#c {
+  width: 100vw;
+  height: 100vh;
+  display: block;
 }
 
 /* القائمة الرئيسية بالخلفية المباشرة */
@@ -36,6 +45,7 @@ body {
   background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%), 
               url('./bg.png') center/cover no-repeat;
   z-index: 1000;
+  pointer-events: auto;
 }
 
 /* اللوحة الجانبية */
@@ -71,7 +81,7 @@ body {
   text-transform: uppercase;
 }
 
-/* الأزرار العصرية المنسقة مع الحفاظ على كلاس btn للـ JS */
+/* الأزرار العصرية */
 .btn-modern, .btn {
   width: 100%;
   padding: 12px;
@@ -135,8 +145,66 @@ body {
   color: #fff;
 }
 
+/* النوافذ واللوحات */
 .panel {
+  position: fixed;
+  inset: 0;
   z-index: 2000 !important;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+
+.panel.open {
+  display: flex !important;
+}
+
+/* ==========================================
+   إصلاح الـ OVERLAYS وحل مشكل اللمس والشفافية
+   ========================================== */
+
+/* 1. شاشة التحميل والمشاهد السينمائية */
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  pointer-events: auto;
+}
+
+#csLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: none;
+  pointer-events: auto;
+}
+
+#csLayer.active {
+  display: block !important;
+}
+
+/* 2. واجهة التاتش للهاتف (أهم إصلاح) */
+#touchUI {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none !important; /* يترك المساحات الفاضية حرة للـ Canvas */
+}
+
+/* تفعيل التفاعل فقط على الأزرار والجويستيك ومساحة اللمس */
+#touchUI button, 
+#touchUI #joyBase, 
+#touchUI #lookArea,
+#touchUI #driveControls {
+  pointer-events: auto !important;
+}
+
+/* 3. عناصر الـ HUD والـ UI العائمة */
+#vitalsBox, #cashBox, #missionBox, #minimap, #invBtn, #phoneBtn, #wantedBox, #weaponHud, #crosshair, #reticle, #prompt {
+  pointer-events: auto;
 }
 
 @keyframes menuSlideIn {
@@ -165,7 +233,6 @@ body {
     <h1 id="mTitle">الـحـي</h1>
     <div class="sub" id="mSub">OPEN WORLD GAME</div>
 
-    <!-- عنصر selMode مخفي لتوفير القيمة المرجوة للـ JS بدون تشوية التصميم -->
     <select id="selMode" style="display:none;">
       <option value="offline" selected>Offline (Single-Player)</option>
     </select>
@@ -287,5 +354,23 @@ body {
 <script src="js/phone.js"></script>
 <script src="js/persistence.js"></script>
 <script src="js/main.js"></script>
+
+<!-- سكريبت تسليك التحكم وإخفاء الطبقات -->
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const bNew = document.getElementById('bNew');
+    const bCont = document.getElementById('bCont');
+    const menu = document.getElementById('menu');
+    const loading = document.getElementById('loading');
+
+    function startGameUI() {
+      if (menu) menu.style.display = 'none';
+      if (loading) loading.style.display = 'none';
+    }
+
+    if (bNew) bNew.addEventListener('click', startGameUI);
+    if (bCont) bCont.addEventListener('click', startGameUI);
+  });
+</script>
 </body>
 </html>

@@ -1,5 +1,13 @@
 /* ============ Systems: Vitals, Economy, Relationships, Vehicles, Police/License ============ */
 
+/* ---- Property tiers: higher price = real advantages, not just a bigger number ---- */
+const PROPERTY_TIERS={
+ home:{name:'Home',sleepHealth:false,regen:0},
+ studio:{name:'Studio Apartment',sleepHealth:false,regen:0},
+ flat2:{name:'2-Room Flat',sleepHealth:true,regen:0},
+ villa:{name:'Villa',sleepHealth:true,regen:3},
+};
+
 /* ---- Vitals ---- */
 const Vitals={health:100,energy:100,hunger:100,thirst:100,hygiene:100};
 Vitals.update=function(dt){
@@ -10,9 +18,16 @@ Vitals.update=function(dt){
  if(Vitals.hunger<=0) Vitals.health=Math.max(0,Vitals.health-0.3*dt);
  if(Vitals.thirst<=0) Vitals.health=Math.max(0,Vitals.health-0.5*dt);
  if(Vitals.hunger>40&&Vitals.thirst>40&&Vitals.health<100) Vitals.health=Math.min(100,Vitals.health+0.05*dt);
+ const tier=PROPERTY_TIERS[World.activeInterior];
+ if(tier&&tier.regen) Vitals.health=Math.min(100,Vitals.health+tier.regen*dt); // villa-tier passive regen
 };
 Vitals.speedFactor=function(){ return Vitals.energy<25?0.55:(Vitals.energy<50?0.8:1); };
-Vitals.sleep=function(){ Vitals.energy=100; Vitals.hunger=Math.max(0,Vitals.hunger-15); Vitals.thirst=Math.max(0,Vitals.thirst-10); Vitals.hygiene=Math.max(0,Vitals.hygiene-10); };
+Vitals.sleep=function(){
+ Vitals.energy=100; Vitals.hunger=Math.max(0,Vitals.hunger-15); Vitals.thirst=Math.max(0,Vitals.thirst-10); Vitals.hygiene=Math.max(0,Vitals.hygiene-10);
+ const tier=PROPERTY_TIERS[World.activeInterior];
+ if(tier&&tier.sleepHealth) Vitals.health=100;
+ World.dayNight.time=(World.dayNight.time+8)%24; // sleeping actually advances time
+};
 Vitals.useToilet=function(){ Vitals.hygiene=100; };
 Vitals.applyItem=function(effect){ if(effect.hunger) Vitals.hunger=Math.min(100,Vitals.hunger+effect.hunger); if(effect.thirst) Vitals.thirst=Math.min(100,Vitals.thirst+effect.thirst); if(effect.hygiene) Vitals.hygiene=Math.min(100,Vitals.hygiene+effect.hygiene); };
 Vitals.refreshHUD=function(){
@@ -84,6 +99,33 @@ Vehicles.sell=function(index){
 };
 /* Switch the actively-driven vehicle. registered=false marks an unregistered/stolen pickup. */
 Vehicles.switchTo=function(mesh,registered){ World.playerCar=mesh; World.playerCarRegistered=registered; };
+/* Test Drive: temporary, free — spawns the car next to the player, seats them immediately,
+   and cleans itself up after 60s (or immediately if a newer test drive replaces it). */
+Vehicles.testCar=null;
+Vehicles.testDrive=function(catalogId){
+ const c=DEALERSHIP.find(v=>v.id===catalogId); if(!c) return false;
+ if(Vehicles.testCar){ World.scene.remove(Vehicles.testCar); Vehicles.testCar=null; }
+ const p=Player.camera.position;
+ const mesh=World.makeCar(p.x+3,p.z,c.color,c.id.indexOf('hatch')>=0?'hatchback':'sedan');
+ Vehicles.testCar=mesh;
+ Vehicles.switchTo(mesh,true); Player.mode='drive';
+ if(!IS_TOUCH){ Player.controls.unlock(); UI.dom.crosshair.style.display='none'; }
+ setDriveButtonsVisible(true); Weapons.refreshHUD();
+ Phone.close();
+ setTimeout(()=>Vehicles.endTestDrive(mesh),60000);
+ return true;
+};
+Vehicles.endTestDrive=function(mesh){
+ if(Vehicles.testCar!==mesh) return;
+ Vehicles.testCar=null;
+ const wasActive=(World.playerCar===mesh && Player.mode==='drive');
+ World.scene.remove(mesh);
+ if(wasActive){
+  Player.mode='walk'; setDriveButtonsVisible(false);
+  if(!IS_TOUCH) UI.dom.crosshair.style.display='block';
+  Audio.stopEngine(); Weapons.refreshHUD();
+ }
+};
 Vehicles.nearbyDrivable=function(pos){
  for(const v of Vehicles.owned) if(pos.distanceTo(v.mesh.position)<3) return {mesh:v.mesh,registered:v.registered};
  for(const c of World.parkedCars) if(pos.distanceTo(c.position)<3) return {mesh:c,registered:false};
@@ -104,7 +146,7 @@ DrivingSchool.checkProgress=function(carPos){
 };
 
 /* ---- Police checkpoint ---- */
-const Police={cooldown:0,wanted:0};
+const Police={cooldown:0,wanted:0,checkpointActive:false};
 Police.addWanted=function(n){
  Police.wanted=Math.max(0,Math.min(5,Police.wanted+n));
  const box=$('wantedBox');
@@ -114,12 +156,13 @@ Police.addWanted=function(n){
 };
 Police.maybeTrigger=function(carPos,dt){
  Police.cooldown=Math.max(0,Police.cooldown-dt);
- if(Police.cooldown>0||!World.checkpointPos) return;
+ if(Police.cooldown>0||!World.checkpointPos||Police.checkpointActive) return;
  if(carPos.distanceTo(World.checkpointPos)<4){ Police.cooldown=40; Police.trigger(); }
 };
 Police.trigger=function(){
  const registered=World.playerCarRegistered!==false;
  if(License.has && registered){ Police.showResult('ok'); return; }
+ Police.checkpointActive=true; carVel.speed=0; // stop the car so the checkpoint can't just be driven through
  $('polTitle').textContent='Police Checkpoint';
  $('polBody').textContent=(!License.has?"No driver's license on file. ":'')+(!registered?'Vehicle is unregistered.':'');
  $('pPolice').classList.add('open');
@@ -130,19 +173,50 @@ Police.showResult=function(kind){
  $('pPolice').classList.add('open');
  setTimeout(()=>$('pPolice').classList.remove('open'),1200);
 };
+/* Surrender: comply with the check. If you're unlicensed there's a fine; if you can't cover it,
+   you're arrested outright. An unregistered/stolen car gets impounded either way. */
 Police.comply=function(){
  let fine=0, impound=!(World.playerCarRegistered!==false), jail=false;
  if(!License.has) fine+=50;
  if(fine>0){ if(Economy.cash>=fine) Economy.cash-=fine; else jail=true; }
+ Police.checkpointActive=false;
  $('pPolice').classList.remove('open');
  if(impound){ Player.mode='walk'; }
- if(jail){ Police.addWanted(1); World.enterInterior('prison',Player.camera,outsidePos); }
+ if(jail){ Police.addWanted(1); Prison.arrest(Player.camera,outsidePos); }
+ UI.refreshHUD();
 };
+/* Bribe: pay to make the whole stop go away, licensed or not. */
 Police.payFine=function(){
- if(Economy.cash>=100){ Economy.cash-=100; $('pPolice').classList.remove('open'); }
+ if(Economy.cash>=100){ Economy.cash-=100; Police.checkpointActive=false; $('pPolice').classList.remove('open'); UI.refreshHUD(); }
  else Police.comply();
 };
-Police.flee=function(){ $('pPolice').classList.remove('open'); Police.addWanted(2); };
+/* Escape: releases the freeze with a burst of speed and immediately puts police on your tail. */
+Police.flee=function(){
+ Police.checkpointActive=false; carVel.speed=10;
+ $('pPolice').classList.remove('open'); Police.addWanted(2);
+};
+
+/* ---- Prison: real jail logic — arrest now actually confines the player instead of E just
+   walking them back out. A voluntary walk-in (via the street door) is NOT sentenced. ---- */
+const Prison={sentenced:false,timer:0,bailCost:300};
+Prison.arrest=function(camera,outsidePos){
+ World.enterInterior('prison',camera,outsidePos);
+ Prison.sentenced=true; Prison.timer=30;
+};
+Prison.bail=function(){
+ if(Economy.cash>=Prison.bailCost){ Economy.cash-=Prison.bailCost; Prison.release(); UI.refreshHUD(); }
+};
+Prison.release=function(){ Prison.sentenced=false; World.exitInterior(Player.camera,outsidePos); };
+Prison.tick=function(dt){
+ if(!Prison.sentenced) return;
+ Prison.timer=Math.max(0,Prison.timer-dt);
+ if(Prison.timer<=0) Prison.release();
+};
+
+/* ---- Bank: legitimate banking (loans) distinct from the vault heist ---- */
+Economy.loan=0;
+Economy.takeLoan=function(amount){ if(Economy.loan>0) return false; Economy.cash+=amount; Economy.loan=Math.round(amount*1.25); return true; };
+Economy.repayLoan=function(){ const pay=Math.min(Economy.cash,Economy.loan); Economy.cash-=pay; Economy.loan-=pay; };
 
 /* ---- Multiplayer architecture stub (offline mode is the only implemented mode) ---- */
 const NetworkManager={ws:null,

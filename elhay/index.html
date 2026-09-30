@@ -194,24 +194,37 @@ body {
   pointer-events: none !important;
 }
 
-/* الأزرار والجويستيك ومساحة النظر فقط تستقبل اللمس */
-#touchUI button,
+/* مساحة النظر والجويستيك */
 #touchUI #joyBase,
 #touchUI #lookArea {
   pointer-events: auto !important;
 }
 
+/* جميع أزرار التاتش تكون فوق مساحة النظر */
+#touchUI button {
+  pointer-events: auto !important;
+  z-index: 700 !important;
+}
+
+/* زر Sprint */
+#touchUI #touchSprint {
+  pointer-events: auto !important;
+  z-index: 701 !important;
+}
+
 /* driveControls يغطي الشاشة كاملة، لذلك لا يحجز اللمس */
 #touchUI #driveControls {
   pointer-events: none !important;
+  z-index: 500;
 }
 
-/* أزرار السيارة فقط تستقبل اللمس عند تفعيل وضع القيادة */
+/* أزرار السيارة فقط عندما تكون ظاهرة */
 #touchUI #driveControls.show button {
   pointer-events: auto !important;
+  z-index: 701 !important;
 }
 
-/* 3. عناصر الـ HUD والـ UI العائمة */
+/* عناصر HUD/UI فوق طبقة التاتش */
 #vitalsBox,
 #cashBox,
 #missionBox,
@@ -223,7 +236,15 @@ body {
 #crosshair,
 #reticle,
 #prompt {
-  pointer-events: auto;
+  pointer-events: auto !important;
+}
+
+/* الهاتف والحقيبة والميني ماب فوق touchUI */
+#minimap,
+#invBtn,
+#phoneBtn {
+  z-index: 800 !important;
+  pointer-events: auto !important;
 }
 
 @keyframes menuSlideIn {

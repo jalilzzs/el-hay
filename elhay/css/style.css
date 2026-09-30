@@ -1,13 +1,13 @@
 :root {
-  --accent: #c9a24b;
-  --accent-glow: rgba(201, 162, 75, 0.4);
-  --bg: #0b0e11;
+  --accent: #ff6b00;
+  --accent-glow: rgba(255, 107, 0, 0.4);
+  --bg: #080a0f;
   --panel: rgba(12, 16, 22, 0.85);
-  --panel-border: rgba(201, 162, 75, 0.35);
-  --text: #f1ece1;
+  --panel-border: rgba(255, 107, 0, 0.35);
+  --text: #ffffff;
   --dim: #a9a396;
-  --border: rgba(201, 162, 75, 0.35);
-  --glass-bg: rgba(15, 20, 26, 0.75);
+  --border: rgba(255, 107, 0, 0.35);
+  --glass-bg: rgba(15, 20, 28, 0.75);
 }
 
 * {
@@ -23,7 +23,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   background: var(--bg);
-  font-family: 'Segoe UI', system-ui, -apple-system, Tahoma, sans-serif;
+  font-family: 'Cairo', 'Segoe UI', system-ui, sans-serif;
   color: var(--text);
   touch-action: none;
 }
@@ -104,13 +104,13 @@ html, body {
   background: rgba(255, 255, 255, 0.06);
   border-radius: 3px;
   overflow: hidden;
-  border: 1px solid rgba(201, 162, 75, 0.2);
+  border: 1px solid rgba(255, 107, 0, 0.2);
 }
 
 #lbFill {
   width: 0;
   height: 100%;
-  background: linear-gradient(90deg, #9a7828, var(--accent));
+  background: linear-gradient(90deg, #b33600, var(--accent));
   box-shadow: 0 0 10px var(--accent-glow);
   transition: width 0.2s ease-out;
 }
@@ -129,7 +129,7 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: 20;
-  display: none;
+  display: none; /* ينفتح فقط عن طريق الـ JS */
   align-items: center;
   justify-content: center;
   background: radial-gradient(circle at center, rgba(15, 22, 30, 0.85) 0%, rgba(5, 7, 10, 0.95) 100%);
@@ -173,7 +173,7 @@ html, body {
   z-index: 15;
   display: block;
   width: 100%;
-  border: 1px solid rgba(201, 162, 75, 0.25);
+  border: 1px solid rgba(255, 107, 0, 0.25);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
   color: var(--text);
   padding: 14px 18px;
@@ -190,7 +190,7 @@ html, body {
 }
 
 .btn:hover, .btn:active {
-  background: rgba(201, 162, 75, 0.2);
+  background: rgba(255, 107, 0, 0.2);
   border-color: var(--accent);
   box-shadow: 0 0 15px var(--accent-glow);
   transform: translateY(-1px);
@@ -275,7 +275,7 @@ html, body {
 }
 
 .row:hover {
-  background: rgba(201, 162, 75, 0.06);
+  background: rgba(255, 107, 0, 0.06);
 }
 
 select {
@@ -295,7 +295,7 @@ select {
   padding: 12px;
   border-radius: 12px;
   border: 1.5px solid var(--accent);
-  background: rgba(201, 162, 75, 0.12);
+  background: rgba(255, 107, 0, 0.12);
   color: var(--accent);
   font-size: 14px;
   font-weight: 700;
@@ -396,9 +396,10 @@ select {
   width: 110px;
   height: 110px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(10, 14, 23, 0.45);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(255, 107, 0, 0.5);
+  box-shadow: 0 0 20px rgba(0,0,0,0.7), inset 0 0 12px rgba(255, 107, 0, 0.15);
   pointer-events: auto;
 }
 
@@ -409,8 +410,9 @@ select {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
+  background: radial-gradient(circle, #ff6b00 0%, #b33600 100%);
+  box-shadow: 0 0 18px rgba(255, 107, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   pointer-events: none;
 }
 
@@ -430,18 +432,18 @@ select {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(201, 162, 75, 0.25);
-  backdrop-filter: blur(6px);
-  border: 1.5px solid var(--accent);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid var(--border);
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  transition: transform 0.1s ease, background 0.15s ease;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
 }
 
 #touchSprint {
@@ -451,20 +453,31 @@ select {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgba(120, 180, 120, 0.25);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(120, 180, 120, 0.5);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid var(--border);
   color: var(--text);
-  font-size: 11px;
+  font-size: 18px;
   font-weight: 600;
   pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+}
+
+#touchInteract:active, #touchSprint:active, #touchFire:active, #touchWeapon:active {
+  transform: scale(0.88);
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.7) 0%, rgba(180, 40, 0, 0.9) 100%);
+  border-color: #ffaa00;
+  box-shadow: 0 0 22px rgba(255, 107, 0, 0.9);
 }
 
 #touchUI.driving #joyBase,
 #touchUI.driving #touchSprint,
 #touchUI.driving #touchFire,
 #touchUI.driving #touchWeapon {
-  display: none;
+  display: none !important;
 }
 
 #touchUI.driving #touchInteract {
@@ -490,17 +503,23 @@ select {
 #driveControls button {
   position: absolute;
   pointer-events: none;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
   color: var(--text);
   font-size: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+  transition: transform 0.1s ease;
 }
 
 #driveControls.show button {
   pointer-events: auto;
+}
+
+#driveControls button:active {
+  transform: scale(0.9);
+  background: rgba(255, 107, 0, 0.5);
 }
 
 #btnGas {
@@ -620,7 +639,7 @@ select {
   padding: 5px 10px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: rgba(201, 162, 75, 0.1);
+  background: rgba(255, 107, 0, 0.1);
   color: var(--text);
   cursor: pointer;
 }
@@ -633,10 +652,12 @@ select {
   width: 130px;
   height: 130px;
   border-radius: 50%;
-  border: 2px solid var(--border);
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 15px rgba(255, 107, 0, 0.4), inset 0 0 10px rgba(0,0,0,0.8);
   overflow: hidden;
   display: none;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
 }
 
 #minimap canvas {
@@ -661,7 +682,7 @@ select {
   padding: 6px 12px;
   border-radius: 8px;
   border: 1px solid var(--accent);
-  background: rgba(201, 162, 75, 0.15);
+  background: rgba(255, 107, 0, 0.15);
   color: var(--accent);
   font-weight: 600;
   cursor: pointer;
@@ -679,16 +700,22 @@ select {
   right: 110px;
   z-index: 9;
   padding: 10px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
   background: var(--glass-bg);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   color: var(--text);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   display: none;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.6);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+#invBtn:active, #phoneBtn:active {
+  transform: scale(0.9);
+  background: rgba(255, 107, 0, 0.4);
 }
 
 #pPolice .card { border-color: #e74c3c !important; }
@@ -718,22 +745,22 @@ select {
   bottom: max(22px, env(safe-area-inset-bottom));
   right: 190px;
   z-index: 9;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
   background: var(--glass-bg);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
   color: var(--text);
   font-size: 18px;
   cursor: pointer;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.6);
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
-/* هيكل الهاتف الخارجي المجسم */
 #phoneCard {
   width: 320px !important;
   height: 600px !important;
@@ -748,7 +775,6 @@ select {
   padding: 0 !important;
 }
 
-/* شاشة الهاتف الداخلية */
 #phoneScreen {
   flex: 1;
   display: flex;
@@ -758,7 +784,6 @@ select {
   overflow: hidden;
 }
 
-/* شبكة تطبيقات الشاشة الرئيسية */
 .phone-home-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -800,7 +825,6 @@ select {
   font-weight: 500;
 }
 
-/* شريط زر الرجوع السفلي */
 .phone-home-bar {
   height: 42px;
   background: rgba(0, 0, 0, 0.5);
@@ -839,7 +863,7 @@ select {
 }
 
 .ptab.active {
-  background: rgba(201, 162, 75, 0.18);
+  background: rgba(255, 107, 0, 0.18);
   color: var(--accent);
   border-color: var(--border);
 }
@@ -952,13 +976,13 @@ select {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: rgba(180, 60, 50, 0.45);
-  backdrop-filter: blur(6px);
-  border: 1.5px solid #e74c3c;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid var(--border);
   pointer-events: auto;
   display: none;
   font-size: 22px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
 }
 
 #touchWeapon {
@@ -968,13 +992,13 @@ select {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(6px);
-  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid var(--border);
   pointer-events: auto;
   display: none;
   font-size: 18px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
 }
 
 #touchFire.show,

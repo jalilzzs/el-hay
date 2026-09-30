@@ -5,126 +5,89 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>El-Hay | الحي</title>
 <link rel="stylesheet" href="css/style.css"/>
-<!-- خط تجديدي عصري للعناوين والواجهات -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
 
 <style>
 /* =========================================================
-   تحديثات ستايل الواجهة الرئيسية المودرن (Main Menu Modern Style)
+   تنسيق القائمة الجانبية المجهزة للصورة الرسمية
    ========================================================= */
 :root {
   --primary-glow: #ff6b00;
-  --secondary-glow: #00d2ff;
-  --bg-glass: rgba(15, 20, 28, 0.75);
-  --border-glass: rgba(255, 255, 255, 0.12);
+  --bg-glass: rgba(8, 10, 15, 0.75);
+  --border-glass: rgba(255, 107, 0, 0.3);
 }
 
 body {
   font-family: 'Cairo', sans-serif !important;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #000;
 }
 
-/* القائمة الرئيسية الشاملة */
+/* القائمة الرئيسية بالخلفية المسحوبة من المسار */
 #menu {
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at center, rgba(10, 15, 25, 0.5) 0%, rgba(5, 7, 12, 0.85) 100%);
+  justify-content: flex-start; /* وضع الأزرار في الجانب الأيمن */
+  padding-right: clamp(20px, 5vw, 60px);
+  box-sizing: border-box;
+  background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%), 
+              url('indexhtmlpic/bg.jpg') center/cover no-repeat;
   z-index: 1000;
-  backdrop-filter: blur(8px);
 }
 
-/* لوحة القائمة الزجاجية */
+/* اللوحة الجانبية الأنيقة */
 #menuPanel {
-  width: min(420px, 90vw);
-  padding: 35px 28px;
+  width: min(340px, 85vw);
+  padding: 28px 22px;
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
-  border-radius: 24px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 
-              0 0 30px rgba(255, 107, 0, 0.15);
+  border-radius: 20px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.8), 
+              0 0 20px rgba(255, 107, 0, 0.15);
   text-align: center;
-  position: relative;
-  overflow: hidden;
-  animation: menuAppear 0.5s ease-out forwards;
+  backdrop-filter: blur(10px);
+  animation: menuSlideIn 0.4s ease-out forwards;
 }
 
-#menuPanel::before {
-  content: '';
-  position: absolute;
-  top: 0; left: -50%;
-  width: 200%; height: 3px;
-  background: linear-gradient(90deg, transparent, var(--primary-glow), var(--secondary-glow), transparent);
-  animation: borderGlow 4s linear infinite;
-}
-
-/* عنوان اللعبة القاتل */
 #mTitle {
-  font-size: 48px;
+  font-size: 36px;
   font-weight: 900;
   margin: 0;
-  background: linear-gradient(135deg, #ffffff 30%, #ff8c00 100%);
+  background: linear-gradient(135deg, #ffffff 20%, #ff6b00 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 2px;
-  text-shadow: 0 10px 20px rgba(0,0,0,0.5);
 }
 
 .sub {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 3px;
-  color: #a0aec0;
-  margin-bottom: 25px;
+  letter-spacing: 2px;
+  color: #ff9d00;
+  margin-bottom: 20px;
   text-transform: uppercase;
 }
 
-/* اختيار الوضع */
-.menu-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 10px 16px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.menu-row span {
-  color: #e2e8f0;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.menu-row select {
-  background: rgba(0, 0, 0, 0.5);
-  color: #ff9d00;
-  border: 1px solid rgba(255, 157, 0, 0.4);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-family: 'Cairo', sans-serif;
-  font-weight: 700;
-  outline: none;
-}
-
-/* الأزرار العصرية الرئيسية */
+/* الأزرار العصرية المنسقة */
 .btn-modern {
   width: 100%;
-  padding: 14px;
-  margin-bottom: 12px;
-  background: linear-gradient(135deg, rgba(255, 107, 0, 0.15) 0%, rgba(255, 107, 0, 0.05) 100%);
-  border: 1px solid rgba(255, 107, 0, 0.4);
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff;
   font-family: 'Cairo', sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,61 +95,62 @@ body {
 }
 
 .btn-modern.primary {
-  background: linear-gradient(135deg, #ff6b00 0%, #ff3c00 100%);
+  background: linear-gradient(135deg, #ff6b00 0%, #c42b00 100%);
   border: none;
-  box-shadow: 0 8px 25px rgba(255, 107, 0, 0.4);
+  box-shadow: 0 4px 18px rgba(255, 107, 0, 0.4);
 }
 
 .btn-modern:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(255, 107, 0, 0.3);
+  transform: translateX(-4px);
+  background: rgba(255, 255, 255, 0.15);
   border-color: #ff6b00;
 }
 
 .btn-modern.primary:hover {
-  background: linear-gradient(135deg, #ff7b1a 0%, #ff4c1a 100%);
-  box-shadow: 0 12px 30px rgba(255, 107, 0, 0.6);
+  background: linear-gradient(135deg, #ff7b1a 0%, #db3000 100%);
+  box-shadow: 0 6px 22px rgba(255, 107, 0, 0.6);
 }
 
-.btn-modern:active {
-  transform: translateY(1px);
-}
-
-/* أزرار الأسفل */
 #menuFoot {
   display: flex;
-  gap: 8px;
-  margin-top: 20px;
+  gap: 6px;
+  margin-top: 15px;
   justify-content: center;
 }
 
 .btn-sm {
   flex: 1;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #718096;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a0aec0;
   font-family: 'Cairo', sans-serif;
-  font-size: 12px;
-  border-radius: 10px;
+  font-size: 11px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-sm:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
 
-/* حركة التحريك عند الظهور */
-@keyframes menuAppear {
-  from { opacity: 0; transform: scale(0.92) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+/* رفع زدر الترتيب للنوافذ لكي تفتح فوق الواجهة دائماً */
+.panel {
+  z-index: 2000 !important;
 }
 
-@keyframes borderGlow {
-  0% { transform: translateX(-50%); }
-  100% { transform: translateX(50%); }
+@keyframes menuSlideIn {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 600px) {
+  #menu {
+    justify-content: center;
+    padding-right: 0;
+  }
 }
 </style>
 </head>
@@ -197,19 +161,11 @@ body {
 <div id="prompt"></div>
 <div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري تحميل شوارع الحي...</div></div>
 
-<!-- الواجهة الرئيسية القاتلة والمعدلة -->
+<!-- الواجهة الرئيسية -->
 <div id="menu">
   <div id="menuPanel">
     <h1 id="mTitle">الـحـي</h1>
-    <div class="sub" id="mSub">OPEN WORLD EDITION</div>
-    
-    <div class="menu-row">
-      <span id="lMode">نمط اللعب</span>
-      <select id="selMode">
-        <option value="offline">فردي (Offline)</option>
-        <option value="multi">جماعي (Multiplayer)</option>
-      </select>
-    </div>
+    <div class="sub" id="mSub">OPEN WORLD GAME</div>
 
     <button class="btn-modern primary" id="bNew">
       <span>🎮</span> بدء لعبة جديدة
@@ -229,6 +185,7 @@ body {
   </div>
 </div>
 
+<!-- نافذة الإعدادات (تفتح الآن فوق كل شيء) -->
 <div class="panel" id="pSettings"><div class="card">
 <h2 id="sTitle">الإعدادات</h2>
 <div class="row"><span id="lLang">اللغة</span><select id="selLang"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option><option value="zh">中文</option></select></div>
@@ -312,7 +269,6 @@ body {
   </div>
 </div>
 
-<!-- تحميل Three.js ورابط CDN الصحيح لـ PointerLockControls من jsdelivr -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
 

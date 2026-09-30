@@ -44,6 +44,11 @@
 <div id="cashBox">$0</div>
 <div id="missionBox"></div>
 <div id="minimap"><canvas id="mmCanvas" width="130" height="130"></canvas></div>
+<div class="panel" id="fullMap"><div class="card" style="width:min(600px,92vw)">
+ <h2>Map</h2>
+ <canvas id="fullMapCanvas" width="560" height="560" style="width:100%;border-radius:8px;display:block"></canvas>
+ <button class="close" id="fullMapClose">إغلاق</button>
+</div></div>
 <button id="invBtn">🎒</button>
 
 <div class="panel" id="pShop"><div class="card">
@@ -56,9 +61,9 @@
  <h2 id="polTitle">Police Checkpoint</h2>
  <p id="polBody" style="color:var(--dim);font-size:13px"></p>
  <div class="policeBtns">
-  <button id="polComply">Comply</button>
-  <button id="polPay">Pay Fine</button>
-  <button id="polFlee">Flee</button>
+  <button id="polComply">Surrender</button>
+  <button id="polPay">Bribe ($100)</button>
+  <button id="polFlee">Escape</button>
  </div>
 </div></div>
 
@@ -89,6 +94,7 @@
   <div id="lookArea"></div>
   <div id="joyBase"><div id="joyStick"></div></div>
   <button id="touchInteract">E</button>
+  <button id="touchSprint">🏃</button>
   <button id="touchFire">🔥</button>
   <button id="touchWeapon">🔄</button>
   <div id="driveControls">
@@ -99,13 +105,10 @@
   </div>
 </div>
 
-<!-- 1. Three.js r146 والـ PointerLockControls عبر مكتبة unpkg المباشرة -->
-<script src="https://unpkg.com/three@0.146.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.146.0/examples/js/controls/PointerLockControls.js"></script>
-
-<!-- 2. ملفات اللعبة بالترتيب الصحيح -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/128/examples/js/controls/PointerLockControls.js"></script>
 <script src="js/ui.js"></script>
-<script src="js/persistence.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/world.js"></script>
 <script src="js/player.js"></script>
 <script src="js/cutscenes.js"></script>
@@ -114,6 +117,7 @@
 <script src="js/npc.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/phone.js"></script>
+<script src="js/persistence.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -80,15 +80,19 @@ Phone.renderDelivery=function(body){
  });
 };
 
-const PROPERTIES=[{id:'studio',name:'Studio Apartment',price:5000},{id:'flat2',name:'2-Room Flat',price:15000}];
+const PROPERTIES=[
+ {id:'studio',name:'Studio Apartment',price:5000,perk:'Sleep restores energy.'},
+ {id:'flat2',name:'2-Room Flat',price:15000,perk:'Sleep restores energy + full health.'},
+ {id:'villa',name:'Villa',price:35000,perk:'Sleep fully restores everything, plus passive health regen while you\'re home.'},
+];
 Phone.renderMarket=function(body){
- body.innerHTML='<h3>Real Estate & Vehicles</h3><p style="color:var(--dim);font-size:12px">Owned properties are enterable in the world and can be set as your spawn point.</p>';
+ body.innerHTML='<h3>Real Estate & Vehicles</h3><p style="color:var(--dim);font-size:12px">Owned properties are enterable in the world and can be set as your spawn point. Higher tiers are genuinely better, not just pricier.</p>';
  Player.properties=Player.properties||[];
  PROPERTIES.forEach(p=>{
   const owned=Player.properties.includes(p.id);
   const isSpawn=Player.spawnPoint===p.id;
   const row=document.createElement('div'); row.className='shopItem';
-  row.innerHTML='<span>'+p.name+' — $'+p.price+(owned?' (Owned)':'')+(isSpawn?' ★ Spawn':'')+'</span>';
+  row.innerHTML='<span>'+p.name+' — $'+p.price+(owned?' (Owned)':'')+(isSpawn?' ★ Spawn':'')+'<br><small style="color:var(--dim)">'+p.perk+'</small></span>';
   const btn=document.createElement('button');
   btn.textContent=owned?(isSpawn?'Spawn Set':'Set as Spawn'):'Buy';
   btn.disabled=owned?isSpawn:Economy.cash<p.price;
@@ -103,9 +107,11 @@ Phone.renderMarket=function(body){
  DEALERSHIP.forEach(c=>{
   const row=document.createElement('div'); row.className='shopItem';
   row.innerHTML='<span>'+c.name+' — $'+c.price+'</span>';
-  const btn=document.createElement('button'); btn.textContent='Buy'; btn.disabled=Economy.cash<c.price;
-  btn.onclick=()=>{ if(Vehicles.buy(c.id)){ UI.refreshHUD(); Phone.render('realestate'); } };
-  row.appendChild(btn); body.appendChild(row);
+  const buyBtn=document.createElement('button'); buyBtn.textContent='Buy'; buyBtn.disabled=Economy.cash<c.price;
+  buyBtn.onclick=()=>{ if(Vehicles.buy(c.id)){ UI.refreshHUD(); Phone.render('realestate'); } };
+  const testBtn=document.createElement('button'); testBtn.textContent='Test Drive'; testBtn.style.marginLeft='6px';
+  testBtn.onclick=()=>{ Vehicles.testDrive(c.id); };
+  row.appendChild(buyBtn); row.appendChild(testBtn); body.appendChild(row);
  });
  body.insertAdjacentHTML('beforeend','<h3 style="margin-top:16px">Garage — Summon Vehicle</h3>');
  Vehicles.owned.forEach((v,i)=>{

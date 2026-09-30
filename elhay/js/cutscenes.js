@@ -1,7 +1,6 @@
 /* ============ Cutscenes: full intro sequence director (Crash-Proof) ============ */
 const Cutscenes = {};
 
-// استخدام getElementById المباشر تجنباً لخطأ $ is not defined
 const csLayer = document.getElementById('csLayer'), 
       csSub   = document.getElementById('csSub'), 
       csCard  = document.getElementById('csCard'), 
@@ -9,26 +8,37 @@ const csLayer = document.getElementById('csLayer'),
 
 let csSkipped = false;
 
-// دالة آمنة لجلب النصوص دون أن يتوقف السكربت إذا كانت t() غير معرفة
+// إخفاء وإظهار الواجهة وأزرار التحكم
+function toggleUI(hide) {
+  const elements = ['touchUI', 'hud', 'vitalsBox', 'cashBox', 'minimap', 'reticle', 'crosshair'];
+  elements.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = hide ? 'none' : '';
+  });
+}
+
 function safeText(key) {
   if (typeof t === 'function') {
     try { return t(key); } catch(e) {}
   }
-  return key; // في حال عدم وجود دالة t يعرض المفتاح بدلاً من إيقاف اللعبة
+  return key;
 }
 
 function offset(target, dx, dy, dz) { 
-  return new THREE.Vector3(target.x + dx, dy, target.z + dz); 
+  const t = target || new THREE.Vector3(0, 0, 0);
+  return new THREE.Vector3(t.x + dx, t.y + dy, t.z + dz); 
 }
 
 function buildBeats() {
-  const home = World.landmarks.home.position, 
-        car = World.playerCar.position,
-        checkpoint = World.checkpointPos, 
-        officer = World.checkpointOfficer.mesh.position,
-        prison = World.landmarks.prison.position;
-  const midX = car.x + (checkpoint.x - car.x) * 0.6, 
-        midZ = car.z + (checkpoint.z - car.z) * 0.6;
+  // حماية جلب المواقع حتى لو كانت القيم undefined
+  const home = World?.landmarks?.home?.position || new THREE.Vector3(0, 0, 0);
+  const car = World?.playerCar?.position || new THREE.Vector3(10, 0, 10);
+  const checkpoint = World?.checkpointPos || new THREE.Vector3(50, 0, 50);
+  const officer = World?.checkpointOfficer?.mesh?.position || new THREE.Vector3(checkpoint.x + 2, 0, checkpoint.z + 2);
+  const prison = World?.landmarks?.prison?.position || new THREE.Vector3(100, 0, 100);
+
+  const midX = car.x + (checkpoint.x - car.x) * 0.6;
+  const midZ = car.z + (checkpoint.z - car.z) * 0.6;
 
   return [
     {from:{p:offset(home,-5,1.6,-3),l:offset(home,0,1,-6)},to:{p:offset(home,-2,1.6,-2),l:offset(home,0,1,-5)},dur:3,sub:'cs1'},
@@ -64,8 +74,10 @@ async function playBeat(camera, b) {
     function step() { 
       if (csSkipped) return res();
       const x = Math.min((performance.now() - start) / dur, 1);
-      camera.position.copy(lerpV(b.from.p, b.to.p, x)); 
-      camera.lookAt(lerpV(b.from.l, b.to.l, x));
+      if (camera && b.from && b.to) {
+        camera.position.copy(lerpV(b.from.p, b.to.p, x)); 
+        camera.lookAt(lerpV(b.from.l, b.to.l, x));
+      }
       if (x < 1) requestAnimationFrame(step); else res(); 
     } 
     step(); 
@@ -83,8 +95,13 @@ if (csSkipBtn) {
 Cutscenes.play = async function(camera, onDone) {
   csSkipped = false; 
   if (csLayer) csLayer.style.display = 'block'; 
-  if (Player.controls && typeof Player.controls.unlock === 'function') Player.controls.unlock();
-  Player.suspended = true;
+  
+  toggleUI(true); // إخفاء الأزرار أثناء الكاتسين
+
+  if (typeof Player !== 'undefined') {
+    if (Player.controls && typeof Player.controls.unlock === 'function') Player.controls.unlock();
+    Player.suspended = true;
+  }
 
   let done = false;
   finishFn = () => { if (done) return; done = true; finish(); };
@@ -93,10 +110,18 @@ Cutscenes.play = async function(camera, onDone) {
     if (csLayer) csLayer.style.display = 'none'; 
     if (csSub) csSub.textContent = ''; 
     if (csCard) csCard.classList.remove('show');
-    camera.position.set(30, 1.7, 55); 
-    camera.lookAt(30, 1.4, 40);
-    Player.mode = 'walk'; 
-    Player.suspended = false; 
+    
+    toggleUI(false); // إعادة إظهار الأزرار بعد النهاية
+
+    if (camera) {
+      camera.position.set(30, 1.7, 55); 
+      camera.lookAt(30, 1.4, 40);
+    }
+    
+    if (typeof Player !== 'undefined') {
+      Player.mode = 'walk'; 
+      Player.suspended = false; 
+    }
     finishFn = null;
     if (typeof onDone === 'function') onDone();
   }

@@ -14,6 +14,8 @@
   --primary-glow: #ff6b00;
   --bg-glass: rgba(8, 10, 15, 0.75);
   --border-glass: rgba(255, 107, 0, 0.3);
+  --ui-glass-btn: rgba(15, 18, 25, 0.65);
+  --ui-border-glow: rgba(255, 107, 0, 0.4);
 }
 
 body {
@@ -22,6 +24,8 @@ body {
   padding: 0;
   overflow: hidden;
   background-color: #000;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* القائمة الرئيسية بالخلفية المباشرة */
@@ -71,7 +75,7 @@ body {
   text-transform: uppercase;
 }
 
-/* الأزرار العصرية المنسقة مع الحفاظ على كلاس btn للـ JS */
+/* الأزرار العصرية المنسقة */
 .btn-modern, .btn {
   width: 100%;
   padding: 12px;
@@ -139,6 +143,187 @@ body {
   z-index: 2000 !important;
 }
 
+/* ==================== تحسينات الميني ماب والأزرار العلوية ==================== */
+
+#minimap {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-glow);
+  box-shadow: 0 0 15px rgba(255, 107, 0, 0.35), inset 0 0 10px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s ease;
+}
+
+#minimap:hover {
+  transform: scale(1.04);
+}
+
+#minimap canvas {
+  border-radius: 50%;
+}
+
+/* زر الحقيبة الـ Inventory */
+#invBtn {
+  position: absolute;
+  top: 155px;
+  right: 20px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--ui-glass-btn);
+  border: 1px solid var(--ui-border-glow);
+  color: #fff;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 90;
+}
+
+#invBtn:active {
+  transform: scale(0.92);
+  background: rgba(255, 107, 0, 0.3);
+}
+
+/* زر الهاتف الـ Phone */
+#phoneBtn {
+  position: absolute;
+  top: 155px;
+  right: 82px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--ui-glass-btn);
+  border: 1px solid var(--ui-border-glow);
+  color: #fff;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255,255,255,0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 90;
+}
+
+#phoneBtn:active {
+  transform: scale(0.92);
+  background: rgba(255, 107, 0, 0.3);
+}
+
+/* ==================== تحسين أزرار التحكم باللمس (TOUCH UI) ==================== */
+
+#touchUI {
+  pointer-events: none;
+}
+
+#touchUI button, #joyBase, #joyStick {
+  pointer-events: auto;
+}
+
+/* العصا الافتراضية (Joystick) */
+#joyBase {
+  border: 2px solid rgba(255, 107, 0, 0.4) !important;
+  background: rgba(10, 14, 23, 0.4) !important;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.6), inset 0 0 12px rgba(255, 107, 0, 0.1) !important;
+}
+
+#joyStick {
+  background: radial-gradient(circle, #ff6b00 0%, #a83800 100%) !important;
+  box-shadow: 0 0 15px rgba(255, 107, 0, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* الأزرار الدائرية للحركة والتفاعل والجري */
+#touchInteract, #touchSprint, #touchFire, #touchWeapon {
+  position: absolute;
+  border-radius: 50% !important;
+  background: var(--ui-glass-btn) !important;
+  border: 1.5px solid var(--ui-border-glow) !important;
+  color: #ffffff !important;
+  font-family: 'Cairo', sans-serif !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.25) !important;
+  transition: transform 0.1s ease, background 0.15s ease !important;
+}
+
+#touchInteract:active, #touchSprint:active, #touchFire:active, #touchWeapon:active {
+  transform: scale(0.88) !important;
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.6) 0%, rgba(180, 50, 0, 0.8) 100%) !important;
+  border-color: #ffaa00 !important;
+  box-shadow: 0 0 20px rgba(255, 107, 0, 0.8) !important;
+}
+
+/* زر التفاعل (E) */
+#touchInteract {
+  width: 62px;
+  height: 62px;
+  bottom: 110px;
+  left: 20px;
+  font-size: 20px;
+}
+
+/* زر الجري (Sprint) */
+#touchSprint {
+  width: 68px;
+  height: 68px;
+  bottom: 25px;
+  left: 95px;
+  font-size: 26px;
+}
+
+/* زر الإطلاق (Fire) */
+#touchFire {
+  width: 76px;
+  height: 76px;
+  bottom: 110px;
+  left: 100px;
+  font-size: 28px;
+  border-color: rgba(255, 60, 60, 0.5) !important;
+}
+
+/* زر تبديل السلاح */
+#touchWeapon {
+  width: 54px;
+  height: 54px;
+  bottom: 195px;
+  left: 100px;
+  font-size: 20px;
+}
+
+/* أزرار القيادة (Drive Controls) */
+#driveControls button {
+  background: var(--ui-glass-btn) !important;
+  border: 1.5px solid var(--ui-border-glow) !important;
+  color: #fff !important;
+  border-radius: 16px !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+  font-size: 20px !important;
+  transition: all 0.1s ease !important;
+}
+
+#driveControls button:active {
+  transform: scale(0.9) !important;
+  background: rgba(255, 107, 0, 0.4) !important;
+}
+
 @keyframes menuSlideIn {
   from { opacity: 0; transform: translateX(30px); }
   to { opacity: 1; transform: translateX(0); }
@@ -165,7 +350,6 @@ body {
     <h1 id="mTitle">الـحـي</h1>
     <div class="sub" id="mSub">OPEN WORLD GAME</div>
 
-    <!-- عنصر selMode مخفي لتوفير القيمة المرجوة للـ JS بدون تشوية التصميم -->
     <select id="selMode" style="display:none;">
       <option value="offline" selected>Offline (Single-Player)</option>
     </select>
@@ -210,13 +394,17 @@ body {
 </div>
 <div id="cashBox">$0</div>
 <div id="missionBox"></div>
+
+<!-- الميني ماب مع الأزرار العصرية المحدثة -->
 <div id="minimap"><canvas id="mmCanvas" width="130" height="130"></canvas></div>
+<button id="invBtn" title="الحقيبة">🎒</button>
+<button id="phoneBtn" title="الهاتف">📱</button>
+
 <div class="panel" id="fullMap"><div class="card" style="width:min(600px,92vw)">
  <h2>Map</h2>
  <canvas id="fullMapCanvas" width="560" height="560" style="width:100%;border-radius:8px;display:block"></canvas>
  <button class="close" id="fullMapClose">إغلاق</button>
 </div></div>
-<button id="invBtn">🎒</button>
 
 <div class="panel" id="pShop"><div class="card">
  <h2 id="shopTitle">—</h2>
@@ -236,7 +424,6 @@ body {
 
 <div id="csLayer"><div class="lb" id="lbTop"></div><div class="lb" id="lbBot"></div><div id="csSub"></div><div id="csCard"></div><button id="csSkip">تخطي</button></div>
 
-<button id="phoneBtn">📱</button>
 <div class="panel" id="pPhone"><div class="card" id="phoneCard">
  <div id="phoneTabs">
   <button class="ptab" data-tab="contacts">Contacts</button>
@@ -256,7 +443,7 @@ body {
 </div>
 <div id="reticle"></div>
 
-<!-- MOBILE TOUCH UI -->
+<!-- MOBILE TOUCH UI المعدلة بالتصاميم العصرية -->
 <div id="touchUI">
   <div id="lookArea"></div>
   <div id="joyBase"><div id="joyStick"></div></div>

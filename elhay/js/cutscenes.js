@@ -5,52 +5,39 @@ const getEl = id => document.getElementById(id);
 
 let csSkipped = false;
 
-// دالة شاملة لإخفاء وإظهار الواجهة والأزرار
+// دالة إخفاء وإظهار الواجهة
 function setUIHidden(hide) {
-  // قائمة المعرفات الممكنة
-  const ids = [
-    'touchUI', 'hud', 'vitalsBox', 'cashBox', 'minimap', 'miniMap', 'map', 'mapContainer',
-    'weaponHud', 'wantedBox', 'reticle', 'crosshair', 
-    'invBtn', 'inventoryBtn', 'walletBtn', 'phoneBtn', 'sprintBtn', 
-    'interactBtn', 'interactPrompt', 'actionBtn', 'eBtn', 'btnE', 'ePrompt'
-  ];
+  const touchUI = getEl('touchUI');
+  const minimap = getEl('minimap');
+  const invBtn = getEl('invBtn');
+  const phoneBtn = getEl('phoneBtn');
+  const vitalsBox = getEl('vitalsBox');
+  const cashBox = getEl('cashBox');
+  const hud = getEl('hud');
+  const crosshair = getEl('crosshair');
 
-  ids.forEach(id => {
-    const el = getEl(id);
-    if (el) {
-      if (hide) {
-        el.style.setProperty('display', 'none', 'important');
-        el.classList.add('hidden', 'hide', 'd-none');
-      } else {
-        el.style.removeProperty('display');
-        el.style.display = '';
-        el.style.visibility = 'visible';
-        el.style.opacity = '1';
-        el.classList.remove('hidden', 'hide', 'd-none');
-      }
+  if (hide) {
+    // إخفاء كل العناصر أثناء الكاتسين
+    if (touchUI) touchUI.style.display = 'none';
+    if (minimap) minimap.style.display = 'none';
+    if (invBtn) invBtn.style.display = 'none';
+    if (phoneBtn) phoneBtn.style.display = 'none';
+    if (vitalsBox) vitalsBox.style.display = 'none';
+    if (cashBox) cashBox.style.display = 'none';
+    if (hud) hud.style.display = 'none';
+    if (crosshair) crosshair.style.display = 'none';
+  } else {
+    // إظهار العناصر بوضوح عند نهاية الكاتسين
+    if (touchUI) {
+      touchUI.style.display = 'block';
+      touchUI.classList.add('active'); // تفعيل أزرار التفاعل والمشي لللمس
     }
-  });
-
-  // تغطية كافة الكلاسات الخاصة بالأزرار والخريطة والمحفظة
-  const selectors = [
-    '.minimap', '#minimap', '.map-container', '.inventory-btn', '#invBtn', '#walletBtn',
-    '.interaction-prompt', '#interactBtn', '#interactPrompt', '.touch-button', '#touchUI'
-  ];
-
-  selectors.forEach(sel => {
-    document.querySelectorAll(sel).forEach(el => {
-      if (hide) {
-        el.style.setProperty('display', 'none', 'important');
-        el.classList.add('hidden', 'hide', 'd-none');
-      } else {
-        el.style.removeProperty('display');
-        el.style.display = '';
-        el.style.visibility = 'visible';
-        el.style.opacity = '1';
-        el.classList.remove('hidden', 'hide', 'd-none');
-      }
-    });
-  });
+    if (minimap) minimap.style.display = 'block';
+    if (invBtn) invBtn.style.display = 'block';
+    if (phoneBtn) phoneBtn.style.display = 'block';
+    if (vitalsBox) vitalsBox.style.display = 'block';
+    if (cashBox) cashBox.style.display = 'block';
+  }
 }
 
 function safeText(key) {
@@ -83,7 +70,7 @@ function buildBeats() {
     { from: { p: offset(checkpoint, -4, 1.6, 3), l: officer }, to: { p: offset(checkpoint, -2, 1.4, 1.5), l: officer }, dur: 3.5, sub: 'cs5' },
     { from: { p: offset(checkpoint, -2, 1.4, 1.5), l: officer }, to: { p: offset(checkpoint, -1, 1.3, 0.8), l: officer }, dur: 3.5, sub: 'cs6' },
     { card: 'cs7', dur: 2.2 },
-    { from: { p: offset(prison, 0, 1.7, 10), l: offset(prison, 0, 1.4, 4) }, to: { p: offset(prison, 0, 1.4, -3) }, dur: 3.5, sub: 'cs8' }
+    { from: { p: offset(prison, 0, 1.7, 10), l: offset(prison, 0, 1.4, 4) }, to: { p: offset(prison, 0, 1.7, 3), l: offset(prison, 0, 1.4, -3) }, dur: 3.5, sub: 'cs8' }
   ];
 }
 
@@ -140,7 +127,7 @@ Cutscenes.play = async function(camera, onDone) {
   const csLayer = getEl('csLayer');
   if (csLayer) csLayer.style.display = 'block';
 
-  // إخفاء كل أزرار اللعبة والواجهة
+  // إخفاء العناصر أثناء العرض
   setUIHidden(true);
 
   if (window.Player) {
@@ -158,12 +145,8 @@ Cutscenes.play = async function(camera, onDone) {
     if (csSub) csSub.textContent = '';
     if (csCard) csCard.classList.remove('show');
 
-    // إرجاع كافة عناصر الواجهة والأزرار فوراً
+    // إظهار العناصر وتفعيل الواجهة فوراً عند الضغط على تخطي أو النهاية
     setUIHidden(false);
-
-    // إذا كان هناك دالة لإعادة تحديث الواجهة في ملف UI الخاص باللعبة
-    if (window.UI && typeof window.UI.update === 'function') window.UI.update();
-    if (window.UI && typeof window.UI.show === 'function') window.UI.show();
 
     if (camera) {
       camera.position.set(30, 1.7, 55);

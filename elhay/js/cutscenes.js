@@ -3,6 +3,12 @@ const Cutscenes={};
 const csLayer=$('csLayer'), csSub=$('csSub'), csCard=$('csCard'), csSkipBtn=$('csSkip');
 let csSkipped=false;
 
+/* Beats cover every story point from the brief: wake up/clock/keys/exit house, drive with radio,
+   checkpoint stop (placeholder cause per earlier discussion — cousin pickup / contraband, not the
+   original minor-involving scenario), 5-year skip, walk out of prison into player control.
+   Camera targets are computed fresh from live World object positions (not hardcoded coordinates)
+   so the sequence still frames correctly now that the checkpoint spawns at a random spot each
+   session, and so the camera looks directly at the actual house/car/officer/prison-gate meshes. */
 function offset(target,dx,dy,dz){ return new THREE.Vector3(target.x+dx,dy,target.z+dz); }
 function buildBeats(){
  const home=World.landmarks.home.position, car=World.playerCar.position,
@@ -21,65 +27,33 @@ function buildBeats(){
  ];
 }
 const lerpV=(a,b,x)=>a.clone().lerp(b,x);
-function wait(ms){
- return new Promise(r=>{
-  const checkInterval = setInterval(()=>{
-   if(csSkipped){ clearInterval(checkInterval); r(); }
-  }, 50);
-  setTimeout(()=>{ clearInterval(checkInterval); r(); }, ms);
- });
-}
-
+function wait(ms){return new Promise(r=>setTimeout(r,ms));}
 async function playBeat(camera,b){
  if(csSkipped) return;
- if(b.card){ 
-  csSub.textContent=''; 
-  csCard.textContent=t(b.card); 
-  csCard.classList.add('show'); 
-  await wait(b.dur*1000); 
-  csCard.classList.remove('show'); 
-  return; 
- }
+ if(b.card){ csSub.textContent=''; csCard.textContent=t(b.card); csCard.classList.add('show'); await wait(b.dur*1000); csCard.classList.remove('show'); return; }
  csSub.textContent=t(b.sub);
  const start=performance.now(), dur=b.dur*1000;
- return new Promise(res=>{
-  function step(){ 
-   if(csSkipped) return res();
-   const x=Math.min((performance.now()-start)/dur,1);
-   camera.position.copy(lerpV(b.from.p,b.to.p,x)); 
-   camera.lookAt(lerpV(b.from.l,b.to.l,x));
-   if(x<1) requestAnimationFrame(step); 
-   else res(); 
-  } 
-  step(); 
- });
+ return new Promise(res=>{function step(){ if(csSkipped) return res();
+  const x=Math.min((performance.now()-start)/dur,1);
+  camera.position.copy(lerpV(b.from.p,b.to.p,x)); camera.lookAt(lerpV(b.from.l,b.to.l,x));
+  if(x<1) requestAnimationFrame(step); else res(); } step(); });
 }
-
+let finishFn=null;
+csSkipBtn.addEventListener('click',()=>{ csSkipped=true; if(finishFn) finishFn(); }); // don't just wait for the async loop to notice next frame
 Cutscenes.play=async function(camera,onDone){
- csSkipped=false; 
- csLayer.style.display='block'; 
- if(Player.controls) Player.controls.unlock();
- 
- const handleSkip = (e)=>{
-  if(e) e.preventDefault();
-  csSkipped=true;
- };
- 
- csSkipBtn.onclick = handleSkip;
- csSkipBtn.ontouchstart = handleSkip;
-
- const beats=buildBeats();
- for(const b of beats){ 
-  if(csSkipped) break; 
-  await playBeat(camera,b); 
+ csSkipped=false; csLayer.style.display='block'; if(Player.controls) Player.controls.unlock();
+ Player.suspended=true; // stop the main loop's Player.update from fighting this camera every frame —
+ // it ran unconditionally before, forcing camera.position.y back to 1.7 and applying any leftover
+ // WASD/joystick input every single frame, which is almost certainly why the cutscene looked broken.
+ let done=false;
+ finishFn=()=>{ if(done) return; done=true; finish(); };
+ function finish(){
+  csLayer.style.display='none'; csSub.textContent=''; csCard.classList.remove('show');
+  camera.position.set(30,1.7,55); camera.lookAt(30,1.4,40);
+  Player.mode='walk'; Player.suspended=false; finishFn=null;
+  onDone();
  }
- 
- csLayer.style.display='none'; 
- csSub.textContent=''; 
- csCard.classList.remove('show');
- camera.position.set(30,1.7,55); 
- camera.lookAt(30,1.4,40);
- Player.mode='walk';
- if(typeof Player.inCutscene !== 'undefined') Player.inCutscene = false;
- if(onDone) onDone();
+ const beats=buildBeats();
+ for(const b of beats){ if(csSkipped) break; await playBeat(camera,b); }
+ finishFn && finishFn();
 };

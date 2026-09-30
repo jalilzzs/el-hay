@@ -4,7 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>El-Hay | الحي</title>
+
 <link rel="stylesheet" href="css/style.css"/>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
@@ -26,39 +28,56 @@ body {
   -webkit-user-select: none;
 }
 
-/* Canvas اللعبة */
 #c {
   width: 100vw;
   height: 100vh;
   display: block;
 }
 
-/* القائمة الرئيسية بالخلفية المباشرة */
+/* =========================
+   MAIN MENU
+   ========================= */
+
 #menu {
   position: fixed;
-  top: 0; left: 0; width: 100vw; height: 100vh;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   padding-right: clamp(20px, 5vw, 60px);
   box-sizing: border-box;
-  background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%), 
-              url('./bg.png') center/cover no-repeat;
+
+  background:
+    linear-gradient(
+      to right,
+      rgba(0,0,0,0.85) 0%,
+      rgba(0,0,0,0.2) 50%,
+      rgba(0,0,0,0.6) 100%
+    ),
+    url('./bg.png') center/cover no-repeat;
+
   z-index: 1000;
   pointer-events: auto;
 }
 
-/* اللوحة الجانبية */
 #menuPanel {
   width: min(340px, 85vw);
   padding: 28px 22px;
+
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
   border-radius: 20px;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.8), 
-              0 0 20px rgba(255, 107, 0, 0.15);
+
+  box-shadow:
+    -10px 0 30px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(255, 107, 0, 0.15);
+
   text-align: center;
   backdrop-filter: blur(10px);
+
   animation: menuSlideIn 0.4s ease-out forwards;
 }
 
@@ -66,9 +85,16 @@ body {
   font-size: 36px;
   font-weight: 900;
   margin: 0;
-  background: linear-gradient(135deg, #ffffff 20%, #ff6b00 100%);
+
+  background: linear-gradient(
+    135deg,
+    #ffffff 20%,
+    #ff6b00 100%
+  );
+
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+
   letter-spacing: 2px;
 }
 
@@ -81,31 +107,44 @@ body {
   text-transform: uppercase;
 }
 
-/* الأزرار العصرية */
-.btn-modern, .btn {
+.btn-modern,
+.btn {
   width: 100%;
   padding: 12px;
   margin-bottom: 10px;
+
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
+
   color: #ffffff;
   font-family: 'Cairo', sans-serif;
   font-size: 15px;
   font-weight: 700;
+
   border-radius: 12px;
   cursor: pointer;
+
   transition: all 0.2s ease;
+
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+
   box-sizing: border-box;
 }
 
 .btn-modern.primary {
-  background: linear-gradient(135deg, #ff6b00 0%, #c42b00 100%);
+  background: linear-gradient(
+    135deg,
+    #ff6b00 0%,
+    #c42b00 100%
+  );
+
   border: none;
-  box-shadow: 0 4px 18px rgba(255, 107, 0, 0.4);
+
+  box-shadow:
+    0 4px 18px rgba(255, 107, 0, 0.4);
 }
 
 .btn-modern:hover {
@@ -115,8 +154,14 @@ body {
 }
 
 .btn-modern.primary:hover {
-  background: linear-gradient(135deg, #ff7b1a 0%, #db3000 100%);
-  box-shadow: 0 6px 22px rgba(255, 107, 0, 0.6);
+  background: linear-gradient(
+    135deg,
+    #ff7b1a 0%,
+    #db3000 100%
+  );
+
+  box-shadow:
+    0 6px 22px rgba(255, 107, 0, 0.6);
 }
 
 #menuFoot {
@@ -126,35 +171,49 @@ body {
   justify-content: center;
 }
 
-.btn-sm, .btn.sm {
+.btn-sm,
+.btn.sm {
   flex: 1;
   padding: 6px;
+
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
+
   color: #a0aec0;
   font-family: 'Cairo', sans-serif;
   font-size: 11px;
+
   border-radius: 8px;
   cursor: pointer;
+
   transition: all 0.2s;
   box-sizing: border-box;
 }
 
-.btn-sm:hover, .btn.sm:hover {
+.btn-sm:hover,
+.btn.sm:hover {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
 
-/* النوافذ واللوحات */
+/* =========================
+   PANELS
+   ========================= */
+
 .panel {
   position: fixed;
   inset: 0;
+
   z-index: 2000 !important;
+
   display: none;
+
   align-items: center;
   justify-content: center;
+
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
+
   pointer-events: auto;
 }
 
@@ -162,54 +221,119 @@ body {
   display: flex !important;
 }
 
-/* ==========================================
-   إصلاح الـ OVERLAYS وحل مشكل اللمس والشفافية
-   ========================================== */
+/* =========================
+   LOADING
+   ========================= */
 
-/* 1. شاشة التحميل والمشاهد السينمائية */
 #loading {
   position: fixed;
   inset: 0;
   z-index: 3000;
+
   pointer-events: auto;
 }
+
+/* =========================
+   CUTSCENE
+   ========================= */
 
 #csLayer {
   position: fixed;
   inset: 0;
+
   z-index: 1500;
+
   display: none;
-  pointer-events: auto;
+
+  /*
+   * مهم:
+   * المشهد السينمائي هو الوحيد اللي يحجز اللمس
+   * عندما يكون active.
+   */
+  pointer-events: none;
 }
 
 #csLayer.active {
   display: block !important;
+  pointer-events: auto;
 }
 
-/* 2. واجهة التاتش للهاتف (أهم إصلاح) */
+/* =========================
+   MOBILE TOUCH UI
+   ========================= */
+
 #touchUI {
   position: fixed;
   inset: 0;
+
   z-index: 500;
+
+  /*
+   * الـ parent نفسه لا يحجز الشاشة.
+   */
   pointer-events: none !important;
 }
 
-/* تفعيل التفاعل فقط على الأزرار والجويستيك ومساحة اللمس */
-#touchUI button, 
-#touchUI #joyBase, 
-#touchUI #lookArea,
-#touchUI #driveControls {
+/*
+ * فقط العناصر الحقيقية القابلة للضغط تستقبل اللمس.
+ *
+ * مهم جدًا:
+ * لا نضع #driveControls هنا.
+ * لأنه عنصر full-screen وعند عدم القيادة
+ * لازم يبقى pointer-events:none.
+ */
+
+#touchUI button,
+#touchUI #joyBase,
+#touchUI #lookArea {
+  pointer-events: auto;
+}
+
+/*
+ * أثناء القيادة فقط:
+ * الأزرار نفسها تصبح قابلة للضغط عن طريق
+ * .show في style.css
+ */
+#driveControls {
+  pointer-events: none !important;
+}
+
+#driveControls.show {
+  pointer-events: none !important;
+}
+
+#driveControls.show button {
   pointer-events: auto !important;
 }
 
-/* 3. عناصر الـ HUD والـ UI العائمة */
-#vitalsBox, #cashBox, #missionBox, #minimap, #invBtn, #phoneBtn, #wantedBox, #weaponHud, #crosshair, #reticle, #prompt {
+/* =========================
+   HUD CLICKABILITY
+   ========================= */
+
+#vitalsBox,
+#cashBox,
+#missionBox,
+#minimap,
+#invBtn,
+#phoneBtn,
+#wantedBox,
+#weaponHud,
+#crosshair,
+#reticle,
+#prompt {
   pointer-events: auto;
 }
 
 @keyframes menuSlideIn {
-  from { opacity: 0; transform: translateX(30px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (max-width: 600px) {
@@ -220,132 +344,500 @@ body {
 }
 </style>
 </head>
+
 <body>
+
 <canvas id="c"></canvas>
+
 <div id="crosshair"></div>
 <div id="hud"></div>
 <div id="prompt"></div>
-<div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري التحميل...</div></div>
 
-<!-- الواجهة الرئيسية -->
-<div id="menu">
-  <div id="menuPanel">
-    <h1 id="mTitle">الـحـي</h1>
-    <div class="sub" id="mSub">OPEN WORLD GAME</div>
+<div id="loading">
+  <div id="lbTrack">
+    <div id="lbFill"></div>
+  </div>
 
-    <select id="selMode" style="display:none;">
-      <option value="offline" selected>Offline (Single-Player)</option>
-    </select>
-
-    <button class="btn btn-modern primary" id="bNew">
-      <span>🎮</span> بدء لعبة جديدة
-    </button>
-    <button class="btn btn-modern" id="bCont">
-      <span>💾</span> استمرار اللعب
-    </button>
-    <button class="btn btn-modern" id="bSet">
-      <span>⚙️</span> الإعدادات
-    </button>
-
-    <div id="menuFoot">
-      <button class="btn btn-sm sm" id="bSup">الدعم</button>
-      <button class="btn btn-sm sm" id="bPriv">الخصوصية</button>
-      <button class="btn btn-sm sm" id="bTerm">الشروط</button>
-    </div>
+  <div id="lbLabel">
+    جاري التحميل...
   </div>
 </div>
 
-<!-- نافذة الإعدادات -->
-<div class="panel" id="pSettings"><div class="card">
-<h2 id="sTitle">الإعدادات</h2>
-<div class="row"><span id="lLang">اللغة</span><select id="selLang"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option><option value="zh">中文</option></select></div>
-<div class="row"><span id="lQual">الجودة</span><select id="selQual"><option value="low">Low</option><option value="med" selected>Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></div>
-<div class="row"><span id="lFps">حد FPS</span><select id="selFps"><option value="30">30</option><option value="60" selected>60</option><option value="120">120</option><option value="0">Unlimited</option></select></div>
-<div class="row"><span id="lShow">عرض FPS</span><input type="checkbox" id="chkFps"></div>
-<div class="row"><span id="lCtrl">التحكم</span><select id="selCtrl"><option value="wasd">WASD</option><option value="arrows">Arrows</option></select></div>
-<button class="close" id="sClose">إغلاق</button>
-</div></div>
+<!-- =========================
+     MAIN MENU
+     ========================= -->
 
-<div class="panel" id="pLegal"><div class="card"><h2 id="lgTitle">—</h2><p id="lgBody" style="color:var(--dim);font-size:13px;line-height:1.6">—</p><button class="close" id="lgClose">إغلاق</button></div></div>
+<div id="menu">
+
+  <div id="menuPanel">
+
+    <h1 id="mTitle">الـحـي</h1>
+
+    <div class="sub" id="mSub">
+      OPEN WORLD GAME
+    </div>
+
+    <select id="selMode" style="display:none;">
+      <option value="offline" selected>
+        Offline (Single-Player)
+      </option>
+    </select>
+
+    <button class="btn btn-modern primary" id="bNew">
+      <span>🎮</span>
+      بدء لعبة جديدة
+    </button>
+
+    <button class="btn btn-modern" id="bCont">
+      <span>💾</span>
+      استمرار اللعب
+    </button>
+
+    <button class="btn btn-modern" id="bSet">
+      <span>⚙️</span>
+      الإعدادات
+    </button>
+
+    <div id="menuFoot">
+
+      <button class="btn btn-sm sm" id="bSup">
+        الدعم
+      </button>
+
+      <button class="btn btn-sm sm" id="bPriv">
+        الخصوصية
+      </button>
+
+      <button class="btn btn-sm sm" id="bTerm">
+        الشروط
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =========================
+     SETTINGS
+     ========================= -->
+
+<div class="panel" id="pSettings">
+
+  <div class="card">
+
+    <h2 id="sTitle">
+      الإعدادات
+    </h2>
+
+    <div class="row">
+      <span id="lLang">اللغة</span>
+
+      <select id="selLang">
+        <option value="ar">العربية</option>
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <span id="lQual">الجودة</span>
+
+      <select id="selQual">
+        <option value="low">Low</option>
+        <option value="med" selected>Medium</option>
+        <option value="high">High</option>
+        <option value="ultra">Ultra</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <span id="lFps">حد FPS</span>
+
+      <select id="selFps">
+        <option value="30">30</option>
+        <option value="60" selected>60</option>
+        <option value="120">120</option>
+        <option value="0">Unlimited</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <span id="lShow">عرض FPS</span>
+      <input type="checkbox" id="chkFps">
+    </div>
+
+    <div class="row">
+      <span id="lCtrl">التحكم</span>
+
+      <select id="selCtrl">
+        <option value="wasd">WASD</option>
+        <option value="arrows">Arrows</option>
+      </select>
+    </div>
+
+    <button class="close" id="sClose">
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- =========================
+     LEGAL
+     ========================= -->
+
+<div class="panel" id="pLegal">
+
+  <div class="card">
+
+    <h2 id="lgTitle">—</h2>
+
+    <p
+      id="lgBody"
+      style="color:var(--dim);font-size:13px;line-height:1.6"
+    >
+      —
+    </p>
+
+    <button class="close" id="lgClose">
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- =========================
+     VITALS
+     ========================= -->
 
 <div id="vitalsBox">
- <div class="vbar health"><i id="vHealth"></i></div>
- <div class="vbar energy"><i id="vEnergy"></i></div>
- <div class="vbar hunger"><i id="vHunger"></i></div>
- <div class="vbar thirst"><i id="vThirst"></i></div>
- <div class="vbar hygiene"><i id="vHygiene"></i></div>
+
+  <div class="vbar health">
+    <i id="vHealth"></i>
+  </div>
+
+  <div class="vbar energy">
+    <i id="vEnergy"></i>
+  </div>
+
+  <div class="vbar hunger">
+    <i id="vHunger"></i>
+  </div>
+
+  <div class="vbar thirst">
+    <i id="vThirst"></i>
+  </div>
+
+  <div class="vbar hygiene">
+    <i id="vHygiene"></i>
+  </div>
+
 </div>
-<div id="cashBox">$0</div>
+
+<div id="cashBox">
+  $0
+</div>
+
 <div id="missionBox"></div>
-<div id="minimap"><canvas id="mmCanvas" width="130" height="130"></canvas></div>
 
-<div class="panel" id="fullMap"><div class="card" style="width:min(600px,92vw)">
- <h2>Map</h2>
- <canvas id="fullMapCanvas" width="560" height="560" style="width:100%;border-radius:8px;display:block"></canvas>
- <button class="close" id="fullMapClose">إغلاق</button>
-</div></div>
+<!-- =========================
+     MINIMAP
+     ========================= -->
 
-<button id="invBtn">🎒</button>
+<div id="minimap">
+  <canvas
+    id="mmCanvas"
+    width="130"
+    height="130"
+  ></canvas>
+</div>
 
-<div class="panel" id="pShop"><div class="card">
- <h2 id="shopTitle">—</h2>
- <div id="shopList"></div>
- <button class="close" id="shopClose">إغلاق</button>
-</div></div>
+<!-- =========================
+     FULL MAP
+     ========================= -->
 
-<div class="panel" id="pPolice"><div class="card" id="pPoliceCard">
- <h2 id="polTitle">Police Checkpoint</h2>
- <p id="polBody" style="color:var(--dim);font-size:13px"></p>
- <div class="policeBtns">
-  <button id="polComply">Surrender</button>
-  <button id="polPay">Bribe ($100)</button>
-  <button id="polFlee">Escape</button>
- </div>
-</div></div>
+<div class="panel" id="fullMap">
 
-<div id="csLayer"><div class="lb" id="lbTop"></div><div class="lb" id="lbBot"></div><div id="csSub"></div><div id="csCard"></div><button id="csSkip">تخطي</button></div>
+  <div
+    class="card"
+    style="width:min(600px,92vw)"
+  >
 
-<button id="phoneBtn">📱</button>
+    <h2>
+      Map
+    </h2>
 
-<div class="panel" id="pPhone"><div class="card" id="phoneCard">
- <div id="phoneTabs">
-  <button class="ptab" data-tab="contacts">Contacts</button>
-  <button class="ptab" data-tab="camera">Camera</button>
-  <button class="ptab" data-tab="video">Video</button>
-  <button class="ptab" data-tab="delivery">Delivery</button>
-  <button class="ptab" data-tab="realestate">Market</button>
-  <button class="ptab" data-tab="weapons">Weapons</button>
- </div>
- <div id="phoneBody"></div>
- <button class="close" id="phoneClose">إغلاق</button>
-</div></div>
+    <canvas
+      id="fullMapCanvas"
+      width="560"
+      height="560"
+      style="width:100%;border-radius:8px;display:block"
+    ></canvas>
 
-<div id="wantedBox">🚨 WANTED</div>
+    <button
+      class="close"
+      id="fullMapClose"
+    >
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- =========================
+     INVENTORY
+     ========================= -->
+
+<button id="invBtn">
+  🎒
+</button>
+
+<!-- =========================
+     SHOP
+     ========================= -->
+
+<div class="panel" id="pShop">
+
+  <div class="card">
+
+    <h2 id="shopTitle">
+      —
+    </h2>
+
+    <div id="shopList"></div>
+
+    <button
+      class="close"
+      id="shopClose"
+    >
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- =========================
+     POLICE
+     ========================= -->
+
+<div class="panel" id="pPolice">
+
+  <div class="card" id="pPoliceCard">
+
+    <h2 id="polTitle">
+      Police Checkpoint
+    </h2>
+
+    <p
+      id="polBody"
+      style="color:var(--dim);font-size:13px"
+    ></p>
+
+    <div class="policeBtns">
+
+      <button id="polComply">
+        Surrender
+      </button>
+
+      <button id="polPay">
+        Bribe ($100)
+      </button>
+
+      <button id="polFlee">
+        Escape
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =========================
+     CUTSCENE
+     ========================= -->
+
+<div id="csLayer">
+
+  <div class="lb" id="lbTop"></div>
+
+  <div class="lb" id="lbBot"></div>
+
+  <div id="csSub"></div>
+
+  <div id="csCard"></div>
+
+  <button id="csSkip">
+    تخطي
+  </button>
+
+</div>
+
+<!-- =========================
+     PHONE
+     ========================= -->
+
+<button id="phoneBtn">
+  📱
+</button>
+
+<div class="panel" id="pPhone">
+
+  <div class="card" id="phoneCard">
+
+    <div id="phoneTabs">
+
+      <button
+        class="ptab"
+        data-tab="contacts"
+      >
+        Contacts
+      </button>
+
+      <button
+        class="ptab"
+        data-tab="camera"
+      >
+        Camera
+      </button>
+
+      <button
+        class="ptab"
+        data-tab="video"
+      >
+        Video
+      </button>
+
+      <button
+        class="ptab"
+        data-tab="delivery"
+      >
+        Delivery
+      </button>
+
+      <button
+        class="ptab"
+        data-tab="realestate"
+      >
+        Market
+      </button>
+
+      <button
+        class="ptab"
+        data-tab="weapons"
+      >
+        Weapons
+      </button>
+
+    </div>
+
+    <div id="phoneBody"></div>
+
+    <button
+      class="close"
+      id="phoneClose"
+    >
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- =========================
+     WANTED
+     ========================= -->
+
+<div id="wantedBox">
+  🚨 WANTED
+</div>
+
+<!-- =========================
+     WEAPON HUD
+     ========================= -->
 
 <div id="weaponHud">
- <span id="whName">Fists</span><span id="whAmmo"></span>
+
+  <span id="whName">
+    Fists
+  </span>
+
+  <span id="whAmmo"></span>
+
 </div>
 
 <div id="reticle"></div>
 
-<!-- MOBILE TOUCH UI -->
+<!-- =========================
+     MOBILE TOUCH UI
+     ========================= -->
+
 <div id="touchUI">
+
   <div id="lookArea"></div>
-  <div id="joyBase"><div id="joyStick"></div></div>
-  <button id="touchInteract">E</button>
-  <button id="touchSprint">🏃</button>
-  <button id="touchFire">🔥</button>
-  <button id="touchWeapon">🔄</button>
+
+  <div id="joyBase">
+    <div id="joyStick"></div>
+  </div>
+
+  <button id="touchInteract">
+    E
+  </button>
+
+  <button id="touchSprint">
+    🏃
+  </button>
+
+  <button id="touchFire">
+    🔥
+  </button>
+
+  <button id="touchWeapon">
+    🔄
+  </button>
+
+  <!--
+    مهم:
+    هذا العنصر full-screen لكن pointer-events:none
+    حتى لا يحبس minimap / phone / HUD.
+    الأزرار داخله فقط تصبح قابلة للضغط عندما
+    تكون السيارة مفعلة.
+  -->
 
   <div id="driveControls">
-    <button id="btnGas">▲</button>
-    <button id="btnBrake">▼</button>
-    <button id="btnLeft">◀</button>
-    <button id="btnRight">▶</button>
+
+    <button id="btnGas">
+      ▲
+    </button>
+
+    <button id="btnBrake">
+      ▼
+    </button>
+
+    <button id="btnLeft">
+      ◀
+    </button>
+
+    <button id="btnRight">
+      ▶
+    </button>
+
   </div>
+
 </div>
 
+<!-- =========================
+     SCRIPTS
+     ========================= -->
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
 
 <script src="js/ui.js"></script>

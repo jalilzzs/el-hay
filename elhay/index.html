@@ -191,7 +191,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 500;
-  pointer-events: none !important; /* يترك المساحات الفاضية حرة للـ Canvas */
+  pointer-events: none !important;
 }
 
 /* تفعيل التفاعل فقط على الأزرار والجويستيك ومساحة اللمس */
@@ -278,11 +278,13 @@ body {
 <div id="cashBox">$0</div>
 <div id="missionBox"></div>
 <div id="minimap"><canvas id="mmCanvas" width="130" height="130"></canvas></div>
+
 <div class="panel" id="fullMap"><div class="card" style="width:min(600px,92vw)">
  <h2>Map</h2>
  <canvas id="fullMapCanvas" width="560" height="560" style="width:100%;border-radius:8px;display:block"></canvas>
  <button class="close" id="fullMapClose">إغلاق</button>
 </div></div>
+
 <button id="invBtn">🎒</button>
 
 <div class="panel" id="pShop"><div class="card">
@@ -304,6 +306,7 @@ body {
 <div id="csLayer"><div class="lb" id="lbTop"></div><div class="lb" id="lbBot"></div><div id="csSub"></div><div id="csCard"></div><button id="csSkip">تخطي</button></div>
 
 <button id="phoneBtn">📱</button>
+
 <div class="panel" id="pPhone"><div class="card" id="phoneCard">
  <div id="phoneTabs">
   <button class="ptab" data-tab="contacts">Contacts</button>
@@ -318,9 +321,11 @@ body {
 </div></div>
 
 <div id="wantedBox">🚨 WANTED</div>
+
 <div id="weaponHud">
  <span id="whName">Fists</span><span id="whAmmo"></span>
 </div>
+
 <div id="reticle"></div>
 
 <!-- MOBILE TOUCH UI -->
@@ -331,6 +336,7 @@ body {
   <button id="touchSprint">🏃</button>
   <button id="touchFire">🔥</button>
   <button id="touchWeapon">🔄</button>
+
   <div id="driveControls">
     <button id="btnGas">▲</button>
     <button id="btnBrake">▼</button>
@@ -355,22 +361,5 @@ body {
 <script src="js/persistence.js"></script>
 <script src="js/main.js"></script>
 
-<!-- سكريبت تسليك التحكم وإخفاء الطبقات -->
-<script>
-  window.addEventListener('DOMContentLoaded', () => {
-    const bNew = document.getElementById('bNew');
-    const bCont = document.getElementById('bCont');
-    const menu = document.getElementById('menu');
-    const loading = document.getElementById('loading');
-
-    function startGameUI() {
-      if (menu) menu.style.display = 'none';
-      if (loading) loading.style.display = 'none';
-    }
-
-    if (bNew) bNew.addEventListener('click', startGameUI);
-    if (bCont) bCont.addEventListener('click', startGameUI);
-  });
-</script>
 </body>
 </html>

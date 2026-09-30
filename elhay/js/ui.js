@@ -22,10 +22,7 @@ const S={
 };
 
 const $=id=>document.getElementById(id);
-
-function t(k){
- return (I18N[S.lang]&&I18N[S.lang][k])||I18N['ar'][k]||k;
-}
+function t(k){return (I18N[S.lang]&&I18N[S.lang][k])||I18N['ar'][k]||k}
 
 const UI={};
 
@@ -35,6 +32,7 @@ UI.dom={
  pSettings:$('pSettings'),sTitle:$('sTitle'),lLang:$('lLang'),lQual:$('lQual'),lFps:$('lFps'),lShow:$('lShow'),lCtrl:$('lCtrl'),sClose:$('sClose'),
  selLang:$('selLang'),selQual:$('selQual'),selFps:$('selFps'),chkFps:$('chkFps'),selCtrl:$('selCtrl'),
  pLegal:$('pLegal'),lgTitle:$('lgTitle'),lgBody:$('lgBody'),lgClose:$('lgClose'),
+ pShop:$('pShop'),
  pauseBtn:$('pauseBtn')
 };
 
@@ -46,7 +44,6 @@ UI.applyLang=function(){
 
  if(d.mTitle) d.mTitle.textContent=t('title');
  if(d.mSub) d.mSub.textContent=t('sub');
-
  if(d.bNew) d.bNew.textContent=t('newGame');
  if(d.bCont) d.bCont.textContent=t('cont');
  if(d.bSet) d.bSet.textContent=t('set');
@@ -83,114 +80,87 @@ UI.init=function(onNewGame,onContinue){
  if(d.hud) d.hud.style.display=S.showFps?'block':'none';
 
  if(d.selLang){
-  d.selLang.onchange=e=>{
-   S.lang=e.target.value;
-   UI.applyLang();
-  };
+   d.selLang.onchange=e=>{
+     S.lang=e.target.value;
+     UI.applyLang();
+   };
  }
 
  if(d.selQual){
-  d.selQual.onchange=e=>{
-   S.qual=e.target.value;
-   localStorage.setItem('elhay_qual',S.qual);
-
-   if(window.World&&World.applyQuality){
-    World.applyQuality();
-   }
-  };
+   d.selQual.onchange=e=>{
+     S.qual=e.target.value;
+     localStorage.setItem('elhay_qual',S.qual);
+     if(window.World&&World.applyQuality) World.applyQuality();
+   };
  }
 
  if(d.selFps){
-  d.selFps.onchange=e=>{
-   S.fpsLimit=parseInt(e.target.value);
-   localStorage.setItem('elhay_fps',S.fpsLimit);
-  };
+   d.selFps.onchange=e=>{
+     S.fpsLimit=parseInt(e.target.value);
+     localStorage.setItem('elhay_fps',S.fpsLimit);
+   };
  }
 
  if(d.chkFps){
-  d.chkFps.onchange=e=>{
-   S.showFps=e.target.checked;
-   localStorage.setItem('elhay_showfps',S.showFps);
-
-   if(d.hud){
-    d.hud.style.display=S.showFps?'block':'none';
-   }
-  };
+   d.chkFps.onchange=e=>{
+     S.showFps=e.target.checked;
+     localStorage.setItem('elhay_showfps',S.showFps);
+     if(d.hud) d.hud.style.display=S.showFps?'block':'none';
+   };
  }
 
  if(d.selCtrl){
-  d.selCtrl.onchange=e=>{
-   S.ctrl=e.target.value;
-   localStorage.setItem('elhay_ctrl',S.ctrl);
-  };
+   d.selCtrl.onchange=e=>{
+     S.ctrl=e.target.value;
+     localStorage.setItem('elhay_ctrl',S.ctrl);
+   };
  }
 
- /*
-  * الإعدادات
-  * نفس الوظيفة الأصلية مع حماية من العناصر الناقصة
-  */
- if(d.bSet && d.pSettings){
-  d.bSet.onclick=()=>{
-   d.pSettings.classList.add('open');
-  };
+ if(d.bSet){
+   d.bSet.onclick=()=>{
+     if(d.pSettings) d.pSettings.classList.add('open');
+   };
  }
 
- if(d.sClose && d.pSettings){
-  d.sClose.onclick=()=>{
-   d.pSettings.classList.remove('open');
-  };
+ if(d.sClose){
+   d.sClose.onclick=()=>{
+     if(d.pSettings) d.pSettings.classList.remove('open');
+   };
  }
 
  function legal(titleKey,body){
-  if(d.lgTitle) d.lgTitle.textContent=t(titleKey);
-  if(d.lgBody) d.lgBody.textContent=body;
-
-  if(d.pLegal){
-   d.pLegal.classList.add('open');
-  }
+   if(d.lgTitle) d.lgTitle.textContent=t(titleKey);
+   if(d.lgBody) d.lgBody.textContent=body;
+   if(d.pLegal) d.pLegal.classList.add('open');
  }
 
- /*
-  * الأزرار الثانوية
-  * دعم / خصوصية / شروط
-  */
- if(d.bSup){
-  d.bSup.onclick=()=>{
-   legal('sup',LEGAL_DOCS.sup);
-  };
+ if(d.bSup) d.bSup.onclick=()=>legal('sup',LEGAL_DOCS.sup);
+ if(d.bPriv) d.bPriv.onclick=()=>legal('priv',LEGAL_DOCS.priv);
+ if(d.bTerm) d.bTerm.onclick=()=>legal('term',LEGAL_DOCS.tos);
+
+ if(d.lgClose){
+   d.lgClose.onclick=()=>{
+     if(d.pLegal) d.pLegal.classList.remove('open');
+   };
  }
 
- if(d.bPriv){
-  d.bPriv.onclick=()=>{
-   legal('priv',LEGAL_DOCS.priv);
-  };
+ /* New Game — نفس منطق التشغيل الأصلي */
+ if(d.bNew){
+   d.bNew.onclick=()=>{
+     if(d.menu) d.menu.style.display='none';
+     if(typeof onNewGame==='function') onNewGame();
+   };
  }
 
- if(d.bTerm){
-  d.bTerm.onclick=()=>{
-   legal('term',LEGAL_DOCS.tos);
-  };
+ /* Continue — لا يبدأ إلا إذا كان هناك Save */
+ if(d.bCont){
+   d.bCont.onclick=()=>{
+     if(!localStorage.getItem('elhay_save')) return;
+     if(d.menu) d.menu.style.display='none';
+     if(typeof onContinue==='function') onContinue();
+   };
  }
-
- if(d.lgClose && d.pLegal){
-  d.lgClose.onclick=()=>{
-   d.pLegal.classList.remove('open');
-  };
- }
-
- /*
-  * New Game و Continue
-  * أبقيت منطق الزرين كما هو
-  */
- if(d.bNew) d.bNew.onclick=()=>{if(d.menu) d.menu.style.display='none';onNewGame();};
-
- if(d.bCont) d.bCont.onclick=()=>{
-  if(!localStorage.getItem('elhay_save')) return;
-  if(d.menu) d.menu.style.display='none';
-  onContinue();
- };
 };
-
 
 /* ============ Pause Menu Toggle ============ */
 UI.togglePauseMenu=function(){
@@ -199,12 +169,11 @@ UI.togglePauseMenu=function(){
  if(!menu) return;
 
  if(menu.style.display==='flex'){
-  menu.style.display='none';
+   menu.style.display='none';
  }else{
-  menu.style.display='flex';
+   menu.style.display='flex';
  }
 };
-
 
 /* ============ Shops / Relationships / Inventory panels ============ */
 const shopTitleEl=$('shopTitle'), shopListEl=$('shopList');
@@ -232,209 +201,142 @@ UI.openShop=function(id){
  shopListEl.innerHTML='';
 
  if(id==='store'||id==='cafe'){
+   if(shopTitleEl) shopTitleEl.textContent=id==='store'?'Store':'Café';
 
-  if(shopTitleEl){
-   shopTitleEl.textContent=
-    id==='store'?'Store':'Café';
-  }
+   const ids=id==='store'
+     ? ['water','sandwich','soap','flowers']
+     : ['coffee','sandwich','water'];
 
-  const ids=
-   id==='store'
-    ? ['water','sandwich','soap','flowers']
-    : ['coffee','sandwich','water'];
+   ids.forEach(k=>{
+     const it=ITEMS[k];
 
-  ids.forEach(k=>{
-   const it=ITEMS[k];
+     if(!it) return;
 
-   shopListEl.appendChild(
-    row(
-     it.name+' — $'+it.price,
-     'Buy',
-     ()=>{
-      if(window.Economy&&Economy.buy(k)){
-       UI.refreshHUD();
-      }
-     }
-    )
-   );
-  });
+     shopListEl.appendChild(
+       row(
+         it.name+' — $'+it.price,
+         'Buy',
+         ()=>{
+           if(window.Economy&&Economy.buy(k)) UI.refreshHUD();
+         }
+       )
+     );
+   });
 
  }else if(id==='dealership'){
+   if(shopTitleEl) shopTitleEl.textContent='Dealership';
 
-  if(shopTitleEl){
-   shopTitleEl.textContent='Dealership';
-  }
+   if(window.DEALERSHIP){
+     DEALERSHIP.forEach(c=>{
+       shopListEl.appendChild(
+         row(
+           c.name+' — $'+c.price,
+           'Buy',
+           ()=>{
+             if(window.Vehicles&&Vehicles.buy(c.id)) UI.refreshHUD();
+           }
+         )
+       );
+     });
+   }
 
-  if(window.DEALERSHIP){
-   DEALERSHIP.forEach(c=>{
-    shopListEl.appendChild(
-     row(
-      c.name+' — $'+c.price,
-      'Buy',
-      ()=>{
-       if(window.Vehicles&&Vehicles.buy(c.id)){
-        UI.refreshHUD();
+   if(window.Vehicles&&Vehicles.owned){
+     Vehicles.owned.forEach((v,i)=>{
+       if(v.mesh!==World.playerCar){
+         shopListEl.appendChild(
+           row(
+             'Sell: '+v.name,
+             'Sell',
+             ()=>{
+               if(Vehicles.sell(i)) UI.openShop('dealership');
+               UI.refreshHUD();
+             }
+           )
+         );
        }
-      }
-     )
-    );
-   });
-  }
-
-  if(window.Vehicles&&Vehicles.owned){
-   Vehicles.owned.forEach((v,i)=>{
-    if(v.mesh!==World.playerCar){
-     shopListEl.appendChild(
-      row(
-       'Sell: '+v.name,
-       'Sell',
-       ()=>{
-        if(Vehicles.sell(i)){
-         UI.openShop('dealership');
-        }
-        UI.refreshHUD();
-       }
-      )
-     );
-    }
-   });
-  }
+     });
+   }
 
  }else if(id==='drivingSchool'){
-
-  if(shopTitleEl){
-   shopTitleEl.textContent='Driving School';
-  }
-
-  shopListEl.appendChild(
-   row(
-    'License status: '+
-    (
-     window.License&&License.has
-      ? 'Held'
-      : 'None'
-    ),
-    'Start Test',
-    ()=>{
-     if(window.DrivingSchool){
-      DrivingSchool.start();
-     }
-
-     d0Close();
-    },
-    window.License&&License.has
-   )
-  );
-
- }else if(id==='cityHall'){
-
-  if(shopTitleEl){
-   shopTitleEl.textContent='City Hall';
-  }
-
-  shopListEl.appendChild(
-   row(
-    'Marital status: '+
-    (
-     window.Player&&Player.married
-      ? (
-       'Married to '+
-       (
-        NPC_DEFS.find(
-         n=>n.id===Player.spouse
-        )||{}
-       ).name
-      )
-      : 'Single'
-    ),
-    'Divorce',
-    ()=>{
-     if(
-      window.Relationships&&
-      Relationships.divorce()
-     ){
-      UI.openShop('cityHall');
-     }
-
-     UI.refreshHUD();
-    },
-    !(window.Player&&Player.married)
-   )
-  );
-
- }else if(id==='gunshop'){
-
-  if(shopTitleEl){
-   shopTitleEl.textContent='Gun Shop';
-  }
-
-  [
-   {id:'pistol',price:800,ammoPrice:5},
-   {id:'rifle',price:2500,ammoPrice:8}
-  ].forEach(entry=>{
-
-   const w=
-    window.ARSENAL
-     ? ARSENAL[entry.id]
-     : {name:entry.id};
-
-   const owned=
-    window.Weapons&&
-    Weapons.owned.includes(entry.id);
+   if(shopTitleEl) shopTitleEl.textContent='Driving School';
 
    shopListEl.appendChild(
-    row(
-     w.name+
-     (
-      owned
-       ? ' (Owned)'
-       : ' — $'+entry.price
-     ),
-     owned
-      ? 'Buy Ammo x20'
-      : 'Buy',
-     ()=>{
-
-      if(!owned){
-
-       if(Economy.cash<entry.price){
-        return;
-       }
-
-       Economy.cash-=entry.price;
-       Weapons.buy(entry.id,20);
-
-      }else{
-
-       const cost=
-        entry.ammoPrice*20;
-
-       if(Economy.cash<cost){
-        return;
-       }
-
-       Economy.cash-=cost;
-       Weapons.buy(entry.id,20);
-      }
-
-      UI.refreshHUD();
-
-      if(window.Weapons){
-       Weapons.refreshHUD();
-      }
-
-      UI.openShop('gunshop');
-     }
-    )
+     row(
+       'License status: '+(window.License&&License.has?'Held':'None'),
+       'Start Test',
+       ()=>{
+         if(window.DrivingSchool) DrivingSchool.start();
+         d0Close();
+       },
+       window.License&&License.has
+     )
    );
-  });
+
+ }else if(id==='cityHall'){
+   if(shopTitleEl) shopTitleEl.textContent='City Hall';
+
+   shopListEl.appendChild(
+     row(
+       'Marital status: '+
+       (
+         window.Player&&Player.married
+         ? ('Married to '+(NPC_DEFS.find(n=>n.id===Player.spouse)||{}).name)
+         : 'Single'
+       ),
+       'Divorce',
+       ()=>{
+         if(window.Relationships&&Relationships.divorce()) UI.openShop('cityHall');
+         UI.refreshHUD();
+       },
+       !(window.Player&&Player.married)
+     )
+   );
+
+ }else if(id==='gunshop'){
+   if(shopTitleEl) shopTitleEl.textContent='Gun Shop';
+
+   [
+     {id:'pistol',price:800,ammoPrice:5},
+     {id:'rifle',price:2500,ammoPrice:8}
+   ].forEach(entry=>{
+     const w=window.ARSENAL
+       ? ARSENAL[entry.id]
+       : {name:entry.id};
+
+     const owned=window.Weapons&&Weapons.owned.includes(entry.id);
+
+     shopListEl.appendChild(
+       row(
+         w.name+(owned?' (Owned)':' — $'+entry.price),
+         owned?'Buy Ammo':'Buy',
+         ()=>{
+           if(!owned){
+             if(Economy.cash<entry.price) return;
+
+             Economy.cash-=entry.price;
+             Weapons.buy(entry.id,20);
+           }else{
+             const cost=entry.ammoPrice*20;
+
+             if(Economy.cash<cost) return;
+
+             Economy.cash-=cost;
+             Weapons.buy(entry.id,20);
+           }
+
+           UI.refreshHUD();
+
+           if(window.Weapons) Weapons.refreshHUD();
+
+           UI.openShop('gunshop');
+         }
+       )
+     );
+   });
  }
 
- UI.dom.pShop=
-  UI.dom.pShop||$('pShop');
-
  if(UI.dom.pShop){
-  UI.dom.pShop.classList.add('open');
+   UI.dom.pShop.classList.add('open');
  }
 };
 
@@ -444,19 +346,14 @@ function d0Close(){
 }
 
 UI.openRelationship=function(npcId){
+ const def=NPC_DEFS.find(n=>n.id===npcId);
+ const st=Relationships.state[npcId];
 
- const def=
-  NPC_DEFS.find(n=>n.id===npcId);
-
- const st=
-  Relationships.state[npcId];
+ if(!def||!st) return;
 
  if(shopTitleEl){
-  shopTitleEl.textContent=
-   def.name+
-   ' — Affinity '+
-   Math.round(st.affinity)+
-   '%';
+   shopTitleEl.textContent=
+     def.name+' — Affinity '+Math.round(st.affinity)+'%';
  }
 
  if(!shopListEl) return;
@@ -464,341 +361,244 @@ UI.openRelationship=function(npcId){
  shopListEl.innerHTML='';
 
  shopListEl.appendChild(
-  row(
-   'Talk',
-   'Talk',
-   ()=>{
-    Relationships.talk(npcId);
-    MissionSystem.notifyTalk(npcId);
-    UI.openRelationship(npcId);
-   }
-  )
- );
-
- shopListEl.appendChild(
-  row(
-   'Give Flowers',
-   'Gift',
-   ()=>{
-    if(
-     Relationships.gift(
-      npcId,
-      'flowers'
-     )
-    ){
-     UI.openRelationship(npcId);
-    }
-
-    UI.refreshHUD();
-   },
-   !Economy.inventory.find(
-    i=>i.id==='flowers'
+   row(
+     'Talk',
+     'Talk',
+     ()=>{
+       Relationships.talk(npcId);
+       MissionSystem.notifyTalk(npcId);
+       UI.openRelationship(npcId);
+     }
    )
-  )
  );
 
  shopListEl.appendChild(
-  row(
-   'Invite for a date ($20)',
-   'Date',
-   ()=>{
-    if(
-     Relationships.dateAtCafe(npcId)
-    ){
-     UI.openRelationship(npcId);
-    }
-
-    UI.refreshHUD();
-   }
-  )
+   row(
+     'Give Flowers',
+     'Gift',
+     ()=>{
+       if(Relationships.gift(npcId,'flowers')) UI.openRelationship(npcId);
+       UI.refreshHUD();
+     },
+     !Economy.inventory.find(i=>i.id==='flowers')
+   )
  );
 
  shopListEl.appendChild(
-  row(
-   'Propose marriage',
-   'Propose',
-   ()=>{
-    if(
-     Relationships.propose(npcId)
-    ){
-     UI.openRelationship(npcId);
-    }
-   },
-   st.affinity<80||Player.married
-  )
+   row(
+     'Invite for a date ($20)',
+     'Date',
+     ()=>{
+       if(Relationships.dateAtCafe(npcId)) UI.openRelationship(npcId);
+       UI.refreshHUD();
+     }
+   )
+ );
+
+ shopListEl.appendChild(
+   row(
+     'Propose marriage',
+     'Propose',
+     ()=>{
+       if(Relationships.propose(npcId)) UI.openRelationship(npcId);
+     },
+     st.affinity<80||Player.married
+   )
  );
 
  const p=$('pShop');
-
- if(p){
-  p.classList.add('open');
- }
+ if(p) p.classList.add('open');
 };
 
 UI.openInventory=function(){
-
- if(shopTitleEl){
-  shopTitleEl.textContent=
-   'المحفظة / Inventory';
- }
+ if(shopTitleEl) shopTitleEl.textContent='المحفظة / Inventory';
 
  if(!shopListEl) return;
 
  shopListEl.innerHTML='';
 
- if(
-  !window.Economy||
-  Economy.inventory.length===0
- ){
+ if(!window.Economy||Economy.inventory.length===0){
 
-  shopListEl.appendChild(
-   row(
-    'فارغة / Empty',
-    '',
-    ()=>{},
-    true
-   )
-  );
+   shopListEl.appendChild(
+     row(
+       'فارغة / Empty',
+       '',
+       ()=>{},
+       true
+     )
+   );
 
  }else{
 
-  Economy.inventory.forEach(line=>{
+   Economy.inventory.forEach(line=>{
+     const it=ITEMS[line.id];
 
-   const it=ITEMS[line.id];
+     if(!it) return;
 
-   const r=
-    row(
-     it.name+
-     ' x'+
-     line.qty,
-     'استعمال',
-     ()=>{
-      Economy.useItem(line.id);
-      UI.refreshHUD();
-      UI.openInventory();
-     }
-    );
+     const r=row(
+       it.name+' x'+line.qty,
+       'استعمال',
+       ()=>{
+         Economy.useItem(line.id);
+         UI.refreshHUD();
+         UI.openInventory();
+       }
+     );
 
-   const sellBtn=
-    document.createElement('button');
+     const sellBtn=document.createElement('button');
+     sellBtn.textContent='بيع';
+     sellBtn.className='sm-btn';
 
-   sellBtn.textContent='بيع';
-   sellBtn.className='sm-btn';
+     sellBtn.onclick=()=>{
+       Economy.sellItem(line.id);
+       UI.refreshHUD();
+       UI.openInventory();
+     };
 
-   sellBtn.onclick=()=>{
-    Economy.sellItem(line.id);
-    UI.refreshHUD();
-    UI.openInventory();
-   };
-
-   r.appendChild(sellBtn);
-   shopListEl.appendChild(r);
-  });
+     r.appendChild(sellBtn);
+     shopListEl.appendChild(r);
+   });
  }
 
  const p=$('pShop');
-
- if(p){
-  p.classList.add('open');
- }
+ if(p) p.classList.add('open');
 };
 
 UI.refreshHUD=function(){
-
  const c=$('cashBox');
 
- if(
-  c&&
-  window.Economy
- ){
-  c.textContent='$'+Economy.cash;
+ if(c&&window.Economy){
+   c.textContent='$'+Economy.cash;
  }
 
- if(window.Vitals){
-  Vitals.refreshHUD();
+ if(window.Vitals&&typeof Vitals.refreshHUD==='function'){
+   Vitals.refreshHUD();
  }
 };
 
-
-/* ============ Extra UI Wiring ============ */
 UI.initExtras=function(){
 
  const sClose=$('shopClose');
 
  if(sClose){
-  sClose.onclick=()=>{
-   const shop=$('pShop');
-
-   if(shop){
-    shop.classList.remove('open');
-   }
-  };
+   sClose.onclick=()=>{
+     const shop=$('pShop');
+     if(shop) shop.classList.remove('open');
+   };
  }
 
-
- /* ============ Inventory ============ */
  const inv=$('invBtn');
 
  if(inv){
+   inv.onclick=UI.openInventory;
 
-  inv.onclick=UI.openInventory;
-
-  inv.addEventListener(
-   'touchstart',
-   e=>{
-    e.preventDefault();
-    e.stopPropagation();
-    UI.openInventory();
-   },
-   {passive:false}
-  );
+   inv.addEventListener(
+     'touchstart',
+     e=>{
+       e.preventDefault();
+       e.stopPropagation();
+       UI.openInventory();
+     },
+     {passive:false}
+   );
  }
 
-
- /* ============ Pause ============ */
  const pBtn=$('pauseBtn');
 
  if(pBtn){
+   pBtn.onclick=UI.togglePauseMenu;
 
-  pBtn.onclick=UI.togglePauseMenu;
-
-  pBtn.addEventListener(
-   'touchstart',
-   e=>{
-    e.preventDefault();
-    e.stopPropagation();
-    UI.togglePauseMenu();
-   },
-   {passive:false}
-  );
+   pBtn.addEventListener(
+     'touchstart',
+     e=>{
+       e.preventDefault();
+       e.stopPropagation();
+       UI.togglePauseMenu();
+     },
+     {passive:false}
+   );
  }
 
-
  /*
-  * ============ Police Panel ============
-  *
-  * كان هنا:
-  * Police.comply
-  * Police.payFine
-  * Police.flee
-  *
-  * وهذا كان يسبب ReferenceError لأن المشروع
-  * يستعمل PoliceAI.
-  *
-  * الآن نربط الأزرار فقط إذا كانت الدوال موجودة.
+  * Police buttons:
+  * المشروع يستعمل PoliceAI وليس Police.
+  * نستعمل فحص آمن حتى لا يتوقف main.js إذا لم يكن النظام جاهزاً.
   */
  const polC=$('polComply');
  const polP=$('polPay');
  const polF=$('polFlee');
 
+ const policeSystem=
+   typeof PoliceAI!=='undefined'
+   ? PoliceAI
+   : null;
+
  if(polC){
-
-  polC.onclick=()=>{
-
-   if(
-    typeof PoliceAI!=='undefined' &&
-    typeof PoliceAI.comply==='function'
-   ){
-    PoliceAI.comply();
-   }
-
-  };
+   polC.onclick=()=>{
+     if(policeSystem&&typeof policeSystem.comply==='function'){
+       policeSystem.comply();
+     }
+   };
  }
 
  if(polP){
-
-  polP.onclick=()=>{
-
-   if(
-    typeof PoliceAI!=='undefined' &&
-    typeof PoliceAI.payFine==='function'
-   ){
-    PoliceAI.payFine();
-   }
-
-  };
+   polP.onclick=()=>{
+     if(policeSystem&&typeof policeSystem.payFine==='function'){
+       policeSystem.payFine();
+     }
+   };
  }
 
  if(polF){
-
-  polF.onclick=()=>{
-
-   if(
-    typeof PoliceAI!=='undefined' &&
-    typeof PoliceAI.flee==='function'
-   ){
-    PoliceAI.flee();
-   }
-
-  };
+   polF.onclick=()=>{
+     if(policeSystem&&typeof policeSystem.flee==='function'){
+       policeSystem.flee();
+     }
+   };
  }
 
-
- /* ============ HUD ============ */
  if($('vitalsBox')){
-  $('vitalsBox').style.display='block';
+   $('vitalsBox').style.display='block';
  }
 
  if($('cashBox')){
-  $('cashBox').style.display='block';
+   $('cashBox').style.display='block';
  }
 
  if(inv){
-  inv.style.display='flex';
+   inv.style.display='flex';
  }
 
-
- /* ============ Keyboard Inventory ============ */
  if(!window.IS_TOUCH){
-
-  addEventListener(
-   'keydown',
-   e=>{
-    if(e.code==='KeyI'){
-     UI.openInventory();
-    }
-   }
-  );
-
+   addEventListener('keydown',e=>{
+     if(e.code==='KeyI'){
+       UI.openInventory();
+     }
+   });
  }
 
-
- /* ============ Minimap ============ */
  const m=$('minimap');
 
  if(m){
+   m.style.display='block';
+   m.style.cursor='pointer';
 
-  m.style.display='block';
-  m.style.cursor='pointer';
-
-  m.onclick=()=>{
-
-   if(
-    typeof Minimap!=='undefined' &&
-    typeof Minimap.toggleFullscreen==='function'
-   ){
-    Minimap.toggleFullscreen();
-   }
-
-  };
+   m.onclick=()=>{
+     if(typeof Minimap!=='undefined'&&
+        typeof Minimap.toggleFullscreen==='function'){
+       Minimap.toggleFullscreen();
+     }
+   };
  }
 
-
- /* ============ Full Map Close ============ */
  const fClose=$('fullMapClose');
 
  if(fClose){
-
-  fClose.onclick=()=>{
-
-   if(
-    typeof Minimap!=='undefined' &&
-    typeof Minimap.toggleFullscreen==='function'
-   ){
-    Minimap.toggleFullscreen();
-   }
-
-  };
-
+   fClose.onclick=()=>{
+     if(typeof Minimap!=='undefined'&&
+        typeof Minimap.toggleFullscreen==='function'){
+       Minimap.toggleFullscreen();
+     }
+   };
  }
 };

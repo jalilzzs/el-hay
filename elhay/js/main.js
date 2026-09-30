@@ -27,6 +27,10 @@ sun.shadow.bias=-0.0004; sun.shadow.radius=2.2;
 scene.add(sun);
 World.setLights(hemi,sun);
 
+Audio.init();
+const resumeAudioOnce=()=>{ Audio.resume(); removeEventListener('click',resumeAudioOnce); removeEventListener('keydown',resumeAudioOnce); removeEventListener('touchstart',resumeAudioOnce); };
+addEventListener('click',resumeAudioOnce); addEventListener('keydown',resumeAudioOnce); addEventListener('touchstart',resumeAudioOnce);
+
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
 World.init(scene,renderer);
@@ -91,7 +95,9 @@ function loop(now){
  NPCPool.update(camera.position,dt);
  Gang.update(dt);
  PoliceAI.update(dt,camera.position);
+ Audio.siren(PoliceAI.active); Audio.updateSiren(dt);
  Vitals.update(dt);
+ Prison.tick(dt);
  if(Vitals.health<=0 && !awaitingRespawn){ awaitingRespawn=true; respawnPlayer(); }
  else if(Vitals.health>20){ awaitingRespawn=false; }
  HeistSystem.tick(dt);

@@ -12,8 +12,8 @@
 <style>
 :root {
   --primary-glow: #ff6b00;
-  --bg-glass: rgba(8, 10, 15, 0.85);
-  --border-glass: rgba(255, 107, 0, 0.35);
+  --bg-glass: rgba(8, 10, 15, 0.75);
+  --border-glass: rgba(255, 107, 0, 0.3);
 }
 
 body {
@@ -22,17 +22,12 @@ body {
   padding: 0;
   overflow: hidden;
   background-color: #000;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 /* القائمة الرئيسية بالخلفية المباشرة */
 #menu {
   position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  top: 0; left: 0; width: 100vw; height: 100vh;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -41,13 +36,10 @@ body {
   background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%), 
               url('./bg.png') center/cover no-repeat;
   z-index: 1000;
-  pointer-events: auto;
 }
 
 /* اللوحة الجانبية */
 #menuPanel {
-  position: relative;
-  z-index: 1010;
   width: min(340px, 85vw);
   padding: 28px 22px;
   background: var(--bg-glass);
@@ -58,7 +50,6 @@ body {
   text-align: center;
   backdrop-filter: blur(10px);
   animation: menuSlideIn 0.4s ease-out forwards;
-  pointer-events: auto;
 }
 
 #mTitle {
@@ -80,10 +71,8 @@ body {
   text-transform: uppercase;
 }
 
-/* الأزرار العصرية المنسقة */
+/* الأزرار العصرية المنسقة مع الحفاظ على كلاس btn للـ JS */
 .btn-modern, .btn {
-  position: relative;
-  z-index: 1020;
   width: 100%;
   padding: 12px;
   margin-bottom: 10px;
@@ -100,8 +89,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  pointer-events: auto !important;
-  touch-action: manipulation;
+  box-sizing: border-box;
 }
 
 .btn-modern.primary {
@@ -110,27 +98,25 @@ body {
   box-shadow: 0 4px 18px rgba(255, 107, 0, 0.4);
 }
 
-.btn-modern:hover, .btn-modern:active {
+.btn-modern:hover {
   transform: translateX(-4px);
   background: rgba(255, 255, 255, 0.15);
   border-color: #ff6b00;
 }
 
-.btn-modern.primary:hover, .btn-modern.primary:active {
+.btn-modern.primary:hover {
   background: linear-gradient(135deg, #ff7b1a 0%, #db3000 100%);
   box-shadow: 0 6px 22px rgba(255, 107, 0, 0.6);
 }
 
 #menuFoot {
-  position: relative;
-  z-index: 1020;
   display: flex;
   gap: 6px;
   margin-top: 15px;
   justify-content: center;
 }
 
-.btn-sm {
+.btn-sm, .btn.sm {
   flex: 1;
   padding: 6px;
   background: rgba(0, 0, 0, 0.5);
@@ -141,10 +127,10 @@ body {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  pointer-events: auto !important;
+  box-sizing: border-box;
 }
 
-.btn-sm:hover {
+.btn-sm:hover, .btn.sm:hover {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
@@ -171,7 +157,7 @@ body {
 <div id="crosshair"></div>
 <div id="hud"></div>
 <div id="prompt"></div>
-<div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري تحميل شوارع الحي...</div></div>
+<div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري التحميل...</div></div>
 
 <!-- الواجهة الرئيسية -->
 <div id="menu">
@@ -179,21 +165,25 @@ body {
     <h1 id="mTitle">الـحـي</h1>
     <div class="sub" id="mSub">OPEN WORLD GAME</div>
 
-    <!-- دعم الـ IDs القديمة والجديدة معاً لعدم كسر كود الـ JS -->
-    <button class="btn-modern primary btn" id="bNew" onclick="if(window.startCutscene) window.startCutscene();">
+    <!-- عنصر selMode مخفي لتوفير القيمة المرجوة للـ JS بدون تشوية التصميم -->
+    <select id="selMode" style="display:none;">
+      <option value="offline" selected>Offline (Single-Player)</option>
+    </select>
+
+    <button class="btn btn-modern primary" id="bNew">
       <span>🎮</span> بدء لعبة جديدة
     </button>
-    <button class="btn-modern btn" id="bCont" onclick="if(window.continueGame) window.continueGame();">
+    <button class="btn btn-modern" id="bCont">
       <span>💾</span> استمرار اللعب
     </button>
-    <button class="btn-modern btn" id="bSet">
+    <button class="btn btn-modern" id="bSet">
       <span>⚙️</span> الإعدادات
     </button>
 
     <div id="menuFoot">
-      <button class="btn-sm" id="bSup">الدعم</button>
-      <button class="btn-sm" id="bPriv">الخصوصية</button>
-      <button class="btn-sm" id="bTerm">الشروط</button>
+      <button class="btn btn-sm sm" id="bSup">الدعم</button>
+      <button class="btn btn-sm sm" id="bPriv">الخصوصية</button>
+      <button class="btn btn-sm sm" id="bTerm">الشروط</button>
     </div>
   </div>
 </div>

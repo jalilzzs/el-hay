@@ -116,15 +116,20 @@ World.init=function(scene,renderer){
  scene.add(World.checkpointBarrier);
  World.checkpointOfficer=spawnNPC(0,0);
  World.checkpointOfficer.mesh.children[0].material.color.set(0x1f3b57); // force police-blue shirt
+ World.checkpointOfficer2=spawnNPC(0,0);
+ World.checkpointOfficer2.mesh.children[0].material.color.set(0x1f3b57);
+ World.checkpointCruiser=World.makeCar(0,0,0x151515,'police');
  World.checkpointPos=new THREE.Vector3();
  World.randomizeCheckpoint();
 
  World.chunks=new Map();
  World.updateChunks(0,0);
+ Traffic.init();
 };
 
 /* Randomized checkpoint: picks a random point along a random road centerline each session,
-   well clear of the spawn/landmark zone, and orients the barrier across that road. */
+   well clear of the spawn/landmark zone, and orients the barrier + officers + a parked cruiser
+   across that road. */
 World.randomizeCheckpoint=function(){
  const vertical=Math.random()<0.5;
  const k=(Math.floor(Math.random()*7)-3)*40; // one of the road lines, -120..120
@@ -133,6 +138,10 @@ World.randomizeCheckpoint=function(){
  if(vertical){ x=k; z=along; rotY=0; } else { x=along; z=k; rotY=Math.PI/2; }
  World.checkpointBarrier.position.set(x,0.6,z); World.checkpointBarrier.rotation.y=rotY;
  World.checkpointOfficer.mesh.position.set(x+(vertical?1.5:0),0,z+(vertical?0:1.5));
+ World.checkpointOfficer2.mesh.position.set(x-(vertical?1.5:0),0,z-(vertical?0:1.5));
+ World.checkpointOfficer.mesh.rotation.y=World.checkpointOfficer2.mesh.rotation.y=rotY;
+ World.checkpointCruiser.position.set(x+(vertical?3:0),0,z+(vertical?0:3));
+ World.checkpointCruiser.rotation.y=rotY+Math.PI/2;
  World.checkpointPos.set(x,0,z);
 };
 
@@ -185,6 +194,7 @@ const matHall=new THREE.MeshStandardMaterial({color:0xe3d9c0,roughness:0.7});
 const matBank=new THREE.MeshStandardMaterial({color:0xcfc9b8,roughness:0.5,metalness:0.1});
 const matGunShop=new THREE.MeshStandardMaterial({color:0x3a3a3a,roughness:0.9});
 const matSafehouse=new THREE.MeshStandardMaterial({map:TEX.residential2,roughness:0.85});
+const matVilla=new THREE.MeshStandardMaterial({color:0xe8dcc0,roughness:0.6,metalness:0.05});
 function buildLandmarks(scene){
  World.landmarks.hospital=block(scene,-60,0,-60,14,10,14,matHosp); roofLedge(scene,-60,10.15,-60,14,14,0xffffff);
  World.landmarks.police=block(scene,60,0,-60,12,9,12,matPolice); roofLedge(scene,60,9.15,-60,12,12,0x3d3a35);
@@ -202,6 +212,7 @@ function buildLandmarks(scene){
  World.landmarks.gunshop=block(scene,60,0,-20,8,5,8,matGunShop);
  World.landmarks.studio=block(scene,20,0,20,8,6,8,matSafehouse);
  World.landmarks.flat2=block(scene,-20,0,-60,8,6,8,matSafehouse);
+ World.landmarks.villa=block(scene,-20,0,60,12,8,12,matVilla); roofLedge(scene,-20,8.15,60,12,12,0xe8dcc0);
  // Signboards, matching the reference image's readable facade signage.
  // Each building's front wall points AWAY from its own center, through its entrance — the sign's
  // rotation/offset must follow that same outward direction, or it renders back-face-culled (invisible).
@@ -225,6 +236,7 @@ World.pois=[
  {id:'gunshop',name:'Gun Shop',type:'interior',pos:new THREE.Vector3(60,1,-16),color:'#3a3a3a'},
  {id:'studio',name:'Studio Apartment',type:'interior',pos:new THREE.Vector3(20,1,16),color:'#e3c9a0',ownable:true},
  {id:'flat2',name:'2-Room Flat',type:'interior',pos:new THREE.Vector3(-20,1,-56),color:'#e3c9a0',ownable:true},
+ {id:'villa',name:'Villa',type:'interior',pos:new THREE.Vector3(-20,1,54),color:'#e8dcc0',ownable:true},
 ];
 World.entrances=World.pois.filter(p=>p.type==='interior');
 World.shops=World.pois.filter(p=>p.type==='shop');
@@ -242,6 +254,9 @@ function buildInteriors(scene){
  makeInterior(scene,'hospital',0xeaf1f8,0xdfe9f2,0xc0392b);
  makeInterior(scene,'police',0x3a3733,0x2a2825,0x146b3a);
  makeInterior(scene,'prison',0x2c2c2c,0x1f1f1f,0x555555);
+ const bunk=new THREE.Mesh(new THREE.BoxGeometry(2,0.5,3),new THREE.MeshStandardMaterial({color:0x3a3a3a})); bunk.position.set(-3,-1.75,-3); World.interiors.prison.add(bunk);
+ const barMat=new THREE.MeshStandardMaterial({color:0x1a1a1a,metalness:0.6,roughness:0.4});
+ for(let i=-4;i<=4;i++){ const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,3.6,6),barMat); bar.position.set(i,-0.2,4.8); World.interiors.prison.add(bar); }
  makeInterior(scene,'home',0xe7d9be,0xc7a97a,0x8a5a3a);
  const home=World.interiors.home;
  const bed=new THREE.Mesh(new THREE.BoxGeometry(2,0.6,3),new THREE.MeshStandardMaterial({color:0x8b5e3c})); bed.position.set(-3,-1.7,-3); home.add(bed);
@@ -260,19 +275,27 @@ function buildInteriors(scene){
   bag.position.set(p[0],p[1],p[2]); bank.add(bag);
   return {mesh:bag,localPos:new THREE.Vector3(p[0],50+p[1],p[2]),collected:false};
  });
+ const teller=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.9,0.7),new THREE.MeshStandardMaterial({color:0x5a4a30})); teller.position.set(3.5,-1.55,3.5); bank.add(teller);
+ const tellerGlass=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.8,0.05),new THREE.MeshPhysicalMaterial({color:0xcfe8ff,transparent:true,opacity:0.3})); tellerGlass.position.set(3.5,-0.7,3.2); bank.add(tellerGlass);
+ World.bankTellerLocal=new THREE.Vector3(3.5,50-1.55,3.5);
 
- // Gun Shop: small interior with a counter trigger (opens the weapon shop panel)
+ // Gun Shop: small interior with a counter trigger (opens the weapon shop panel), plus weapon racks
  makeInterior(scene,'gunshop',0x2a2a2a,0x1c1c1c,0x8a2020);
  const counter=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.9,0.8),new THREE.MeshStandardMaterial({color:0x4a3a2a})); counter.position.set(0,-1.55,-3.5); World.interiors.gunshop.add(counter);
  World.gunShopCounterLocal=new THREE.Vector3(0,50-1.55,-3.5);
+ [-3,3].forEach(sx=>{ const rack=new THREE.Mesh(new THREE.BoxGeometry(0.6,1.8,0.3),new THREE.MeshStandardMaterial({color:0x333})); rack.position.set(sx,-1.1,-4.6); World.interiors.gunshop.add(rack); });
 
  // Safehouses: purchasable, gated by Player.properties — each gets a bed like home
  makeInterior(scene,'studio',0xe7d9be,0xc7a97a,0x8a5a3a);
  makeInterior(scene,'flat2',0xe7d9be,0xc7a97a,0x8a5a3a);
- [['studio',-3,-3],['flat2',-3,-3]].forEach(([id,bx,bz])=>{
+ makeInterior(scene,'villa',0xf0e6cc,0xd8c49a,0xc9a24b);
+ [['studio',-3,-3],['flat2',-3,-3],['villa',-3,-3]].forEach(([id,bx,bz])=>{
   const b=new THREE.Mesh(new THREE.BoxGeometry(2,0.6,3),new THREE.MeshStandardMaterial({color:0x8b5e3c})); b.position.set(bx,-1.7,bz); World.interiors[id].add(b);
  });
- World.safehouseBedLocal={studio:new THREE.Vector3(-3,50-1.7,-3), flat2:new THREE.Vector3(-3,50-1.7,-3)};
+ // Villa gets an extra couple of furnishing props so it visually reads as the top tier, not just a bigger box
+ const villaTable=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.5,0.8),new THREE.MeshStandardMaterial({color:0x6b4a30})); villaTable.position.set(2.5,-1.75,2); World.interiors.villa.add(villaTable);
+ const villaRug=new THREE.Mesh(new THREE.CircleGeometry(2,24),new THREE.MeshStandardMaterial({color:0xa8362f})); villaRug.rotation.x=-Math.PI/2; villaRug.position.set(2.5,-1.98,2); World.interiors.villa.add(villaRug);
+ World.safehouseBedLocal={studio:new THREE.Vector3(-3,50-1.7,-3), flat2:new THREE.Vector3(-3,50-1.7,-3), villa:new THREE.Vector3(-3,50-1.7,-3)};
 }
 World.enterInterior=function(name,camera,outsidePos){
  if(World.activeInterior) return;
@@ -281,7 +304,7 @@ World.enterInterior=function(name,camera,outsidePos){
  outsidePos.copy(camera.position);
  Object.values(World.interiors).forEach(i=>i.visible=false);
  World.interiors[name].visible=true; World.activeInterior=name;
- camera.position.set(0,52,3); camera.lookAt(0,51,-4);
+ camera.position.set(0,49.6,3); camera.lookAt(0,49.6,-4);
 };
 World.exitInterior=function(camera,outsidePos){
  if(!World.activeInterior) return;
@@ -388,6 +411,38 @@ function makeTree(parent,x,z){
  const foliage=new THREE.Mesh(new THREE.ConeGeometry(0.85,1.8,8),treeFoliageMat); foliage.position.set(x,2.1,z); foliage.castShadow=true; parent.add(foliage);
 }
 
+/* ---- Traffic: ambient moving NPC vehicles, pooled and recycled by distance like NPCPool.
+   No car-to-car or car-to-player collision yet — a deliberate first-pass simplification, flagged
+   rather than silently skipped. ---- */
+const Traffic={cars:[],size:6};
+Traffic.init=function(){
+ const colors=[0x8a3a3a,0x3a5a8a,0x555555,0x2f6b4a,0x9c7a3a,0x6b4226];
+ for(let i=0;i<Traffic.size;i++){
+  const mesh=World.makeCar(9999,9999,colors[i%colors.length],i%2===0?'sedan':'hatchback');
+  Traffic.cars.push({mesh,axis:'x',dir:1,speed:6+Math.random()*3});
+ }
+};
+Traffic.respawn=function(car,playerPos){
+ const vertical=Math.random()<0.5;
+ const k=(Math.floor(Math.random()*7)-3)*40, dir=Math.random()<0.5?1:-1, ahead=50+Math.random()*40;
+ if(vertical){
+  car.axis='z'; car.dir=dir;
+  car.mesh.position.set(k+(dir>0?-2:2),0,playerPos.z-dir*ahead);
+  car.mesh.rotation.y=dir>0?0:Math.PI;
+ } else {
+  car.axis='x'; car.dir=dir;
+  car.mesh.position.set(playerPos.x-dir*ahead,0,k+(dir>0?2:-2));
+  car.mesh.rotation.y=dir>0?Math.PI/2:-Math.PI/2;
+ }
+};
+Traffic.update=function(dt,playerPos){
+ Traffic.cars.forEach(car=>{
+  if(playerPos.distanceTo(car.mesh.position)>150){ Traffic.respawn(car,playerPos); return; }
+  if(car.axis==='z') car.mesh.position.z+=car.dir*car.speed*dt;
+  else car.mesh.position.x+=car.dir*car.speed*dt;
+ });
+};
+
 /* ---- NPCs: simple anatomical humanoid (head/torso/arms/legs), randomized look ---- */
 const SKIN=[0xC68642,0x8D5524,0xE0AC69,0xF1C27D]; const OUTFIT=[0x3d5a6c,0x6b4226,0x4a4a48,0x7a5230,0x2f4a3e];
 const PANTS=[0x2b2f38,0x4a3a2a,0x1f1f1f,0x5a4632,0x30323a];
@@ -416,7 +471,7 @@ function spawnKeyNpcs(){
  World.keyNpcs.karim=spawnNPC(22,-16);    // near store
  World.keyNpcs.sofia=spawnNPC(-68,-14);   // near home
 }
-World.update=function(px,pz,dt){ World.updateChunks(px,pz); };
+World.update=function(px,pz,dt){ World.updateChunks(px,pz); Traffic.update(dt,new THREE.Vector3(px,0,pz)); };
 
 /* ---- Chunk streaming (proximity-based spawn/despawn, LOD via distance) ---- */
 World.CHUNK=40; World.RADIUS=3;

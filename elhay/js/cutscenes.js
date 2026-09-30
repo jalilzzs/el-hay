@@ -5,26 +5,50 @@ const getEl = id => document.getElementById(id);
 
 let csSkipped = false;
 
-// دالة التحكم بإخفاء وإظهار الواجهة والأزرار بشمولية
+// دالة شاملة لإخفاء وإظهار الواجهة والأزرار
 function setUIHidden(hide) {
-  // 1. إخفاء/إظهار عناصر بالـ ID
+  // قائمة المعرفات الممكنة
   const ids = [
-    'touchUI', 'hud', 'vitalsBox', 'cashBox', 'minimap', 'miniMap', 'map',
+    'touchUI', 'hud', 'vitalsBox', 'cashBox', 'minimap', 'miniMap', 'map', 'mapContainer',
     'weaponHud', 'wantedBox', 'reticle', 'crosshair', 
-    'invBtn', 'inventoryBtn', 'phoneBtn', 'sprintBtn', 
-    'interactBtn', 'interactPrompt', 'actionBtn', 'eBtn', 'btnE'
+    'invBtn', 'inventoryBtn', 'walletBtn', 'phoneBtn', 'sprintBtn', 
+    'interactBtn', 'interactPrompt', 'actionBtn', 'eBtn', 'btnE', 'ePrompt'
   ];
-  
+
   ids.forEach(id => {
     const el = getEl(id);
-    if (el) el.style.display = hide ? 'none' : '';
+    if (el) {
+      if (hide) {
+        el.style.setProperty('display', 'none', 'important');
+        el.classList.add('hidden', 'hide', 'd-none');
+      } else {
+        el.style.removeProperty('display');
+        el.style.display = '';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+        el.classList.remove('hidden', 'hide', 'd-none');
+      }
+    }
   });
 
-  // 2. إخفاء/إظهار عناصر بالـ Class لتغطية الخريطة والمحفظة والأزرار بأي تسمية
-  const selectors = ['.minimap', '.map-container', '.inventory-btn', '.interaction-prompt', '.touch-button'];
+  // تغطية كافة الكلاسات الخاصة بالأزرار والخريطة والمحفظة
+  const selectors = [
+    '.minimap', '#minimap', '.map-container', '.inventory-btn', '#invBtn', '#walletBtn',
+    '.interaction-prompt', '#interactBtn', '#interactPrompt', '.touch-button', '#touchUI'
+  ];
+
   selectors.forEach(sel => {
     document.querySelectorAll(sel).forEach(el => {
-      el.style.display = hide ? 'none' : '';
+      if (hide) {
+        el.style.setProperty('display', 'none', 'important');
+        el.classList.add('hidden', 'hide', 'd-none');
+      } else {
+        el.style.removeProperty('display');
+        el.style.display = '';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+        el.classList.remove('hidden', 'hide', 'd-none');
+      }
     });
   });
 }
@@ -38,7 +62,7 @@ function safeText(key) {
 
 function offset(target, dx, dy, dz) {
   const t = target || new THREE.Vector3(0, 0, 0);
-  return new THREE.Vector3(t.x + dx, t.y + dy, t.z + dz);
+  return new THREE.Vector3(t.x + dx, dy, t.z + dz);
 }
 
 function buildBeats() {
@@ -59,7 +83,7 @@ function buildBeats() {
     { from: { p: offset(checkpoint, -4, 1.6, 3), l: officer }, to: { p: offset(checkpoint, -2, 1.4, 1.5), l: officer }, dur: 3.5, sub: 'cs5' },
     { from: { p: offset(checkpoint, -2, 1.4, 1.5), l: officer }, to: { p: offset(checkpoint, -1, 1.3, 0.8), l: officer }, dur: 3.5, sub: 'cs6' },
     { card: 'cs7', dur: 2.2 },
-    { from: { p: offset(prison, 0, 1.7, 10), l: offset(prison, 0, 1.4, 4) }, to: { p: offset(prison, 0, 1.7, 3), l: offset(prison, 0, 1.4, -3) }, dur: 3.5, sub: 'cs8' }
+    { from: { p: offset(prison, 0, 1.7, 10), l: offset(prison, 0, 1.4, 4) }, to: { p: offset(prison, 0, 1.4, -3) }, dur: 3.5, sub: 'cs8' }
   ];
 }
 
@@ -134,8 +158,12 @@ Cutscenes.play = async function(camera, onDone) {
     if (csSub) csSub.textContent = '';
     if (csCard) csCard.classList.remove('show');
 
-    // إرجاع كل عناصر الواجهة والأزرار للظهور
+    // إرجاع كافة عناصر الواجهة والأزرار فوراً
     setUIHidden(false);
+
+    // إذا كان هناك دالة لإعادة تحديث الواجهة في ملف UI الخاص باللعبة
+    if (window.UI && typeof window.UI.update === 'function') window.UI.update();
+    if (window.UI && typeof window.UI.show === 'function') window.UI.show();
 
     if (camera) {
       camera.position.set(30, 1.7, 55);

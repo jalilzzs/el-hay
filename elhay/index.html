@@ -11,7 +11,7 @@
 
 <style>
 /* =========================================================
-   تنسيق القائمة الجانبية المجهزة للصورة الرسمية
+   تنسيق القائمة الجانبية بالخلفية الجديدة (PNG)
    ========================================================= */
 :root {
   --primary-glow: #ff6b00;
@@ -27,21 +27,21 @@ body {
   background-color: #000;
 }
 
-/* القائمة الرئيسية بالخلفية المسحوبة من المسار */
+/* القائمة الرئيسية بالخلفية بصيغة PNG */
 #menu {
   position: fixed;
   top: 0; left: 0; width: 100vw; height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* وضع الأزرار في الجانب الأيمن */
+  justify-content: flex-start;
   padding-right: clamp(20px, 5vw, 60px);
   box-sizing: border-box;
   background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%), 
-              url('indexhtmlpic/bg.jpg') center/cover no-repeat;
+              url('indexhtmlpic/bg.png') center/cover no-repeat;
   z-index: 1000;
 }
 
-/* اللوحة الجانبية الأنيقة */
+/* اللوحة الجانبية */
 #menuPanel {
   width: min(340px, 85vw);
   padding: 28px 22px;
@@ -136,7 +136,7 @@ body {
   color: #fff;
 }
 
-/* رفع زدر الترتيب للنوافذ لكي تفتح فوق الواجهة دائماً */
+/* ظهور النوافذ فوق الواجهة دائماً */
 .panel {
   z-index: 2000 !important;
 }
@@ -185,7 +185,7 @@ body {
   </div>
 </div>
 
-<!-- نافذة الإعدادات (تفتح الآن فوق كل شيء) -->
+<!-- نافذة الإعدادات -->
 <div class="panel" id="pSettings"><div class="card">
 <h2 id="sTitle">الإعدادات</h2>
 <div class="row"><span id="lLang">اللغة</span><select id="selLang"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option><option value="zh">中文</option></select></div>

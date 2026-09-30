@@ -14,8 +14,6 @@
   --primary-glow: #ff6b00;
   --bg-glass: rgba(8, 10, 15, 0.75);
   --border-glass: rgba(255, 107, 0, 0.3);
-  --btn-glass-bg: rgba(15, 20, 28, 0.65);
-  --btn-glass-border: rgba(255, 107, 0, 0.45);
 }
 
 body {
@@ -24,8 +22,6 @@ body {
   padding: 0;
   overflow: hidden;
   background-color: #000;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
 /* القائمة الرئيسية بالخلفية المباشرة */
@@ -141,80 +137,6 @@ body {
 
 .panel {
   z-index: 2000 !important;
-}
-
-/* ==================== تصميم عصري للميني ماب والأزرار العلوية ==================== */
-
-#minimap {
-  border: 2px solid var(--primary-glow) !important;
-  border-radius: 50% !important;
-  box-shadow: 0 0 15px rgba(255, 107, 0, 0.4), inset 0 0 10px rgba(0,0,0,0.8) !important;
-  overflow: hidden !important;
-  background: rgba(0, 0, 0, 0.7) !important;
-  backdrop-filter: blur(6px) !important;
-}
-
-#invBtn, #phoneBtn {
-  background: var(--btn-glass-bg) !important;
-  border: 1.5px solid var(--btn-glass-border) !important;
-  color: #fff !important;
-  border-radius: 16px !important;
-  backdrop-filter: blur(10px) !important;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.2) !important;
-  transition: transform 0.15s ease, background 0.15s ease !important;
-  cursor: pointer;
-}
-
-#invBtn:active, #phoneBtn:active {
-  transform: scale(0.9) !important;
-  background: rgba(255, 107, 0, 0.4) !important;
-}
-
-/* ==================== تصميم عصري لأزرار اللمس (TOUCH UI) ==================== */
-
-#joyBase {
-  border: 2px solid rgba(255, 107, 0, 0.5) !important;
-  background: rgba(10, 14, 23, 0.45) !important;
-  backdrop-filter: blur(8px) !important;
-  box-shadow: 0 0 20px rgba(0,0,0,0.7), inset 0 0 12px rgba(255, 107, 0, 0.15) !important;
-}
-
-#joyStick {
-  background: radial-gradient(circle, #ff6b00 0%, #b33600 100%) !important;
-  box-shadow: 0 0 18px rgba(255, 107, 0, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.5) !important;
-}
-
-#touchInteract, #touchSprint, #touchFire, #touchWeapon {
-  background: var(--btn-glass-bg) !important;
-  border: 1.5px solid var(--btn-glass-border) !important;
-  color: #ffffff !important;
-  border-radius: 50% !important;
-  backdrop-filter: blur(12px) !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65), inset 0 1px 2px rgba(255,255,255,0.3) !important;
-  transition: transform 0.1s ease, background 0.15s ease, box-shadow 0.15s ease !important;
-}
-
-#touchInteract:active, #touchSprint:active, #touchFire:active, #touchWeapon:active {
-  transform: scale(0.88) !important;
-  background: linear-gradient(135deg, rgba(255, 107, 0, 0.7) 0%, rgba(180, 40, 0, 0.9) 100%) !important;
-  border-color: #ffaa00 !important;
-  box-shadow: 0 0 22px rgba(255, 107, 0, 0.9) !important;
-}
-
-#driveControls button {
-  background: var(--btn-glass-bg) !important;
-  border: 1.5px solid var(--btn-glass-border) !important;
-  color: #ffffff !important;
-  border-radius: 14px !important;
-  backdrop-filter: blur(10px) !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6) !important;
-  transition: transform 0.1s ease !important;
-}
-
-#driveControls button:active {
-  transform: scale(0.9) !important;
-  background: rgba(255, 107, 0, 0.5) !important;
 }
 
 @keyframes menuSlideIn {

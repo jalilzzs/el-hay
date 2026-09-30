@@ -126,6 +126,9 @@ UI.initExtras=function(){
  $('invBtn').addEventListener('touchstart',e=>{ e.preventDefault(); e.stopPropagation(); UI.openInventory(); },{passive:false});
  $('polComply').onclick=Police.comply; $('polPay').onclick=Police.payFine; $('polFlee').onclick=Police.flee;
  $('vitalsBox').style.display='block'; $('cashBox').style.display='block'; $('invBtn').style.display='block';
- if(!IS_TOUCH) addEventListener('keydown',e=>{ if(e.code==='KeyI') UI.openInventory(); if(e.code==='KeyM') $('minimap').style.display=$('minimap').style.display==='none'?'block':'none'; });
+ if(!IS_TOUCH) addEventListener('keydown',e=>{ if(e.code==='KeyI') UI.openInventory(); });
  $('minimap').style.display='block';
+ $('minimap').style.cursor='pointer';
+ $('minimap').addEventListener('click',()=>Minimap.toggleFullscreen());
+ $('fullMapClose').onclick=()=>Minimap.toggleFullscreen();
 };

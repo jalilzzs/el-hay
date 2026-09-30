@@ -5,22 +5,229 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>El-Hay | الحي</title>
 <link rel="stylesheet" href="css/style.css"/>
+<!-- خط تجديدي عصري للعناوين والواجهات -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+
+<style>
+/* =========================================================
+   تحديثات ستايل الواجهة الرئيسية المودرن (Main Menu Modern Style)
+   ========================================================= */
+:root {
+  --primary-glow: #ff6b00;
+  --secondary-glow: #00d2ff;
+  --bg-glass: rgba(15, 20, 28, 0.75);
+  --border-glass: rgba(255, 255, 255, 0.12);
+}
+
+body {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/* القائمة الرئيسية الشاملة */
+#menu {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(10, 15, 25, 0.5) 0%, rgba(5, 7, 12, 0.85) 100%);
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+}
+
+/* لوحة القائمة الزجاجية */
+#menuPanel {
+  width: min(420px, 90vw);
+  padding: 35px 28px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 
+              0 0 30px rgba(255, 107, 0, 0.15);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: menuAppear 0.5s ease-out forwards;
+}
+
+#menuPanel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -50%;
+  width: 200%; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--primary-glow), var(--secondary-glow), transparent);
+  animation: borderGlow 4s linear infinite;
+}
+
+/* عنوان اللعبة القاتل */
+#mTitle {
+  font-size: 48px;
+  font-weight: 900;
+  margin: 0;
+  background: linear-gradient(135deg, #ffffff 30%, #ff8c00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 2px;
+  text-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+.sub {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #a0aec0;
+  margin-bottom: 25px;
+  text-transform: uppercase;
+}
+
+/* اختيار الوضع */
+.menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px 16px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.menu-row span {
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.menu-row select {
+  background: rgba(0, 0, 0, 0.5);
+  color: #ff9d00;
+  border: 1px solid rgba(255, 157, 0, 0.4);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  outline: none;
+}
+
+/* الأزرار العصرية الرئيسية */
+.btn-modern {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.15) 0%, rgba(255, 107, 0, 0.05) 100%);
+  border: 1px solid rgba(255, 107, 0, 0.4);
+  color: #ffffff;
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-modern.primary {
+  background: linear-gradient(135deg, #ff6b00 0%, #ff3c00 100%);
+  border: none;
+  box-shadow: 0 8px 25px rgba(255, 107, 0, 0.4);
+}
+
+.btn-modern:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(255, 107, 0, 0.3);
+  border-color: #ff6b00;
+}
+
+.btn-modern.primary:hover {
+  background: linear-gradient(135deg, #ff7b1a 0%, #ff4c1a 100%);
+  box-shadow: 0 12px 30px rgba(255, 107, 0, 0.6);
+}
+
+.btn-modern:active {
+  transform: translateY(1px);
+}
+
+/* أزرار الأسفل */
+#menuFoot {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.btn-sm {
+  flex: 1;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #718096;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-sm:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* حركة التحريك عند الظهور */
+@keyframes menuAppear {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes borderGlow {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(50%); }
+}
+</style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="crosshair"></div>
 <div id="hud"></div>
 <div id="prompt"></div>
-<div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري التحميل...</div></div>
+<div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري تحميل شوارع الحي...</div></div>
 
-<div id="menu"><div id="menuPanel">
-<h1 id="mTitle">الحي</h1><div class="sub" id="mSub">CORE BUILD</div>
-<div class="row" style="margin-bottom:14px"><span id="lMode">Mode</span><select id="selMode"><option value="offline">Offline (Single-Player)</option><option value="multi">Multiplayer (stub)</option></select></div>
-<button class="btn" id="bNew">بدء لعبة جديدة</button>
-<button class="btn" id="bCont">استمرار اللعب</button>
-<button class="btn" id="bSet">الإعدادات</button>
-<div id="menuFoot"><button class="btn sm" id="bSup">الدعم</button><button class="btn sm" id="bPriv">الخصوصية</button><button class="btn sm" id="bTerm">الشروط</button></div>
-</div></div>
+<!-- الواجهة الرئيسية القاتلة والمعدلة -->
+<div id="menu">
+  <div id="menuPanel">
+    <h1 id="mTitle">الـحـي</h1>
+    <div class="sub" id="mSub">OPEN WORLD EDITION</div>
+    
+    <div class="menu-row">
+      <span id="lMode">نمط اللعب</span>
+      <select id="selMode">
+        <option value="offline">فردي (Offline)</option>
+        <option value="multi">جماعي (Multiplayer)</option>
+      </select>
+    </div>
+
+    <button class="btn-modern primary" id="bNew">
+      <span>🎮</span> بدء لعبة جديدة
+    </button>
+    <button class="btn-modern" id="bCont">
+      <span>💾</span> استمرار اللعب
+    </button>
+    <button class="btn-modern" id="bSet">
+      <span>⚙️</span> الإعدادات
+    </button>
+
+    <div id="menuFoot">
+      <button class="btn-sm" id="bSup">الدعم</button>
+      <button class="btn-sm" id="bPriv">الخصوصية</button>
+      <button class="btn-sm" id="bTerm">الشروط</button>
+    </div>
+  </div>
+</div>
 
 <div class="panel" id="pSettings"><div class="card">
 <h2 id="sTitle">الإعدادات</h2>

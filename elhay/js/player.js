@@ -1715,72 +1715,66 @@ function updateDrive(dt) {
 
   let steerInput = 0;
 
-  if (wantL) {
-    steerInput -= 1;
-  }
+if (wantL) {
+  steerInput += 1;
+}
 
-  if (wantR) {
-    steerInput += 1;
-  }
+if (wantR) {
+  steerInput -= 1;
+}
 
+if (steerInput !== 0) {
 
-  if (steerInput !== 0) {
+  /*
+    Steering becomes stronger with speed.
+    Reverse steering is automatically inverted
+    so the car behaves naturally while reversing.
+  */
 
-    /*
-      Steering becomes stronger with speed.
-      Reverse steering is automatically inverted
-      so the car behaves naturally while reversing.
-    */
+  const direction =
+    carVel.speed >= 0
+      ? 1
+      : -1;
 
-    const direction =
-      carVel.speed >= 0
-        ? 1
-        : -1;
+  const steerSpeed =
+    Math.min(
+      1,
+      Math.abs(carVel.speed) / 4
+    );
 
+  carVel.steer +=
+    steerInput *
+    dt *
+    3.2 *
+    Math.max(
+      0.25,
+      steerSpeed
+    ) *
+    direction;
 
-    const steerSpeed =
+  carVel.steer =
+    Math.max(
+      -1,
       Math.min(
         1,
-        Math.abs(carVel.speed) / 4
-      );
+        carVel.steer
+      )
+    );
 
+} else {
 
-    carVel.steer +=
-      steerInput *
-      dt *
-      3.2 *
-      Math.max(
-        0.25,
-        steerSpeed
-      ) *
-      direction;
+  carVel.steer *=
+    Math.pow(
+      0.78,
+      dt * 60
+    );
 
-
-    carVel.steer =
-      Math.max(
-        -1,
-        Math.min(
-          1,
-          carVel.steer
-        )
-      );
-
-  } else {
-
-    carVel.steer *=
-      Math.pow(
-        0.78,
-        dt * 60
-      );
-
-
-    if (
-      Math.abs(carVel.steer) < 0.01
-    ) {
-      carVel.steer = 0;
-    }
+  if (
+    Math.abs(carVel.steer) < 0.01
+  ) {
+    carVel.steer = 0;
   }
-
+}
 
   /*
     -----------------------------------------

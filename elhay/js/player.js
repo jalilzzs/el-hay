@@ -176,12 +176,14 @@ function bindKeyboard() {
 const touch = {
   joyActive: false,
   joyId: null,
+
   joyVec: {
     x: 0,
     y: 0
   },
 
   lookId: null,
+
   lookLast: {
     x: 0,
     y: 0
@@ -227,6 +229,7 @@ function initTouchUI() {
     e => {
 
       touch.joyActive = true;
+
       touch.joyId =
         e.changedTouches[0].identifier;
 
@@ -270,8 +273,11 @@ function initTouchUI() {
           dy = dy / len * max;
         }
 
-        touch.joyVec.x = dx / max;
-        touch.joyVec.y = dy / max;
+        touch.joyVec.x =
+          dx / max;
+
+        touch.joyVec.y =
+          dy / max;
 
         joyStick.style.transform =
           `translate(${dx}px,${dy}px)`;
@@ -385,7 +391,6 @@ function initTouchUI() {
       ) {
         touch.lookId = null;
       }
-
     }
   );
 
@@ -394,11 +399,15 @@ function initTouchUI() {
     $('touchInteract');
 
   if (interact) {
+
     interact.addEventListener(
       'touchstart',
       e => {
+
         e.preventDefault();
+
         Player.interact();
+
       },
       { passive: false }
     );
@@ -413,8 +422,11 @@ function initTouchUI() {
     sprint.addEventListener(
       'touchstart',
       e => {
+
         e.preventDefault();
+
         touch.sprint = true;
+
       },
       { passive: false }
     );
@@ -480,10 +492,17 @@ function initTouchUI() {
   }
 
 
-  const gas = $('btnGas');
-  const brake = $('btnBrake');
-  const left = $('btnLeft');
-  const right = $('btnRight');
+  const gas =
+    $('btnGas');
+
+  const brake =
+    $('btnBrake');
+
+  const left =
+    $('btnLeft');
+
+  const right =
+    $('btnRight');
 
 
   const bind = (el, key) => {
@@ -493,17 +512,25 @@ function initTouchUI() {
     el.addEventListener(
       'touchstart',
       e => {
+
         e.preventDefault();
+
         touch[key] = true;
+
       },
       { passive: false }
     );
 
     el.addEventListener(
       'touchend',
-      () => {
+      e => {
+
+        e.preventDefault();
+
         touch[key] = false;
-      }
+
+      },
+      { passive: false }
     );
 
     el.addEventListener(
@@ -630,7 +657,6 @@ function getInteriorInteractable(p) {
     }
   }
 
-  /* Legacy systems */
 
   const room =
     World.activeInterior;
@@ -652,6 +678,7 @@ function getInteriorInteractable(p) {
       bedPos &&
       p.distanceTo(bedPos) < 2.2
     ) {
+
       return {
         type: 'bed',
         position: bedPos
@@ -828,24 +855,22 @@ function useInteriorObject(item) {
     type === 'restaurantChair' ||
     type === 'seat'
   ) {
+
     beginSeatAction(item);
+
     return;
   }
 
 
   if (type === 'tv') {
+
     useTV(item);
+
     return;
   }
 
 
   if (type === 'bed') {
-
-    /*
-      Hospital beds are not sleepable.
-      Only rooms that explicitly allow sleeping
-      can use this action.
-    */
 
     const meta =
       World.interiorMeta?.[
@@ -919,13 +944,14 @@ function useInteriorObject(item) {
       World.activeInterior ===
       'gunshop'
     ) {
-      UI.openShop('gunshop');
-    }
 
-    else if (
+      UI.openShop('gunshop');
+
+    } else if (
       World.activeInterior ===
       'bank'
     ) {
+
       UI.openShop('bank');
     }
 
@@ -953,6 +979,7 @@ function useInteriorObject(item) {
     typeof item.onUse ===
     'function'
   ) {
+
     item.onUse();
   }
 }
@@ -967,11 +994,13 @@ function findInteractable(p) {
   if (
     Player.mode === 'drive'
   ) {
+
     return {
       type: 'exitCar',
       dist: 0
     };
   }
+
 
   let best = null;
   let bestD = 3.2;
@@ -1097,10 +1126,6 @@ Player.interact = function() {
   }
 
 
-  /* -----------------------------------------
-     Currently using an interior object
-     ----------------------------------------- */
-
   if (Player.interiorAction) {
 
     Player.stopInteriorAction();
@@ -1108,10 +1133,6 @@ Player.interact = function() {
     return;
   }
 
-
-  /* -----------------------------------------
-     Inside building
-     ----------------------------------------- */
 
   if (World.activeInterior) {
 
@@ -1128,11 +1149,6 @@ Player.interact = function() {
       return;
     }
 
-
-    /*
-      Exit only when not close to an
-      interior object.
-    */
 
     if (
       typeof World.exitInterior ===
@@ -1153,10 +1169,6 @@ Player.interact = function() {
   }
 
 
-  /* -----------------------------------------
-     Outside
-     ----------------------------------------- */
-
   const hit =
     findInteractable(
       Player.camera.position
@@ -1172,6 +1184,9 @@ Player.interact = function() {
 
     Player.mode =
       'walk';
+
+    carVel.speed = 0;
+    carVel.steer = 0;
 
     Player.camera.position.set(
       World.playerCar.position.x + 2,
@@ -1209,6 +1224,9 @@ Player.interact = function() {
     Player.mode =
       'drive';
 
+    carVel.speed = 0;
+    carVel.steer = 0;
+
     if (!IS_TOUCH) {
       Player.controls.unlock();
     }
@@ -1219,6 +1237,13 @@ Player.interact = function() {
     setDriveButtonsVisible(
       true
     );
+
+    /*
+      Put the camera behind the car
+      immediately when entering it.
+    */
+
+    updateDriveCamera();
 
     Weapons.refreshHUD();
 
@@ -1317,11 +1342,6 @@ function updateInteriorWalk(dt) {
   }
 
 
-  /*
-    If sitting / using TV / object,
-    don't allow movement.
-  */
-
   if (Player.interiorAction) {
 
     const action =
@@ -1405,12 +1425,6 @@ function updateInteriorWalk(dt) {
   }
 
 
-  /*
-    Read room size from world.js.
-    New rooms use 12x12.
-    Old rooms fall back to 10x10.
-  */
-
   const room =
     World.interiors?.[
       World.activeInterior
@@ -1457,13 +1471,414 @@ function updateInteriorWalk(dt) {
     );
 
 
-  /*
-    Use room's actual eye height.
-  */
-
   Player.camera.position.y =
     room?.userData?.eyeY ||
     49.2;
+}
+
+
+/* =========================================================
+   DRIVE CAMERA
+   ========================================================= */
+
+function updateDriveCamera() {
+
+  if (
+    !World.playerCar ||
+    !Player.camera
+  ) {
+    return;
+  }
+
+
+  const car =
+    World.playerCar;
+
+
+  /*
+    IMPORTANT:
+    In World.makeCar:
+      +Z = FRONT
+      -Z = REAR
+
+    Therefore the camera must stay
+    behind the car at -Z.
+  */
+
+  const behind =
+    new THREE.Vector3(
+      0,
+      2.8,
+      -6.5
+    ).applyAxisAngle(
+      new THREE.Vector3(
+        0,
+        1,
+        0
+      ),
+      car.rotation.y
+    );
+
+
+  Player.camera.position
+    .copy(car.position)
+    .add(behind);
+
+
+  /*
+    Look toward the front of the car,
+    not toward its rear or center.
+  */
+
+  const forward =
+    new THREE.Vector3(
+      0,
+      0,
+      1
+    ).applyAxisAngle(
+      new THREE.Vector3(
+        0,
+        1,
+        0
+      ),
+      car.rotation.y
+    );
+
+
+  const lookTarget =
+    car.position.clone()
+      .add(
+        forward.multiplyScalar(4)
+      );
+
+
+  lookTarget.y += 1.0;
+
+
+  Player.camera.lookAt(
+    lookTarget
+  );
+}
+
+
+/* =========================================================
+   DRIVE PHYSICS
+   ========================================================= */
+
+function updateDrive(dt) {
+
+  if (!World.playerCar) {
+    return;
+  }
+
+
+  const car =
+    World.playerCar;
+
+
+  const wantGas =
+    IS_TOUCH
+      ? touch.gas
+      : move.f;
+
+
+  const wantBrake =
+    IS_TOUCH
+      ? touch.brake
+      : move.b;
+
+
+  const wantL =
+    IS_TOUCH
+      ? touch.steerL
+      : move.l;
+
+
+  const wantR =
+    IS_TOUCH
+      ? touch.steerR
+      : move.r;
+
+
+  /*
+    -----------------------------------------
+    SPEED
+    -----------------------------------------
+
+    Gas:
+      accelerate forward.
+
+    Brake:
+      if moving forward -> brake to zero.
+      if stopped -> reverse.
+      if already reversing -> accelerate reverse.
+
+    This gives the requested:
+      TOP    = GAS
+      BOTTOM = BRAKE / REVERSE
+  */
+
+
+  if (
+    Police.checkpointActive
+  ) {
+
+    carVel.speed *=
+      Math.pow(
+        0.82,
+        dt * 60
+      );
+
+  } else if (wantGas && !wantBrake) {
+
+    /*
+      If currently reversing,
+      gas first brakes the reverse speed.
+      Once zero is reached, it goes forward.
+    */
+
+    if (carVel.speed < 0) {
+
+      carVel.speed =
+        Math.min(
+          0,
+          carVel.speed +
+          dt * 12
+        );
+
+    } else {
+
+      carVel.speed =
+        Math.min(
+          carVel.speed +
+          dt * 8,
+          14
+        );
+    }
+
+  } else if (wantBrake && !wantGas) {
+
+    /*
+      Forward -> brake.
+      Stopped -> reverse.
+      Reverse -> stronger reverse acceleration.
+    */
+
+    if (carVel.speed > 0) {
+
+      carVel.speed =
+        Math.max(
+          0,
+          carVel.speed -
+          dt * 14
+        );
+
+    } else {
+
+      carVel.speed =
+        Math.max(
+          carVel.speed -
+          dt * 6,
+          -7
+        );
+    }
+
+  } else {
+
+    /*
+      Natural rolling friction.
+    */
+
+    const friction =
+      Math.pow(
+        0.94,
+        dt * 60
+      );
+
+    carVel.speed *=
+      friction;
+
+
+    if (
+      Math.abs(carVel.speed) < 0.015
+    ) {
+      carVel.speed = 0;
+    }
+  }
+
+
+  /*
+    -----------------------------------------
+    STEERING
+    -----------------------------------------
+  */
+
+  let steerInput = 0;
+
+  if (wantL) {
+    steerInput -= 1;
+  }
+
+  if (wantR) {
+    steerInput += 1;
+  }
+
+
+  if (steerInput !== 0) {
+
+    /*
+      Steering becomes stronger with speed.
+      Reverse steering is automatically inverted
+      so the car behaves naturally while reversing.
+    */
+
+    const direction =
+      carVel.speed >= 0
+        ? 1
+        : -1;
+
+
+    const steerSpeed =
+      Math.min(
+        1,
+        Math.abs(carVel.speed) / 4
+      );
+
+
+    carVel.steer +=
+      steerInput *
+      dt *
+      3.2 *
+      Math.max(
+        0.25,
+        steerSpeed
+      ) *
+      direction;
+
+
+    carVel.steer =
+      Math.max(
+        -1,
+        Math.min(
+          1,
+          carVel.steer
+        )
+      );
+
+  } else {
+
+    carVel.steer *=
+      Math.pow(
+        0.78,
+        dt * 60
+      );
+
+
+    if (
+      Math.abs(carVel.steer) < 0.01
+    ) {
+      carVel.steer = 0;
+    }
+  }
+
+
+  /*
+    -----------------------------------------
+    CAR ROTATION
+    -----------------------------------------
+  */
+
+  const speedFactor =
+    Math.min(
+      1,
+      Math.abs(carVel.speed) / 5
+    );
+
+
+  car.rotation.y +=
+    carVel.steer *
+    dt *
+    1.45 *
+    speedFactor;
+
+
+  /*
+    -----------------------------------------
+    MOVEMENT
+    -----------------------------------------
+
+    World.makeCar uses:
+      +Z = front
+      -Z = rear
+
+    Therefore:
+      forward = +Z
+      reverse = -Z
+  */
+
+  const forward =
+    new THREE.Vector3(
+      0,
+      0,
+      1
+    ).applyAxisAngle(
+      new THREE.Vector3(
+        0,
+        1,
+        0
+      ),
+      car.rotation.y
+    );
+
+
+  car.position.add(
+    forward.multiplyScalar(
+      carVel.speed * dt
+    )
+  );
+
+
+  /*
+    -----------------------------------------
+    COLLISION
+    -----------------------------------------
+  */
+
+  World.resolveCollision(
+    car.position,
+    1.0
+  );
+
+
+  /*
+    -----------------------------------------
+    CAMERA
+    -----------------------------------------
+  */
+
+  updateDriveCamera();
+
+
+  /*
+    -----------------------------------------
+    POLICE / DRIVING SCHOOL / AUDIO
+    -----------------------------------------
+  */
+
+  Police.maybeTrigger(
+    car.position,
+    dt
+  );
+
+
+  DrivingSchool.checkProgress(
+    car.position
+  );
+
+
+  Audio.engine(
+    carVel.speed
+  );
 }
 
 
@@ -1479,8 +1894,7 @@ Player.update = function(dt) {
 
 
   /*
-    Interior movement must be handled
-    separately from outdoor collision.
+    Interior movement
   */
 
   if (World.activeInterior) {
@@ -1627,155 +2041,7 @@ Player.update = function(dt) {
      DRIVE
      ----------------------------------------- */
 
-  const wantGas =
-    IS_TOUCH
-      ? touch.gas
-      : move.f;
-
-  const wantBrake =
-    IS_TOUCH
-      ? touch.brake
-      : move.b;
-
-  const wantL =
-    IS_TOUCH
-      ? touch.steerL
-      : move.l;
-
-  const wantR =
-    IS_TOUCH
-      ? touch.steerR
-      : move.r;
-
-
-  if (
-    Police.checkpointActive
-  ) {
-
-    carVel.speed *=
-      0.85;
-
-  } else if (wantGas) {
-
-    carVel.speed =
-      Math.min(
-        carVel.speed +
-        dt * 8,
-        14
-      );
-
-  } else if (wantBrake) {
-
-    carVel.speed =
-      Math.max(
-        carVel.speed -
-        dt * 8,
-        -8
-      );
-
-  } else {
-
-    carVel.speed *=
-      0.94;
-  }
-
-
-  if (wantR) {
-
-    carVel.steer =
-      Math.min(
-        carVel.steer +
-        dt * 2,
-        1
-      );
-
-  } else if (wantL) {
-
-    carVel.steer =
-      Math.max(
-        carVel.steer -
-        dt * 2,
-        -1
-      );
-
-  } else {
-
-    carVel.steer *=
-      0.85;
-  }
-
-
-  World.playerCar.rotation.y +=
-    carVel.steer *
-    dt *
-    (carVel.speed / 14);
-
-
-  World.playerCar.position.x +=
-    Math.sin(
-      World.playerCar.rotation.y
-    ) *
-    carVel.speed *
-    dt;
-
-
-  World.playerCar.position.z +=
-    Math.cos(
-      World.playerCar.rotation.y
-    ) *
-    carVel.speed *
-    dt;
-
-
-  World.resolveCollision(
-    World.playerCar.position,
-    1.0
-  );
-
-
-  const camOff =
-    new THREE.Vector3(
-      0,
-      2.4,
-      6
-    ).applyAxisAngle(
-      new THREE.Vector3(
-        0,
-        1,
-        0
-      ),
-      World.playerCar.rotation.y
-    );
-
-
-  Player.camera.position
-    .copy(
-      World.playerCar.position
-    )
-    .add(camOff);
-
-
-  Player.camera.lookAt(
-    World.playerCar.position.x,
-    World.playerCar.position.y + 1,
-    World.playerCar.position.z
-  );
-
-
-  Police.maybeTrigger(
-    World.playerCar.position,
-    dt
-  );
-
-
-  DrivingSchool.checkProgress(
-    World.playerCar.position
-  );
-
-
-  Audio.engine(
-    carVel.speed
-  );
+  updateDrive(dt);
 };
 
 

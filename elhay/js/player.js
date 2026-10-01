@@ -1,116 +1,82 @@
-/* ============ Player: unified PC (keyboard+mouse) & Mobile (touch), walk/drive/interior interaction ============ */
-
-const Player={mode:'walk'};
-const outsidePos=new THREE.Vector3();
-
-const move={
- f:false,
- b:false,
- l:false,
- r:false,
- sprint:false
-};
-
-const carVel={
- speed:0,
- steer:0
-};
-
-const IS_TOUCH=
- ('ontouchstart' in window)||
- navigator.maxTouchPoints>0;
-
-
 /* =========================================================
-   INTERIOR ACTION STATE
+   EL-HAY — PLAYER SYSTEM
+   PC Keyboard + Mouse / Mobile Touch
+   Walking / Driving / Interior Interaction
    ========================================================= */
 
-Player.interiorAction=null;
-
-Player.isUsingInteriorObject=function(){
- return !!Player.interiorAction;
+const Player = {
+  mode: 'walk',
+  suspended: false,
+  interiorAction: null,
+  properties: []
 };
 
-Player.stopInteriorAction=function(){
- if(!Player.interiorAction) return;
+const outsidePos = new THREE.Vector3();
 
- const action=Player.interiorAction;
-
- if(action.object&&action.object.userData){
-  action.object.userData.inUse=false;
- }
-
- Player.interiorAction=null;
-
- if(World.activeInterior){
-  const room=World.interiors?.[World.activeInterior];
-
-  if(room&&room.userData){
-   room.userData.playerAction=null;
-  }
- }
+const move = {
+  f: false,
+  b: false,
+  l: false,
+  r: false,
+  sprint: false
 };
+
+const carVel = {
+  speed: 0,
+  steer: 0
+};
+
+const IS_TOUCH =
+  ('ontouchstart' in window) ||
+  navigator.maxTouchPoints > 0;
 
 
 /* =========================================================
    INIT
    ========================================================= */
 
-Player.init=function(camera,domElement){
+Player.init = function(camera, domElement) {
+  Player.camera = camera;
 
- Player.camera=camera;
-
- Player.controls=
-  new THREE.PointerLockControls(
-   camera,
-   document.body
+  Player.controls = new THREE.PointerLockControls(
+    camera,
+    document.body
   );
 
- bindKeyboard();
+  bindKeyboard();
 
- domElement.addEventListener(
-  'click',
-  ()=>{
-   if(IS_TOUCH) return;
+  domElement.addEventListener('click', () => {
+    if (IS_TOUCH) return;
 
-   if(
-    UI.dom.menu.style.display==='none'&&
-    !document.querySelector('.panel.open')&&
-    $('csLayer').style.display!=='block'&&
-    Player.mode==='walk'&&
-    !World.activeInterior&&
-    !Player.interiorAction
-   ){
-    Player.controls.lock();
-   }
+    if (
+      UI.dom.menu.style.display === 'none' &&
+      !document.querySelector('.panel.open') &&
+      $('csLayer').style.display !== 'block' &&
+      Player.mode === 'walk' &&
+      !World.activeInterior &&
+      !Player.interiorAction
+    ) {
+      Player.controls.lock();
+    }
+  });
+
+  domElement.addEventListener('mousedown', e => {
+    if (IS_TOUCH || e.button !== 0) return;
+
+    if (
+      document.pointerLockElement &&
+      Player.mode === 'walk' &&
+      !World.activeInterior &&
+      !Player.interiorAction
+    ) {
+      Weapons.fire(Player.camera);
+      Weapons.refreshHUD();
+    }
+  });
+
+  if (IS_TOUCH) {
+    initTouchUI();
   }
- );
-
- domElement.addEventListener(
-  'mousedown',
-  e=>{
-   if(
-    IS_TOUCH||
-    e.button!==0
-   ) return;
-
-   if(
-    document.pointerLockElement&&
-    Player.mode==='walk'&&
-    !World.activeInterior
-   ){
-    Weapons.fire(
-     Player.camera
-    );
-
-    Weapons.refreshHUD();
-   }
-  }
- );
-
- if(IS_TOUCH){
-  initTouchUI();
- }
 };
 
 
@@ -118,737 +84,643 @@ Player.init=function(camera,domElement){
    KEYBOARD
    ========================================================= */
 
-function bindKeyboard(){
+function bindKeyboard() {
 
- const map=()=>(
-  S.ctrl==='arrows'
-   ? {
-      ArrowUp:'f',
-      ArrowDown:'b',
-      ArrowLeft:'l',
-      ArrowRight:'r'
-     }
-   : {
-      KeyW:'f',
-      KeyS:'b',
-      KeyA:'l',
-      KeyD:'r'
-     }
- );
+  const map = () =>
+    S.ctrl === 'arrows'
+      ? {
+          ArrowUp: 'f',
+          ArrowDown: 'b',
+          ArrowLeft: 'l',
+          ArrowRight: 'r'
+        }
+      : {
+          KeyW: 'f',
+          KeyS: 'b',
+          KeyA: 'l',
+          KeyD: 'r'
+        };
 
- addEventListener(
-  'keydown',
-  e=>{
+  addEventListener('keydown', e => {
 
-   const m=map();
+    const m = map();
 
-   if(m[e.code]){
-    move[m[e.code]]=true;
-   }
+    if (m[e.code]) {
+      move[m[e.code]] = true;
+    }
 
-   if(e.code==='KeyE'){
-    Player.interact();
-   }
+    if (e.code === 'KeyE') {
+      Player.interact();
+    }
 
-   if(
-    e.code==='ShiftLeft'||
-    e.code==='ShiftRight'
-   ){
-    move.sprint=true;
-   }
+    if (
+      e.code === 'ShiftLeft' ||
+      e.code === 'ShiftRight'
+    ) {
+      move.sprint = true;
+    }
 
-   if(e.code==='Digit1'){
-    Weapons.switchTo(0);
-   }
+    if (e.code === 'Digit1') {
+      Weapons.switchTo(0);
+    }
 
-   if(e.code==='Digit2'){
-    Weapons.switchTo(1);
-   }
+    if (e.code === 'Digit2') {
+      Weapons.switchTo(1);
+    }
 
-   if(e.code==='Digit3'){
-    Weapons.switchTo(2);
-   }
+    if (e.code === 'Digit3') {
+      Weapons.switchTo(2);
+    }
 
-   if(e.code==='KeyV'){
-    Weapons.cycle();
-   }
+    if (e.code === 'KeyV') {
+      Weapons.cycle();
+    }
 
-   if(e.code==='KeyR'){
-    Weapons.reload();
-   }
+    if (e.code === 'KeyR') {
+      Weapons.reload();
+    }
 
-   if(e.code==='KeyP'){
-    Phone.toggle();
-   }
+    if (e.code === 'KeyP') {
+      Phone.toggle();
+    }
 
-   if(e.code==='KeyM'){
-    Minimap.toggleFullscreen();
-   }
+    if (e.code === 'KeyM') {
+      Minimap.toggleFullscreen();
+    }
 
-   Weapons.refreshHUD();
-  }
- );
+    Weapons.refreshHUD();
+  });
 
- addEventListener(
-  'keyup',
-  e=>{
+  addEventListener('keyup', e => {
 
-   const m=map();
+    const m = map();
 
-   if(m[e.code]){
-    move[m[e.code]]=false;
-   }
+    if (m[e.code]) {
+      move[m[e.code]] = false;
+    }
 
-   if(
-    e.code==='ShiftLeft'||
-    e.code==='ShiftRight'
-   ){
-    move.sprint=false;
-   }
-  }
-);
+    if (
+      e.code === 'ShiftLeft' ||
+      e.code === 'ShiftRight'
+    ) {
+      move.sprint = false;
+    }
+  });
+}
 
 
 /* =========================================================
-   TOUCH UI
+   TOUCH
    ========================================================= */
 
-const touch={
- joyActive:false,
- joyId:null,
- joyVec:{x:0,y:0},
+const touch = {
+  joyActive: false,
+  joyId: null,
+  joyVec: {
+    x: 0,
+    y: 0
+  },
 
- lookId:null,
- lookLast:{x:0,y:0},
+  lookId: null,
+  lookLast: {
+    x: 0,
+    y: 0
+  },
 
- yaw:0,
- pitch:0,
+  yaw: 0,
+  pitch: 0,
 
- gas:false,
- brake:false,
- steerL:false,
- steerR:false,
- sprint:false
+  gas: false,
+  brake: false,
+  steerL: false,
+  steerR: false,
+  sprint: false
 };
 
 
-function initTouchUI(){
+function initTouchUI() {
 
- const touchUI=$('touchUI');
+  const touchUI = $('touchUI');
 
- touchUI.classList.add('active');
+  if (!touchUI) return;
 
- UI.dom.crosshair.style.display='none';
+  touchUI.classList.add('active');
 
- const joyBase=$('joyBase');
- const joyStick=$('joyStick');
- const lookArea=$('lookArea');
-
- const baseRect=
-  ()=>joyBase.getBoundingClientRect();
-
-
- joyBase.addEventListener(
-  'touchstart',
-  e=>{
-   touch.joyActive=true;
-   touch.joyId=
-    e.changedTouches[0].identifier;
-  },
-  {passive:true}
- );
-
-
- joyBase.addEventListener(
-  'touchmove',
-  e=>{
-
-   for(
-    const tch of e.changedTouches
-   ){
-
-    if(
-     tch.identifier!==touch.joyId
-    ){
-     continue;
-    }
-
-    const r=baseRect();
-
-    const cx=
-     r.left+r.width/2;
-
-    const cy=
-     r.top+r.height/2;
-
-    let dx=
-     tch.clientX-cx;
-
-    let dy=
-     tch.clientY-cy;
-
-    const max=
-     r.width/2;
-
-    const len=
-     Math.hypot(dx,dy);
-
-    if(len>max){
-
-     dx=
-      dx/len*max;
-
-     dy=
-      dy/len*max;
-    }
-
-    touch.joyVec.x=
-     dx/max;
-
-    touch.joyVec.y=
-     dy/max;
-
-    joyStick.style.transform=
-     `translate(${dx}px,${dy}px)`;
-   }
-  },
-  {passive:true}
- );
-
-
- function joyEnd(e){
-
-  for(
-   const tch of e.changedTouches
-  ){
-
-   if(
-    tch.identifier!==touch.joyId
-   ){
-    continue;
-   }
-
-   touch.joyActive=false;
-   touch.joyId=null;
-
-   touch.joyVec.x=0;
-   touch.joyVec.y=0;
-
-   joyStick.style.transform=
-    'translate(0,0)';
+  if (UI.dom.crosshair) {
+    UI.dom.crosshair.style.display = 'none';
   }
- }
 
+  const joyBase = $('joyBase');
+  const joyStick = $('joyStick');
+  const lookArea = $('lookArea');
 
- joyBase.addEventListener(
-  'touchend',
-  joyEnd
- );
-
- joyBase.addEventListener(
-  'touchcancel',
-  joyEnd
- );
-
-
- lookArea.addEventListener(
-  'touchstart',
-  e=>{
-
-   const tch=
-    e.changedTouches[0];
-
-   touch.lookId=
-    tch.identifier;
-
-   touch.lookLast.x=
-    tch.clientX;
-
-   touch.lookLast.y=
-    tch.clientY;
-  },
-  {passive:true}
- );
-
-
- lookArea.addEventListener(
-  'touchmove',
-  e=>{
-
-   for(
-    const tch of e.changedTouches
-   ){
-
-    if(
-     tch.identifier!==touch.lookId
-    ){
-     continue;
-    }
-
-    const dx=
-     tch.clientX-touch.lookLast.x;
-
-    const dy=
-     tch.clientY-touch.lookLast.y;
-
-    touch.lookLast.x=
-     tch.clientX;
-
-    touch.lookLast.y=
-     tch.clientY;
-
-    touch.yaw-=
-     dx*0.0032;
-
-    touch.pitch=
-     Math.max(
-      -1.2,
-      Math.min(
-       1.2,
-       touch.pitch-dy*0.0032
-      )
-     );
-   }
-  },
-  {passive:true}
- );
-
-
- lookArea.addEventListener(
-  'touchend',
-  e=>{
-   if(
-    e.changedTouches[0].identifier===
-    touch.lookId
-   ){
-    touch.lookId=null;
-   }
+  if (!joyBase || !joyStick || !lookArea) {
+    return;
   }
- );
+
+  const baseRect = () =>
+    joyBase.getBoundingClientRect();
 
 
- $('touchInteract').addEventListener(
-  'touchstart',
-  e=>{
-   e.preventDefault();
-   Player.interact();
-  },
-  {passive:false}
- );
+  joyBase.addEventListener(
+    'touchstart',
+    e => {
 
+      touch.joyActive = true;
+      touch.joyId =
+        e.changedTouches[0].identifier;
 
- $('touchSprint').addEventListener(
-  'touchstart',
-  e=>{
-   e.preventDefault();
-   touch.sprint=true;
-  },
-  {passive:false}
- );
-
- $('touchSprint').addEventListener(
-  'touchend',
-  ()=>touch.sprint=false
- );
-
- $('touchSprint').addEventListener(
-  'touchcancel',
-  ()=>touch.sprint=false
- );
-
-
- $('touchFire').addEventListener(
-  'touchstart',
-  e=>{
-   e.preventDefault();
-
-   if(
-    !World.activeInterior&&
-    !Player.interiorAction
-   ){
-    Weapons.fire(Player.camera);
-    Weapons.refreshHUD();
-   }
-  },
-  {passive:false}
- );
-
-
- $('touchWeapon').addEventListener(
-  'touchstart',
-  e=>{
-   e.preventDefault();
-
-   Weapons.cycle();
-   Weapons.refreshHUD();
-  },
-  {passive:false}
- );
-
-
- const gas=$('btnGas');
- const brake=$('btnBrake');
- const left=$('btnLeft');
- const right=$('btnRight');
-
-
- const bind=(el,key)=>{
-
-  el.addEventListener(
-   'touchstart',
-   e=>{
-    e.preventDefault();
-    touch[key]=true;
-   },
-   {passive:false}
+    },
+    { passive: true }
   );
 
-  el.addEventListener(
-   'touchend',
-   ()=>touch[key]=false
+
+  joyBase.addEventListener(
+    'touchmove',
+    e => {
+
+      for (const tch of e.changedTouches) {
+
+        if (tch.identifier !== touch.joyId) {
+          continue;
+        }
+
+        const r = baseRect();
+
+        const cx =
+          r.left + r.width / 2;
+
+        const cy =
+          r.top + r.height / 2;
+
+        let dx =
+          tch.clientX - cx;
+
+        let dy =
+          tch.clientY - cy;
+
+        const max =
+          r.width / 2;
+
+        const len =
+          Math.hypot(dx, dy);
+
+        if (len > max) {
+          dx = dx / len * max;
+          dy = dy / len * max;
+        }
+
+        touch.joyVec.x = dx / max;
+        touch.joyVec.y = dy / max;
+
+        joyStick.style.transform =
+          `translate(${dx}px,${dy}px)`;
+      }
+    },
+    { passive: true }
   );
 
-  el.addEventListener(
-   'touchcancel',
-   ()=>touch[key]=false
+
+  function joyEnd(e) {
+
+    for (const tch of e.changedTouches) {
+
+      if (tch.identifier !== touch.joyId) {
+        continue;
+      }
+
+      touch.joyActive = false;
+      touch.joyId = null;
+
+      touch.joyVec.x = 0;
+      touch.joyVec.y = 0;
+
+      joyStick.style.transform =
+        'translate(0,0)';
+    }
+  }
+
+
+  joyBase.addEventListener(
+    'touchend',
+    joyEnd
   );
- };
+
+  joyBase.addEventListener(
+    'touchcancel',
+    joyEnd
+  );
 
 
- bind(gas,'gas');
- bind(brake,'brake');
- bind(left,'steerL');
- bind(right,'steerR');
+  lookArea.addEventListener(
+    'touchstart',
+    e => {
+
+      const tch =
+        e.changedTouches[0];
+
+      touch.lookId =
+        tch.identifier;
+
+      touch.lookLast.x =
+        tch.clientX;
+
+      touch.lookLast.y =
+        tch.clientY;
+
+    },
+    { passive: true }
+  );
+
+
+  lookArea.addEventListener(
+    'touchmove',
+    e => {
+
+      for (const tch of e.changedTouches) {
+
+        if (tch.identifier !== touch.lookId) {
+          continue;
+        }
+
+        const dx =
+          tch.clientX -
+          touch.lookLast.x;
+
+        const dy =
+          tch.clientY -
+          touch.lookLast.y;
+
+        touch.lookLast.x =
+          tch.clientX;
+
+        touch.lookLast.y =
+          tch.clientY;
+
+        touch.yaw -=
+          dx * 0.0032;
+
+        touch.pitch =
+          Math.max(
+            -1.2,
+            Math.min(
+              1.2,
+              touch.pitch -
+              dy * 0.0032
+            )
+          );
+      }
+    },
+    { passive: true }
+  );
+
+
+  lookArea.addEventListener(
+    'touchend',
+    e => {
+
+      if (
+        e.changedTouches[0].identifier ===
+        touch.lookId
+      ) {
+        touch.lookId = null;
+      }
+
+    }
+  );
+
+
+  const interact =
+    $('touchInteract');
+
+  if (interact) {
+    interact.addEventListener(
+      'touchstart',
+      e => {
+        e.preventDefault();
+        Player.interact();
+      },
+      { passive: false }
+    );
+  }
+
+
+  const sprint =
+    $('touchSprint');
+
+  if (sprint) {
+
+    sprint.addEventListener(
+      'touchstart',
+      e => {
+        e.preventDefault();
+        touch.sprint = true;
+      },
+      { passive: false }
+    );
+
+    sprint.addEventListener(
+      'touchend',
+      () => {
+        touch.sprint = false;
+      }
+    );
+
+    sprint.addEventListener(
+      'touchcancel',
+      () => {
+        touch.sprint = false;
+      }
+    );
+  }
+
+
+  const fire =
+    $('touchFire');
+
+  if (fire) {
+
+    fire.addEventListener(
+      'touchstart',
+      e => {
+
+        e.preventDefault();
+
+        if (
+          !World.activeInterior &&
+          !Player.interiorAction
+        ) {
+          Weapons.fire(Player.camera);
+          Weapons.refreshHUD();
+        }
+
+      },
+      { passive: false }
+    );
+  }
+
+
+  const weapon =
+    $('touchWeapon');
+
+  if (weapon) {
+
+    weapon.addEventListener(
+      'touchstart',
+      e => {
+
+        e.preventDefault();
+
+        Weapons.cycle();
+        Weapons.refreshHUD();
+
+      },
+      { passive: false }
+    );
+  }
+
+
+  const gas = $('btnGas');
+  const brake = $('btnBrake');
+  const left = $('btnLeft');
+  const right = $('btnRight');
+
+
+  const bind = (el, key) => {
+
+    if (!el) return;
+
+    el.addEventListener(
+      'touchstart',
+      e => {
+        e.preventDefault();
+        touch[key] = true;
+      },
+      { passive: false }
+    );
+
+    el.addEventListener(
+      'touchend',
+      () => {
+        touch[key] = false;
+      }
+    );
+
+    el.addEventListener(
+      'touchcancel',
+      () => {
+        touch[key] = false;
+      }
+    );
+  };
+
+
+  bind(gas, 'gas');
+  bind(brake, 'brake');
+  bind(left, 'steerL');
+  bind(right, 'steerR');
 }
 
 
-function setDriveButtonsVisible(v){
+function setDriveButtonsVisible(v) {
 
- if(!IS_TOUCH) return;
+  if (!IS_TOUCH) return;
 
- $('driveControls')
-  .classList
-  .toggle('show',v);
+  const drive =
+    $('driveControls');
 
- $('touchUI')
-  .classList
-  .toggle('driving',v);
+  const ui =
+    $('touchUI');
+
+  if (drive) {
+    drive.classList.toggle(
+      'show',
+      v
+    );
+  }
+
+  if (ui) {
+    ui.classList.toggle(
+      'driving',
+      v
+    );
+  }
 }
 
 
 /* =========================================================
-   OUTSIDE INTERACTION SEARCH
+   INTERIOR HELPERS
    ========================================================= */
 
-function findInteractable(p){
+Player.stopInteriorAction = function() {
 
- if(Player.mode==='drive'){
-  return {
-   type:'exitCar',
-   dist:0
+  if (!Player.interiorAction) {
+    return;
+  }
+
+  const action =
+    Player.interiorAction;
+
+  if (
+    action.object &&
+    action.object.userData
+  ) {
+    action.object.userData.inUse = false;
+  }
+
+  Player.interiorAction = null;
+
+  if (UI.dom.prompt) {
+    UI.dom.prompt.style.display =
+      'none';
+  }
+};
+
+
+Player.isUsingInteriorObject =
+  function() {
+
+    return !!Player.interiorAction;
   };
- }
-
- let best=null;
- let bestD=3.2;
 
 
- const car=
-  Vehicles.nearbyDrivable(p);
+function getInteriorObjects() {
 
- if(car){
-
-  const d=
-   p.distanceTo(
-    car.mesh.position
-   );
-
-  if(d<bestD){
-
-   bestD=d;
-
-   best={
-    type:'car',
-    ref:car
-   };
+  if (
+    !World.activeInterior ||
+    !World.interiorInteractables
+  ) {
+    return [];
   }
- }
 
-
- for(
-  const e of World.entrances
- ){
-
-  const d=
-   p.distanceTo(e.pos);
-
-  if(d<bestD){
-
-   bestD=d;
-
-   best={
-    type:'door',
-    ref:e
-   };
-  }
- }
-
-
- for(
-  const s of World.shops
- ){
-
-  const d=
-   p.distanceTo(s.pos);
-
-  if(d<bestD){
-
-   bestD=d;
-
-   best={
-    type:'shop',
-    ref:s
-   };
-  }
- }
-
-
- for(
-  const n of NPC_DEFS
- ){
-
-  const npc=
-   World.keyNpcs[n.id];
-
-  if(npc){
-
-   const d=
-    p.distanceTo(
-     npc.mesh.position
-    );
-
-   if(d<bestD){
-
-    bestD=d;
-
-    best={
-     type:'keyNpc',
-     ref:n,
-     npc
-    };
-   }
-  }
- }
-
-
- const pooled=
-  NPCPool.nearest(
-   p,
-   bestD
+  return (
+    World.interiorInteractables[
+      World.activeInterior
+    ] || []
   );
-
-
- if(pooled){
-
-  best={
-   type:'pooledNpc',
-   ref:pooled
-  };
- }
-
-
- return best;
 }
 
 
-/* =========================================================
-   INTERIOR INTERACTION
-   ========================================================= */
+function getInteriorInteractable(p) {
 
-function getInteriorInteractable(p){
+  const objects =
+    getInteriorObjects();
 
- const roomId=
-  World.activeInterior;
+  let best = null;
+  let bestDist = 2.2;
 
- if(!roomId){
-  return null;
- }
+  for (const item of objects) {
 
+    if (!item) continue;
 
- /*
-  * New world.js interaction system.
-  *
-  * Expected:
-  *
-  * World.interiorInteractables[roomId]
-  *
-  * [
-  *   {
-  *     type:'chair',
-  *     position:Vector3,
-  *     sitPosition:Vector3,
-  *     rotation:Number
-  *   },
-  *
-  *   {
-  *     type:'tv',
-  *     position:Vector3,
-  *     object:Object3D
-  *   }
-  * ]
-  */
+    let pos =
+      item.position ||
+      item.pos ||
+      item.object?.position;
 
+    if (!pos) continue;
 
- const list=
-  World.interiorInteractables?.[roomId];
+    const d =
+      p.distanceTo(pos);
 
+    if (d < bestDist) {
 
- if(
-  Array.isArray(list)
- ){
-
-  let best=null;
-  let bestD=2.25;
-
-  for(
-   const item of list
-  ){
-
-   if(!item||!item.position){
-    continue;
-   }
-
-   /*
-    * Do not allow another action
-    * while already using something.
-    */
-   if(
-    Player.interiorAction&&
-    Player.interiorAction.item!==item
-   ){
-    continue;
-   }
-
-   const d=
-    p.distanceTo(
-     item.position
-    );
-
-   if(
-    d<bestD
-   ){
-
-    /*
-     * Disabled objects can be
-     * temporarily unavailable.
-     */
-    if(item.enabled===false){
-     continue;
+      bestDist = d;
+      best = item;
     }
+  }
 
-    bestD=d;
+  /* Legacy systems */
 
-    best={
-     type:item.type||'object',
-     item,
-     dist:d
+  const room =
+    World.activeInterior;
+
+
+  if (
+    room === 'home' ||
+    room === 'studio' ||
+    room === 'flat2' ||
+    room === 'villa'
+  ) {
+
+    const bedPos =
+      room === 'home'
+        ? World.homeBedLocal
+        : World.safehouseBedLocal?.[room];
+
+    if (
+      bedPos &&
+      p.distanceTo(bedPos) < 2.2
+    ) {
+      return {
+        type: 'bed',
+        position: bedPos
+      };
+    }
+  }
+
+
+  if (
+    room === 'home' &&
+    World.homeToiletLocal &&
+    p.distanceTo(
+      World.homeToiletLocal
+    ) < 2.2
+  ) {
+
+    return {
+      type: 'toilet',
+      position:
+        World.homeToiletLocal
     };
-   }
   }
 
-  if(best){
-   return best;
+
+  if (
+    room === 'gunshop' &&
+    World.gunShopCounterLocal &&
+    p.distanceTo(
+      World.gunShopCounterLocal
+    ) < 2.2
+  ) {
+
+    return {
+      type: 'counter',
+      position:
+        World.gunShopCounterLocal
+    };
   }
- }
 
 
- /*
-  * Backward compatibility with the
-  * previous systems.
-  */
+  if (
+    room === 'bank' &&
+    World.bankTellerLocal &&
+    p.distanceTo(
+      World.bankTellerLocal
+    ) < 2.2
+  ) {
 
- if(
-  (
-   roomId==='home'||
-   roomId==='studio'||
-   roomId==='flat2'||
-   roomId==='villa'
-  )
- ){
-
-  const bedPos=
-   roomId==='home'
-    ? World.homeBedLocal
-    : World.safehouseBedLocal?.[roomId];
-
-  if(
-   bedPos&&
-   p.distanceTo(bedPos)<2.2
-  ){
-   return {
-    type:'sleep',
-    legacy:true
-   };
+    return {
+      type: 'teller',
+      position:
+        World.bankTellerLocal
+    };
   }
- }
 
 
- if(
-  roomId==='home'&&
-  World.homeToiletLocal&&
-  p.distanceTo(
-   World.homeToiletLocal
-  )<2.2
- ){
-  return {
-   type:'toilet',
-   legacy:true
-  };
- }
+  if (
+    room === 'prison' &&
+    Prison &&
+    Prison.sentenced
+  ) {
+
+    return {
+      type: 'jailed'
+    };
+  }
 
 
- if(
-  roomId==='gunshop'&&
-  World.gunShopCounterLocal&&
-  p.distanceTo(
-   World.gunShopCounterLocal
-  )<2.2
- ){
-  return {
-   type:'counter',
-   legacy:true
-  };
- }
-
-
- if(
-  roomId==='bank'&&
-  World.bankTellerLocal&&
-  p.distanceTo(
-   World.bankTellerLocal
-  )<2.2
- ){
-  return {
-   type:'teller',
-   legacy:true
-  };
- }
-
-
- if(
-  roomId==='prison'&&
-  Prison.sentenced
- ){
-  return {
-   type:'jailed',
-   legacy:true
-  };
- }
-
-
- return {
-  type:'exit'
- };
+  return best;
 }
 
 
@@ -856,1206 +728,1275 @@ function getInteriorInteractable(p){
    INTERIOR ACTIONS
    ========================================================= */
 
-function faceDirection(rotation){
+function beginSeatAction(item) {
 
- if(
-  typeof rotation!=='number'
- ){
-  return;
- }
+  const object =
+    item.object || item.ref;
 
- Player.camera.rotation.order='YXZ';
+  const sit =
+    item.sitPosition ||
+    item.position ||
+    object?.position;
 
- Player.camera.rotation.y=
-  rotation;
+  if (!sit) return;
 
- Player.camera.rotation.x=0;
-}
+  Player.interiorAction = {
+    type: 'seat',
+    object,
+    position: sit
+  };
 
-
-function beginSeatAction(item){
-
- if(!item){
-  return;
- }
-
- Player.interiorAction={
-  item,
-  type:'seat',
-  previousPosition:
-   Player.camera.position.clone(),
-  previousRotation:{
-   y:Player.camera.rotation.y,
-   x:Player.camera.rotation.x
+  if (object?.userData) {
+    object.userData.inUse = true;
   }
- };
 
-
- if(item.object){
-  item.object.userData.inUse=true;
- }
-
-
- if(item.sitPosition){
-
-  Player.camera.position.copy(
-   item.sitPosition
+  Player.camera.position.set(
+    sit.x,
+    sit.y ?? Player.camera.position.y,
+    sit.z
   );
 
- }else if(item.position){
-
-  Player.camera.position.copy(
-   item.position
+  Player.camera.lookAt(
+    sit.x,
+    sit.y ?? Player.camera.position.y,
+    sit.z - 1
   );
- }
-
-
- if(
-  typeof item.rotation==='number'
- ){
-  faceDirection(
-   item.rotation
-  );
- }
-
-
- if(
-  World.activeInterior&&
-  World.interiors?.[World.activeInterior]
- ){
-
-  World.interiors[
-   World.activeInterior
-  ].userData.playerAction=
-   'seat';
- }
 }
 
 
-function endSeatAction(){
+function useTV(item) {
 
- if(
-  !Player.interiorAction
- ){
-  return;
- }
+  const object =
+    item.object || item.ref;
 
- const old=
-  Player.interiorAction;
+  if (!object) return;
 
- Player.stopInteriorAction();
+  const data =
+    object.userData || {};
 
- /*
-  * Move slightly away from the
-  * furniture instead of spawning
-  * inside it.
-  */
+  if (typeof data.toggle === 'function') {
 
- const yaw=
-  Player.camera.rotation.y;
+    data.toggle();
 
- Player.camera.position.x+=
-  Math.sin(yaw)*0.65;
+    Player.interiorAction = {
+      type: 'tv',
+      object
+    };
 
- Player.camera.position.z+=
-  Math.cos(yaw)*0.65;
+    return;
+  }
 
- Player.camera.position.y=49.6;
+  if (data.screen) {
 
- if(old.previousRotation){
+    data.on =
+      data.on === undefined
+        ? true
+        : !data.on;
 
-  Player.camera.rotation.order='YXZ';
+    if (data.onMaterial) {
+      data.screen.material =
+        data.onMaterial;
+    }
 
-  Player.camera.rotation.y=
-   old.previousRotation.y;
+    if (data.offMaterial) {
+      data.screen.material =
+        data.on
+          ? data.onMaterial
+          : data.offMaterial;
+    }
 
-  Player.camera.rotation.x=
-   old.previousRotation.x;
- }
+    if (data.screenLight) {
+      data.screenLight.visible =
+        !!data.on;
+    }
+  }
 }
 
 
-function useTV(item){
+function useInteriorObject(item) {
 
- if(!item){
-  return;
- }
+  if (!item) return;
 
- item.on=
-  item.on===true
-   ? false
-   : true;
+  const type =
+    item.type ||
+    item.object?.userData?.type;
 
 
- if(
-  item.screen
- ){
+  if (
+    type === 'chair' ||
+    type === 'sofa' ||
+    type === 'restaurantChair' ||
+    type === 'seat'
+  ) {
+    beginSeatAction(item);
+    return;
+  }
 
-  item.screen.material=
-   item.on
-    ? (
-       item.screenOnMaterial||
-       item.screen.material
-      )
-    : (
-       item.screenOffMaterial||
-       item.screen.material
+
+  if (type === 'tv') {
+    useTV(item);
+    return;
+  }
+
+
+  if (type === 'bed') {
+
+    /*
+      Hospital beds are not sleepable.
+      Only rooms that explicitly allow sleeping
+      can use this action.
+    */
+
+    const meta =
+      World.interiorMeta?.[
+        World.activeInterior
+      ];
+
+    if (
+      meta &&
+      meta.sleep === false
+    ) {
+      return;
+    }
+
+    if (
+      typeof Vitals !== 'undefined' &&
+      Vitals.sleep
+    ) {
+      Vitals.sleep();
+    }
+
+    return;
+  }
+
+
+  if (type === 'toilet') {
+
+    if (
+      typeof Vitals !== 'undefined' &&
+      Vitals.useToilet
+    ) {
+      Vitals.useToilet();
+    }
+
+    return;
+  }
+
+
+  if (
+    type === 'kitchen' ||
+    type === 'stove' ||
+    type === 'sink'
+  ) {
+
+    if (
+      typeof item.onUse === 'function'
+    ) {
+      item.onUse();
+    }
+
+    if (
+      item.itemId &&
+      typeof Economy !== 'undefined' &&
+      typeof Economy.useItem === 'function'
+    ) {
+      Economy.useItem(
+        item.itemId
       );
- }
+    }
 
-
- if(
-  item.screenLight
- ){
-
-  item.screenLight.visible=
-   item.on;
- }
-
-
- if(
-  typeof item.onChange==='function'
- ){
-
-  item.onChange(
-   item.on
-  );
- }
-}
-
-
-function useObjectAction(item){
-
- if(!item){
-  return;
- }
-
-
- if(
-  item.type==='chair'||
-  item.type==='sofa'||
-  item.type==='restaurantChair'||
-  item.type==='seat'
- ){
-
-  if(
-   Player.interiorAction
-  ){
-   endSeatAction();
-  }else{
-   beginSeatAction(item);
+    return;
   }
 
-  return;
- }
 
+  if (
+    type === 'counter' ||
+    type === 'bank' ||
+    type === 'teller'
+  ) {
 
- if(
-  item.type==='tv'
- ){
+    if (
+      World.activeInterior ===
+      'gunshop'
+    ) {
+      UI.openShop('gunshop');
+    }
 
-  useTV(item);
-  return;
- }
+    else if (
+      World.activeInterior ===
+      'bank'
+    ) {
+      UI.openShop('bank');
+    }
 
-
- if(
-  item.type==='toilet'
- ){
-
-  if(
-   typeof Vitals?.useToilet==='function'
-  ){
-   Vitals.useToilet();
+    return;
   }
 
-  return;
- }
 
+  if (
+    type === 'table' ||
+    type === 'restaurantTable'
+  ) {
 
- if(
-  item.type==='bed'
- ){
+    if (
+      typeof item.onUse ===
+      'function'
+    ) {
+      item.onUse();
+    }
 
-  if(
-   typeof Vitals?.sleep==='function'
-  ){
-   Vitals.sleep();
+    return;
   }
 
-  return;
- }
 
-
- if(
-  item.type==='kitchen'||
-  item.type==='stove'||
-  item.type==='sink'||
-  item.type==='counter'
- ){
-
-  /*
-   * If world.js provides its own
-   * action, use it.
-   */
-  if(
-   typeof item.onUse==='function'
-  ){
-   item.onUse();
+  if (
+    typeof item.onUse ===
+    'function'
+  ) {
+    item.onUse();
   }
-
-  /*
-   * Optional cooking system.
-   */
-  else if(
-   window.Economy&&
-   typeof Economy.useItem==='function'&&
-   item.itemId
-  ){
-   Economy.useItem(
-    item.itemId
-   );
-  }
-
-  return;
- }
-
-
- if(
-  item.type==='table'||
-  item.type==='restaurantTable'
- ){
-
-  if(
-   item.chair
-  ){
-   beginSeatAction(
-    item.chair
-   );
-  }
-
-  else if(
-   typeof item.onUse==='function'
-  ){
-   item.onUse();
-  }
-
-  return;
- }
-
-
- if(
-  typeof item.onUse==='function'
- ){
-  item.onUse();
- }
 }
 
 
 /* =========================================================
-   INTERIOR INTERACTION
+   OUTDOOR INTERACTION
    ========================================================= */
 
-Player.interact=function(){
+function findInteractable(p) {
 
- /*
-  * Never interact through UI.
-  */
- if(
-  document.querySelector(
-   '.panel.open'
-  )||
-  UI.dom.menu.style.display!=='none'||
-  $('pPhone').classList.contains('open')
- ){
-  return;
- }
-
-
- /* -----------------------------------------
-    Already using furniture
-    ----------------------------------------- */
-
- if(
-  World.activeInterior&&
-  Player.interiorAction
- ){
-
-  /*
-   * E while seated = stand up.
-   */
-  if(
-   Player.interiorAction.type==='seat'
-  ){
-
-   endSeatAction();
-   return;
+  if (
+    Player.mode === 'drive'
+  ) {
+    return {
+      type: 'exitCar',
+      dist: 0
+    };
   }
 
-  return;
- }
+  let best = null;
+  let bestD = 3.2;
 
 
- /* -----------------------------------------
-    Interior
-    ----------------------------------------- */
+  const car =
+    Vehicles.nearbyDrivable(p);
 
- if(World.activeInterior){
+  if (car) {
 
-  const hit=
-   getInteriorInteractable(
-    Player.camera.position
-   );
+    const d =
+      p.distanceTo(
+        car.mesh.position
+      );
 
+    if (d < bestD) {
 
-  if(!hit){
-   return;
+      bestD = d;
+
+      best = {
+        type: 'car',
+        ref: car
+      };
+    }
   }
 
 
-  if(
-   hit.type==='exit'
-  ){
+  for (const e of World.entrances) {
 
-   World.exitInterior(
-    Player.camera,
-    outsidePos
-   );
+    const d =
+      p.distanceTo(e.pos);
 
-   setDriveButtonsVisible(false);
+    if (d < bestD) {
 
-   return;
+      bestD = d;
+
+      best = {
+        type: 'door',
+        ref: e
+      };
+    }
   }
 
 
-  if(hit.legacy){
+  for (const s of World.shops) {
 
-   if(
-    hit.type==='sleep'
-   ){
-    Vitals.sleep();
-    return;
-   }
+    const d =
+      p.distanceTo(s.pos);
+
+    if (d < bestD) {
+
+      bestD = d;
+
+      best = {
+        type: 'shop',
+        ref: s
+      };
+    }
+  }
 
 
-   if(
-    hit.type==='toilet'
-   ){
-    Vitals.useToilet();
-    return;
-   }
+  for (const n of NPC_DEFS) {
+
+    const npc =
+      World.keyNpcs[n.id];
+
+    if (!npc) continue;
+
+    const d =
+      p.distanceTo(
+        npc.mesh.position
+      );
+
+    if (d < bestD) {
+
+      bestD = d;
+
+      best = {
+        type: 'keyNpc',
+        ref: n,
+        npc
+      };
+    }
+  }
 
 
-   if(
-    hit.type==='counter'
-   ){
-    UI.openShop(
-     'gunshop'
+  const pooled =
+    NPCPool.nearest(
+      p,
+      bestD
     );
+
+  if (pooled) {
+
+    best = {
+      type: 'pooledNpc',
+      ref: pooled
+    };
+  }
+
+
+  return best;
+}
+
+
+/* =========================================================
+   MAIN INTERACTION
+   ========================================================= */
+
+Player.interact = function() {
+
+  if (
+    document.querySelector(
+      '.panel.open'
+    ) ||
+    UI.dom.menu.style.display !==
+      'none' ||
+    $('pPhone').classList.contains(
+      'open'
+    )
+  ) {
     return;
-   }
+  }
 
 
-   if(
-    hit.type==='teller'
-   ){
-    UI.openShop(
-     'bank'
+  /* -----------------------------------------
+     Currently using an interior object
+     ----------------------------------------- */
+
+  if (Player.interiorAction) {
+
+    Player.stopInteriorAction();
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     Inside building
+     ----------------------------------------- */
+
+  if (World.activeInterior) {
+
+    const hit =
+      getInteriorInteractable(
+        Player.camera.position
+      );
+
+
+    if (hit) {
+
+      useInteriorObject(hit);
+
+      return;
+    }
+
+
+    /*
+      Exit only when not close to an
+      interior object.
+    */
+
+    if (
+      typeof World.exitInterior ===
+      'function'
+    ) {
+
+      World.exitInterior(
+        Player.camera,
+        outsidePos
+      );
+
+      setDriveButtonsVisible(
+        false
+      );
+    }
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     Outside
+     ----------------------------------------- */
+
+  const hit =
+    findInteractable(
+      Player.camera.position
     );
+
+  if (!hit) return;
+
+
+  if (
+    hit.type ===
+    'exitCar'
+  ) {
+
+    Player.mode =
+      'walk';
+
+    Player.camera.position.set(
+      World.playerCar.position.x + 2,
+      1.7,
+      World.playerCar.position.z
+    );
+
+    setDriveButtonsVisible(
+      false
+    );
+
+    if (!IS_TOUCH) {
+      UI.dom.crosshair.style.display =
+        'block';
+    }
+
+    Audio.stopEngine();
+
+    Weapons.refreshHUD();
+
     return;
-   }
+  }
 
 
-   if(
-    hit.type==='jailed'
-   ){
-    Prison.bail();
+  if (
+    hit.type ===
+    'car'
+  ) {
+
+    Vehicles.switchTo(
+      hit.ref.mesh,
+      hit.ref.registered
+    );
+
+    Player.mode =
+      'drive';
+
+    if (!IS_TOUCH) {
+      Player.controls.unlock();
+    }
+
+    UI.dom.crosshair.style.display =
+      'none';
+
+    setDriveButtonsVisible(
+      true
+    );
+
+    Weapons.refreshHUD();
+
     return;
-   }
-
   }
 
 
-  if(hit.item){
+  if (
+    hit.type ===
+    'door'
+  ) {
 
-   useObjectAction(
-    hit.item
-   );
+    World.enterInterior(
+      hit.ref.id,
+      Player.camera,
+      outsidePos
+    );
 
-   return;
+    return;
   }
 
 
-  return;
- }
+  if (
+    hit.type ===
+    'shop'
+  ) {
 
+    UI.openShop(
+      hit.ref.id
+    );
 
- /* -----------------------------------------
-    Outside
-    ----------------------------------------- */
-
- const hit=
-  findInteractable(
-   Player.camera.position
-  );
-
-
- if(!hit){
-  return;
- }
-
-
- if(
-  hit.type==='exitCar'
- ){
-
-  Player.mode='walk';
-
-  Player.camera.position.set(
-   World.playerCar.position.x+2,
-   1.7,
-   World.playerCar.position.z
-  );
-
-  setDriveButtonsVisible(false);
-
-  if(!IS_TOUCH){
-   UI.dom.crosshair.style.display='block';
+    return;
   }
 
-  Audio.stopEngine();
 
-  Weapons.refreshHUD();
+  if (
+    hit.type ===
+    'keyNpc'
+  ) {
 
-  return;
- }
+    UI.openRelationship(
+      hit.ref.id
+    );
 
-
- if(
-  hit.type==='car'
- ){
-
-  Vehicles.switchTo(
-   hit.ref.mesh,
-   hit.ref.registered
-  );
-
-  Player.mode='drive';
-
-  if(!IS_TOUCH){
-   Player.controls.unlock();
+    return;
   }
 
-  UI.dom.crosshair.style.display=
-   'none';
 
-  setDriveButtonsVisible(true);
+  if (
+    hit.type ===
+    'pooledNpc'
+  ) {
 
-  Weapons.refreshHUD();
+    NPCPool.greet(
+      hit.ref
+    );
 
-  return;
- }
-
-
- if(
-  hit.type==='door'
- ){
-
-  World.enterInterior(
-   hit.ref.id,
-   Player.camera,
-   outsidePos
-  );
-
-  return;
- }
-
-
- if(
-  hit.type==='shop'
- ){
-
-  UI.openShop(
-   hit.ref.id
-  );
-
-  return;
- }
-
-
- if(
-  hit.type==='keyNpc'
- ){
-
-  UI.openRelationship(
-   hit.ref.id
-  );
-
-  return;
- }
-
-
- if(
-  hit.type==='pooledNpc'
- ){
-
-  NPCPool.greet(
-   hit.ref
-  );
-
-  return;
- }
+    return;
+  }
 };
 
 
 /* =========================================================
-   OUTDOOR UPDATE
+   INTERIOR MOVEMENT
    ========================================================= */
 
-Player.update=function(dt){
+function updateInteriorWalk(dt) {
 
- if(Player.suspended){
-  return;
- }
+  let fx = 0;
+  let fz = 0;
 
 
- /*
-  * Interior gets its own movement.
+  if (IS_TOUCH) {
+
+    fx =
+      touch.joyVec.x;
+
+    fz =
+      touch.joyVec.y;
+
+    Player.camera.rotation.order =
+      'YXZ';
+
+    Player.camera.rotation.y =
+      touch.yaw;
+
+    Player.camera.rotation.x =
+      touch.pitch;
+
+  } else {
+
+    if (move.f) fz -= 1;
+    if (move.b) fz += 1;
+    if (move.l) fx -= 1;
+    if (move.r) fx += 1;
+  }
+
+
+  /*
+    If sitting / using TV / object,
+    don't allow movement.
   */
- if(World.activeInterior){
 
-  updateInteriorWalk(dt);
+  if (Player.interiorAction) {
 
-  return;
- }
+    const action =
+      Player.interiorAction;
 
+    if (
+      action.position
+    ) {
 
- if(Player.mode==='walk'){
+      Player.camera.position.x =
+        action.position.x;
 
-  let fx=0;
-  let fz=0;
+      Player.camera.position.z =
+        action.position.z;
+    }
 
-
-  if(IS_TOUCH){
-
-   fx=touch.joyVec.x;
-   fz=touch.joyVec.y;
-
-   Player.camera.rotation.order='YXZ';
-
-   Player.camera.rotation.y=
-    touch.yaw;
-
-   Player.camera.rotation.x=
-    touch.pitch;
-
-  }else{
-
-   if(move.f) fz-=1;
-   if(move.b) fz+=1;
-   if(move.l) fx-=1;
-   if(move.r) fx+=1;
+    return;
   }
 
 
-  const len=
-   Math.hypot(fx,fz);
+  const len =
+    Math.hypot(
+      fx,
+      fz
+    );
 
 
-  if(len>0.05){
+  if (len > 0.05) {
 
-   const sprint=
-    (
-     IS_TOUCH
-      ? touch.sprint
-      : move.sprint
-    )
-     ? 1.7
-     : 1;
+    const speed = 5;
 
-
-   const speed=
-    6*
-    Vitals.speedFactor()*
-    sprint;
+    const v =
+      new THREE.Vector3(
+        fx / len,
+        0,
+        fz / len
+      ).multiplyScalar(
+        speed * dt
+      );
 
 
-   const v=
+    if (IS_TOUCH) {
+
+      const yaw =
+        Player.camera.rotation.y;
+
+      const forward =
+        new THREE.Vector3(
+          -Math.sin(yaw),
+          0,
+          -Math.cos(yaw)
+        ).multiplyScalar(
+          -v.z
+        );
+
+      const right =
+        new THREE.Vector3(
+          Math.cos(yaw),
+          0,
+          -Math.sin(yaw)
+        ).multiplyScalar(
+          v.x
+        );
+
+      Player.camera.position
+        .add(forward)
+        .add(right);
+
+    } else {
+
+      Player.controls.moveRight(
+        v.x
+      );
+
+      Player.controls.moveForward(
+        -v.z
+      );
+    }
+
+    Audio.footstep(false);
+  }
+
+
+  /*
+    Read room size from world.js.
+    New rooms use 12x12.
+    Old rooms fall back to 10x10.
+  */
+
+  const room =
+    World.interiors?.[
+      World.activeInterior
+    ];
+
+  const width =
+    room?.userData?.width ||
+    10;
+
+  const depth =
+    room?.userData?.depth ||
+    10;
+
+  const boundX =
+    Math.max(
+      1,
+      width / 2 - 1.0
+    );
+
+  const boundZ =
+    Math.max(
+      1,
+      depth / 2 - 1.0
+    );
+
+
+  Player.camera.position.x =
+    Math.max(
+      -boundX,
+      Math.min(
+        boundX,
+        Player.camera.position.x
+      )
+    );
+
+
+  Player.camera.position.z =
+    Math.max(
+      -boundZ,
+      Math.min(
+        boundZ,
+        Player.camera.position.z
+      )
+    );
+
+
+  /*
+    Use room's actual eye height.
+  */
+
+  Player.camera.position.y =
+    room?.userData?.eyeY ||
+    49.2;
+}
+
+
+/* =========================================================
+   UPDATE
+   ========================================================= */
+
+Player.update = function(dt) {
+
+  if (Player.suspended) {
+    return;
+  }
+
+
+  /*
+    Interior movement must be handled
+    separately from outdoor collision.
+  */
+
+  if (World.activeInterior) {
+
+    updateInteriorWalk(dt);
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     WALK
+     ----------------------------------------- */
+
+  if (
+    Player.mode ===
+    'walk'
+  ) {
+
+    let fx = 0;
+    let fz = 0;
+
+
+    if (IS_TOUCH) {
+
+      fx =
+        touch.joyVec.x;
+
+      fz =
+        touch.joyVec.y;
+
+      Player.camera.rotation.order =
+        'YXZ';
+
+      Player.camera.rotation.y =
+        touch.yaw;
+
+      Player.camera.rotation.x =
+        touch.pitch;
+
+    } else {
+
+      if (move.f) fz -= 1;
+      if (move.b) fz += 1;
+      if (move.l) fx -= 1;
+      if (move.r) fx += 1;
+    }
+
+
+    const len =
+      Math.hypot(
+        fx,
+        fz
+      );
+
+
+    if (len > 0.05) {
+
+      const sprint =
+        (
+          IS_TOUCH
+            ? touch.sprint
+            : move.sprint
+        )
+          ? 1.7
+          : 1;
+
+
+      const speed =
+        6 *
+        Vitals.speedFactor() *
+        sprint;
+
+
+      const v =
+        new THREE.Vector3(
+          fx / len,
+          0,
+          fz / len
+        ).multiplyScalar(
+          speed * dt
+        );
+
+
+      if (IS_TOUCH) {
+
+        const yaw =
+          Player.camera.rotation.y;
+
+        const forward =
+          new THREE.Vector3(
+            -Math.sin(yaw),
+            0,
+            -Math.cos(yaw)
+          ).multiplyScalar(
+            -v.z
+          );
+
+        const right =
+          new THREE.Vector3(
+            Math.cos(yaw),
+            0,
+            -Math.sin(yaw)
+          ).multiplyScalar(
+            v.x
+          );
+
+        Player.camera.position
+          .add(forward)
+          .add(right);
+
+      } else {
+
+        Player.controls.moveRight(
+          v.x
+        );
+
+        Player.controls.moveForward(
+          -v.z
+        );
+      }
+
+
+      Audio.footstep(
+        sprint > 1
+      );
+    }
+
+
+    Player.camera.position.y =
+      1.7;
+
+
+    World.resolveCollision(
+      Player.camera.position,
+      0.4
+    );
+
+    return;
+  }
+
+
+  /* -----------------------------------------
+     DRIVE
+     ----------------------------------------- */
+
+  const wantGas =
+    IS_TOUCH
+      ? touch.gas
+      : move.f;
+
+  const wantBrake =
+    IS_TOUCH
+      ? touch.brake
+      : move.b;
+
+  const wantL =
+    IS_TOUCH
+      ? touch.steerL
+      : move.l;
+
+  const wantR =
+    IS_TOUCH
+      ? touch.steerR
+      : move.r;
+
+
+  if (
+    Police.checkpointActive
+  ) {
+
+    carVel.speed *=
+      0.85;
+
+  } else if (wantGas) {
+
+    carVel.speed =
+      Math.min(
+        carVel.speed +
+        dt * 8,
+        14
+      );
+
+  } else if (wantBrake) {
+
+    carVel.speed =
+      Math.max(
+        carVel.speed -
+        dt * 8,
+        -8
+      );
+
+  } else {
+
+    carVel.speed *=
+      0.94;
+  }
+
+
+  if (wantR) {
+
+    carVel.steer =
+      Math.min(
+        carVel.steer +
+        dt * 2,
+        1
+      );
+
+  } else if (wantL) {
+
+    carVel.steer =
+      Math.max(
+        carVel.steer -
+        dt * 2,
+        -1
+      );
+
+  } else {
+
+    carVel.steer *=
+      0.85;
+  }
+
+
+  World.playerCar.rotation.y +=
+    carVel.steer *
+    dt *
+    (carVel.speed / 14);
+
+
+  World.playerCar.position.x +=
+    Math.sin(
+      World.playerCar.rotation.y
+    ) *
+    carVel.speed *
+    dt;
+
+
+  World.playerCar.position.z +=
+    Math.cos(
+      World.playerCar.rotation.y
+    ) *
+    carVel.speed *
+    dt;
+
+
+  World.resolveCollision(
+    World.playerCar.position,
+    1.0
+  );
+
+
+  const camOff =
     new THREE.Vector3(
-     fx/len,
-     0,
-     fz/len
-    ).multiplyScalar(
-     speed*dt
-    );
-
-
-   if(IS_TOUCH){
-
-    const yaw=
-     Player.camera.rotation.y;
-
-
-    const forward=
-     new THREE.Vector3(
-      -Math.sin(yaw),
       0,
-      -Math.cos(yaw)
-     ).multiplyScalar(
-      -v.z
-     );
-
-
-    const right=
-     new THREE.Vector3(
-      Math.cos(yaw),
-      0,
-      -Math.sin(yaw)
-     ).multiplyScalar(
-      v.x
-     );
-
-
-    Player.camera.position
-     .add(forward)
-     .add(right);
-
-   }else{
-
-    Player.controls.moveRight(
-     v.x
+      2.4,
+      6
+    ).applyAxisAngle(
+      new THREE.Vector3(
+        0,
+        1,
+        0
+      ),
+      World.playerCar.rotation.y
     );
 
-    Player.controls.moveForward(
-     -v.z
-    );
-   }
 
-
-   Audio.footstep(
-    sprint>1
-   );
-  }
-
-
-  Player.camera.position.y=
-   1.7;
-
-
-  World.resolveCollision(
-   Player.camera.position,
-   0.4
-  );
-
-
- }else{
-
-
-  const wantGas=
-   IS_TOUCH
-    ? touch.gas
-    : move.f;
-
-
-  const wantBrake=
-   IS_TOUCH
-    ? touch.brake
-    : move.b;
-
-
-  const wantL=
-   IS_TOUCH
-    ? touch.steerL
-    : move.l;
-
-
-  const wantR=
-   IS_TOUCH
-    ? touch.steerR
-    : move.r;
-
-
-  if(
-   Police.checkpointActive
-  ){
-
-   carVel.speed*=0.85;
-
-  }else if(wantGas){
-
-   carVel.speed=
-    Math.min(
-     carVel.speed+dt*8,
-     14
-    );
-
-  }else if(wantBrake){
-
-   carVel.speed=
-    Math.max(
-     carVel.speed-dt*8,
-     -8
-    );
-
-  }else{
-
-   carVel.speed*=0.94;
-  }
-
-
-  if(wantR){
-
-   carVel.steer=
-    Math.min(
-     carVel.steer+dt*2,
-     1
-    );
-
-  }else if(wantL){
-
-   carVel.steer=
-    Math.max(
-     carVel.steer-dt*2,
-     -1
-    );
-
-  }else{
-
-   carVel.steer*=0.85;
-  }
-
-
-  World.playerCar.rotation.y+=
-   carVel.steer*
-   dt*
-   (carVel.speed/14);
-
-
-  World.playerCar.position.x+=
-   Math.sin(
-    World.playerCar.rotation.y
-   )*
-   carVel.speed*
-   dt;
-
-
-  World.playerCar.position.z+=
-   Math.cos(
-    World.playerCar.rotation.y
-   )*
-   carVel.speed*
-   dt;
-
-
-  World.resolveCollision(
-   World.playerCar.position,
-   1.0
-  );
-
-
-  const camOff=
-   new THREE.Vector3(
-    0,
-    2.4,
-    6
-   ).applyAxisAngle(
-    new THREE.Vector3(0,1,0),
-    World.playerCar.rotation.y
-   );
-
-
-  Player.camera.position.copy(
-   World.playerCar.position
-  ).add(camOff);
+  Player.camera.position
+    .copy(
+      World.playerCar.position
+    )
+    .add(camOff);
 
 
   Player.camera.lookAt(
-   World.playerCar.position.x,
-   World.playerCar.position.y+1,
-   World.playerCar.position.z
+    World.playerCar.position.x,
+    World.playerCar.position.y + 1,
+    World.playerCar.position.z
   );
 
 
   Police.maybeTrigger(
-   World.playerCar.position,
-   dt
+    World.playerCar.position,
+    dt
   );
 
 
   DrivingSchool.checkProgress(
-   World.playerCar.position
+    World.playerCar.position
   );
 
 
   Audio.engine(
-   carVel.speed
+    carVel.speed
   );
- }
 };
-
-
-/* =========================================================
-   INTERIOR WALKING
-   ========================================================= */
-
-function updateInteriorWalk(dt){
-
- /*
-  * When seated/using an object,
-  * movement is disabled.
-  */
- if(Player.interiorAction){
-
-  Player.camera.position.y=
-   49.6;
-
-  return;
- }
-
-
- let fx=0;
- let fz=0;
-
-
- if(IS_TOUCH){
-
-  fx=touch.joyVec.x;
-  fz=touch.joyVec.y;
-
-  Player.camera.rotation.order='YXZ';
-
-  Player.camera.rotation.y=
-   touch.yaw;
-
-  Player.camera.rotation.x=
-   touch.pitch;
-
- }else{
-
-  if(move.f) fz-=1;
-  if(move.b) fz+=1;
-  if(move.l) fx-=1;
-  if(move.r) fx+=1;
- }
-
-
- const len=
-  Math.hypot(fx,fz);
-
-
- if(len>0.05){
-
-  const speed=5;
-
-
-  const v=
-   new THREE.Vector3(
-    fx/len,
-    0,
-    fz/len
-   ).multiplyScalar(
-    speed*dt
-   );
-
-
-  if(IS_TOUCH){
-
-   const yaw=
-    Player.camera.rotation.y;
-
-
-   const forward=
-    new THREE.Vector3(
-     -Math.sin(yaw),
-     0,
-     -Math.cos(yaw)
-    ).multiplyScalar(
-     -v.z
-    );
-
-
-   const right=
-    new THREE.Vector3(
-     Math.cos(yaw),
-     0,
-     -Math.sin(yaw)
-    ).multiplyScalar(
-     v.x
-    );
-
-
-   Player.camera.position
-    .add(forward)
-    .add(right);
-
-  }else{
-
-   Player.controls.moveRight(
-    v.x
-   );
-
-   Player.controls.moveForward(
-    -v.z
-   );
-  }
-
-
-  Audio.footstep(false);
- }
-
-
- /*
-  * NEW:
-  * Interior dimensions can be provided by world.js.
-  *
-  * Example:
-  *
-  * room.userData.width=12;
-  * room.userData.depth=10;
-  */
-
- const room=
-  World.interiors?.[
-   World.activeInterior
-  ];
-
-
- let roomW=
-  room?.userData?.width||
-  10;
-
-
- let roomD=
-  room?.userData?.depth||
-  10;
-
-
- const margin=0.65;
-
-
- const boundX=
-  Math.max(
-   1,
-   roomW/2-margin
-  );
-
-
- const boundZ=
-  Math.max(
-   1,
-   roomD/2-margin
-  );
-
-
- Player.camera.position.x=
-  Math.max(
-   -boundX,
-   Math.min(
-    boundX,
-    Player.camera.position.x
-   )
-  );
-
-
- Player.camera.position.z=
-  Math.max(
-   -boundZ,
-   Math.min(
-    boundZ,
-    Player.camera.position.z
-   )
-  );
-
-
- Player.camera.position.y=
-  room?.userData?.eyeY||
-  49.6;
-}
 
 
 /* =========================================================
    PROMPT
    ========================================================= */
 
-Player.updatePrompt=function(){
+Player.updatePrompt =
+  function() {
 
- const d=UI.dom;
-
-
- if(World.activeInterior){
-
-  const hit=
-   getInteriorInteractable(
-    Player.camera.position
-   );
+    const d =
+      UI.dom;
 
 
-  if(!hit){
-
-   d.prompt.style.display=
-    'none';
-
-   return;
-  }
+    if (!d || !d.prompt) {
+      return;
+    }
 
 
-  if(Player.interiorAction){
+    /* -----------------------------------------
+       Interior
+       ----------------------------------------- */
 
-   if(
-    Player.interiorAction.type==='seat'
-   ){
+    if (World.activeInterior) {
 
-    d.prompt.textContent=
-     'E: Stand Up';
+      if (Player.interiorAction) {
 
-    d.prompt.style.display=
-     'block';
+        d.prompt.textContent =
+          'E: Stand Up';
 
-    return;
-   }
-  }
+        d.prompt.style.display =
+          'block';
+
+        return;
+      }
 
 
-  const labels={
+      const hit =
+        getInteriorInteractable(
+          Player.camera.position
+        );
 
-   chair:
-    'E: Sit',
 
-   sofa:
-    'E: Sit',
+      if (hit) {
 
-   seat:
-    'E: Sit',
+        const type =
+          hit.type;
 
-   restaurantChair:
-    'E: Sit',
 
-   tv:
-    hit.item?.on
-     ? 'E: Turn TV Off'
-     : 'E: Watch TV',
+        const labels = {
 
-   toilet:
-    'E: Use Toilet',
+          sleep:
+            'E: Sleep',
 
-   bed:
-    'E: Sleep',
+          bed:
+            'E: Sleep',
 
-   kitchen:
-    'E: Use Kitchen',
+          toilet:
+            'E: Use Bathroom',
 
-   stove:
-    'E: Cook',
+          chair:
+            'E: Sit',
 
-   sink:
-    'E: Use Sink',
+          sofa:
+            'E: Sit',
 
-   counter:
-    'E: Use Counter',
+          restaurantChair:
+            'E: Sit',
 
-   table:
-    'E: Use Table',
+          seat:
+            'E: Sit',
 
-   restaurantTable:
-    'E: Sit at Table',
+          tv:
+            'E: Watch TV',
 
-   sleep:
-    'E: Sleep',
+          kitchen:
+            'E: Use Kitchen',
 
-   teller:
-    'E: Banking',
+          stove:
+            'E: Cook',
 
-   jailed:
-    'E: Pay Bail $'+
-     Prison.bailCost+
-     ' ('+
-     Math.ceil(
-      Prison.timer
-     )+
-     's left)',
+          sink:
+            'E: Use Sink',
 
-   exit:
-    t('exitBld')
+          counter:
+            'E: Browse',
+
+          teller:
+            'E: Banking',
+
+          table:
+            'E: Use Table',
+
+          restaurantTable:
+            'E: Use Table',
+
+          jailed:
+            'E: Pay Bail $' +
+            (
+              Prison?.bailCost ??
+              0
+            ) +
+            ' (' +
+            Math.ceil(
+              Prison?.timer ?? 0
+            ) +
+            's left)'
+        };
+
+
+        if (labels[type]) {
+
+          d.prompt.textContent =
+            labels[type];
+
+          d.prompt.style.display =
+            'block';
+
+          return;
+        }
+      }
+
+
+      d.prompt.textContent =
+        t('exitBld');
+
+      d.prompt.style.display =
+        'block';
+
+      return;
+    }
+
+
+    /* -----------------------------------------
+       Outside
+       ----------------------------------------- */
+
+    const hit =
+      findInteractable(
+        Player.camera.position
+      );
+
+
+    if (!hit) {
+
+      d.prompt.style.display =
+        'none';
+
+      return;
+    }
+
+
+    const labelFor = {
+
+      exitCar:
+        () => t('exitCar'),
+
+      car:
+        () => t('enterCar'),
+
+      door:
+        () => {
+
+          const locked =
+            hit.ref.ownable &&
+            !(
+              Player.properties &&
+              Player.properties.includes(
+                hit.ref.id
+              )
+            );
+
+          return locked
+            ? (
+              '🔒 ' +
+              hit.ref.name +
+              ' (not owned — buy via Phone)'
+            )
+            : (
+              t('enterBld') +
+              ' — ' +
+              hit.ref.name
+            );
+        },
+
+      shop:
+        () =>
+          'E: ' +
+          hit.ref.name,
+
+      keyNpc:
+        () =>
+          'E: Talk to ' +
+          hit.ref.name,
+
+      pooledNpc:
+        () =>
+          'E: Greet'
+    };
+
+
+    if (
+      labelFor[hit.type]
+    ) {
+
+      d.prompt.textContent =
+        labelFor[
+          hit.type
+        ]();
+
+      d.prompt.style.display =
+        'block';
+
+    } else {
+
+      d.prompt.style.display =
+        'none';
+    }
   };
 
 
-  d.prompt.textContent=
-   labels[hit.type]||
-   (
-    hit.item?.label||
-    'E: Interact'
-   );
-
-
-  d.prompt.style.display=
-   'block';
-
-  return;
- }
-
-
- const hit=
-  findInteractable(
-   Player.camera.position
-  );
-
-
- if(!hit){
-
-  d.prompt.style.display=
-   'none';
-
-  return;
- }
-
-
- const labelFor={
-
-  exitCar:
-   ()=>t('exitCar'),
-
-  car:
-   ()=>t('enterCar'),
-
-  door:
-   ()=>{
-    const locked=
-     hit.ref.ownable&&
-     !(
-      Player.properties&&
-      Player.properties.includes(
-       hit.ref.id
-      )
-     );
-
-    return locked
-     ? (
-       '🔒 '+
-       hit.ref.name+
-       ' (not owned — buy via Phone)'
-      )
-     : (
-       t('enterBld')+
-       ' — '+
-       hit.ref.name
-      );
-   },
-
-  shop:
-   ()=>'E: '+hit.ref.name,
-
-  keyNpc:
-   ()=>'E: Talk to '+hit.ref.name,
-
-  pooledNpc:
-   ()=>'E: Greet'
- };
-
-
- d.prompt.textContent=
-  labelFor[hit.type]();
-
-
- d.prompt.style.display=
-  'block';
-};
+/* =========================================================
+   END
+   ========================================================= */

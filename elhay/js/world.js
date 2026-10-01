@@ -151,6 +151,11 @@ World.init=function(scene,renderer){
  World.renderer=renderer;
  World.collidables=[];
  World.npcs=[];
+ World.interiors={};
+ World.interiorInteractables={};
+ World.interiorMeta={};
+ World.activeInterior=null;
+ World.currentInteriorMeta=null;
 
  const groundMat=new THREE.MeshStandardMaterial({
   map:TEX.grass,
@@ -646,14 +651,20 @@ function buildLandmarks(scene){
  );
 
  /* New enterable buildings */
+
  World.landmarks.restaurant=
   block(scene,-20,0,20,10,6,10,matRestaurant);
 
+ /*
+  * IMPORTANT:
+  * Supermarket used to be at the exact same position as Restaurant.
+  * It is moved to a free block at (-40,20).
+  */
+ World.landmarks.supermarket=
+  block(scene,-40,0,20,12,6,10,matSupermarket);
+
  World.landmarks.mechanic=
   block(scene,40,0,40,12,6,14,matMechanic);
-
- World.landmarks.supermarket=
-  block(scene,-20,0,20,12,6,10,matSupermarket);
 
  World.landmarks.office=
   block(scene,60,0,60,12,8,10,matOffice);
@@ -713,6 +724,13 @@ function buildLandmarks(scene){
   'MOTEL',
   '#704c38','#fff'
  );
+
+ mountSignboard(
+  scene,-40,6.7,14.8,
+  0,3.6,0.9,
+  'SUPERMARKET',
+  '#8a7418','#fff8cf'
+ );
 }
 
 /* ============ POI REGISTRY ============ */
@@ -735,10 +753,9 @@ World.pois=[
  {id:'flat2',name:'2-Room Flat',type:'interior',pos:new THREE.Vector3(-20,1,-56),color:'#e3c9a0',ownable:true},
  {id:'villa',name:'Villa',type:'interior',pos:new THREE.Vector3(-20,1,54),color:'#e8dcc0',ownable:true},
 
- /* New enterable interiors */
  {id:'restaurant',name:'Restaurant',type:'interior',pos:new THREE.Vector3(-20,1,14.5),color:'#9b3d2f'},
  {id:'mechanic',name:'Mechanic Workshop',type:'interior',pos:new THREE.Vector3(40,1,32.5),color:'#49545b'},
- {id:'supermarket',name:'Supermarket',type:'interior',pos:new THREE.Vector3(-20,1,14.5),color:'#d4c15b'},
+ {id:'supermarket',name:'Supermarket',type:'interior',pos:new THREE.Vector3(-40,1,14.5),color:'#d4c15b'},
  {id:'office',name:'Office',type:'interior',pos:new THREE.Vector3(60,1,54.5),color:'#687989'},
  {id:'motel',name:'Motel',type:'interior',pos:new THREE.Vector3(-60,1,52.5),color:'#9c7659'},
  {id:'pharmacy',name:'Pharmacy',type:'interior',pos:new THREE.Vector3(20,1,55),color:'#dde8df'}
@@ -749,40 +766,111 @@ World.shops=World.pois.filter(p=>p.type==='shop');
 
 /* ============ INTERIOR SYSTEM ============ */
 World.interiors={};
+World.interiorInteractables={};
 World.activeInterior=null;
+World.currentInteriorMeta=null;
 
 function interiorMaterial(color,roughness=0.85){
  return new THREE.MeshStandardMaterial({
   color,
-  roughness
+  roughness,
+  polygonOffset:true,
+  polygonOffsetFactor:1,
+  polygonOffsetUnits:1
  });
+}
+
+function registerInteriorObject(room,type,position,options={}){
+ if(!World.interiorInteractables[room]){
+  World.interiorInteractables[room]=[];
+ }
+
+ const item={
+  room,
+  type,
+  position:position.clone?position.clone():new THREE.Vector3(position.x,position.y,position.z),
+  radius:options.radius||1.35,
+  label:options.label||null,
+  ...options
+ };
+
+ World.interiorInteractables[room].push(item);
+ return item;
 }
 
 function makeInterior(scene,name,wallColor,floorColor,accent){
  const g=new THREE.Group();
  g.visible=false;
 
+ /*
+  * Every interior is a clean 12x12 room.
+  * The shell is slightly larger than the floor so the floor never
+  * overlaps the wall geometry.
+  */
+ const ROOM_W=12;
+ const ROOM_D=12;
+ const FLOOR_Y=-2.50;
+ const CEILING_Y=2.50;
+
+ const shellMat=new THREE.MeshBasicMaterial({
+  color:wallColor,
+  side:THREE.BackSide,
+  depthWrite:true
+ });
+
  const shell=new THREE.Mesh(
-  new THREE.BoxGeometry(12,5,12),
-  new THREE.MeshBasicMaterial({
-   color:wallColor,
-   side:THREE.BackSide
-  })
+  new THREE.BoxGeometry(ROOM_W,5,ROOM_D),
+  shellMat
  );
 
  g.add(shell);
 
+ /*
+  * Stable interior floor:
+  * - explicit Y level
+  * - polygon offset
+  * - depthWrite enabled
+  * This prevents the furniture/rug/floor from fighting visually.
+  */
+ const floorMat=new THREE.MeshStandardMaterial({
+  color:floorColor,
+  roughness:0.9,
+  metalness:0,
+  polygonOffset:true,
+  polygonOffsetFactor:2,
+  polygonOffsetUnits:2,
+  depthWrite:true
+ });
+
  const floor=new THREE.Mesh(
-  new THREE.PlaneGeometry(12,12),
-  interiorMaterial(floorColor,0.9)
+  new THREE.PlaneGeometry(ROOM_W-0.08,ROOM_D-0.08),
+  floorMat
  );
 
  floor.rotation.x=-Math.PI/2;
- floor.position.y=-2.5;
+ floor.position.y=FLOOR_Y;
  floor.receiveShadow=true;
+ floor.renderOrder=0;
  g.add(floor);
 
- /* ceiling lamp */
+ /* Ceiling */
+ const ceilingMat=new THREE.MeshStandardMaterial({
+  color:wallColor,
+  roughness:0.95,
+  side:THREE.FrontSide
+ });
+
+ const ceiling=new THREE.Mesh(
+  new THREE.PlaneGeometry(ROOM_W-0.08,ROOM_D-0.08),
+  ceilingMat
+ );
+
+ ceiling.rotation.x=Math.PI/2;
+ ceiling.position.y=CEILING_Y;
+ ceiling.receiveShadow=true;
+ g.add(ceiling);
+
+ /* Ceiling lamp */
  const lamp=new THREE.Mesh(
   new THREE.CylinderGeometry(0.18,0.32,0.08,16),
   new THREE.MeshStandardMaterial({
@@ -795,7 +883,7 @@ function makeInterior(scene,name,wallColor,floorColor,accent){
  lamp.position.set(0,2.2,0);
  g.add(lamp);
 
- /* back-wall decorative strip */
+ /* Back-wall decorative strip */
  if(accent){
   const a=new THREE.Mesh(
    new THREE.BoxGeometry(7,0.9,0.12),
@@ -807,8 +895,16 @@ function makeInterior(scene,name,wallColor,floorColor,accent){
  }
 
  g.position.set(0,50,0);
+
+ g.userData.width=ROOM_W;
+ g.userData.depth=ROOM_D;
+ g.userData.floorY=50+FLOOR_Y;
+ g.userData.eyeY=49.2;
+ g.userData.ceilingY=50+CEILING_Y;
+
  scene.add(g);
  World.interiors[name]=g;
+ World.interiorInteractables[name]=[];
 
  return g;
 }
@@ -848,12 +944,17 @@ function addRug(parent,x,z,w,d,color){
   new THREE.BoxGeometry(w,0.035,d),
   new THREE.MeshStandardMaterial({
    color,
-   roughness:1
+   roughness:1,
+   polygonOffset:true,
+   polygonOffsetFactor:-2,
+   polygonOffsetUnits:-2,
+   depthWrite:true
   })
  );
 
  rug.position.set(x,-2.43,z);
  rug.receiveShadow=true;
+ rug.renderOrder=1;
  parent.add(rug);
 
  return rug;
@@ -865,9 +966,9 @@ function addTable(parent,x,z,w=1.8,d=1,color=0x70472b){
 
  [
   [-w/2+0.12,-d/2+0.12],
-  [ w/2-0.12,-d/2+0.12],
-  [-w/2+0.12, d/2-0.12],
-  [ w/2-0.12, d/2-0.12]
+  [w/2-0.12,-d/2+0.12],
+  [-w/2+0.12,d/2-0.12],
+  [w/2-0.12,d/2-0.12]
  ].forEach(p=>{
   addBox(
    parent,
@@ -914,7 +1015,7 @@ function addSofa(parent,x,z,rot=0,color=0x5a4034){
  addBox(g,0,-1.55,0,2.8,0.5,0.95,color);
  addBox(g,0,-1.05,-0.34,2.8,0.95,0.22,color);
  addBox(g,-1.25,-1.25,0,0.22,0.9,0.95,color);
- addBox(g,1.25,-1.25,0,0.22,0.9,0.95,color);
+ addBox(g,1.25,-1.25,0,0.22,0.9,color);
 
  g.position.set(x,0,z);
  g.rotation.y=rot;
@@ -965,25 +1066,56 @@ function addWardrobe(parent,x,z,w=1.5,d=0.5,color=0x5b3926){
 function addTV(parent,x,z,rot=0){
  const g=new THREE.Group();
 
- const screenMat=new THREE.MeshStandardMaterial({
-  color:0x0b1015,
+ const screenOffMat=new THREE.MeshStandardMaterial({
+  color:0x080b0e,
   roughness:0.25,
   metalness:0.25,
-  emissive:0x07131c,
-  emissiveIntensity:0.35
+  emissive:0x000000,
+  emissiveIntensity:0
+ });
+
+ const screenOnMat=new THREE.MeshStandardMaterial({
+  color:0x263d4b,
+  roughness:0.22,
+  metalness:0.2,
+  emissive:0x123b55,
+  emissiveIntensity:0.9
  });
 
  addBox(g,0,0,0,1.65,0.95,0.12,0x171717,0.35);
 
  const screen=new THREE.Mesh(
   new THREE.BoxGeometry(1.35,0.68,0.035),
-  screenMat
+  screenOffMat
  );
 
  screen.position.set(0,0,0.08);
  g.add(screen);
 
  addBox(g,0,-0.62,0,0.65,0.08,0.35,0x222222,0.5);
+
+ const screenLight=new THREE.PointLight(0x4aa9ff,0,2.8,2);
+ screenLight.position.set(0,0,0.18);
+ g.add(screenLight);
+
+ g.userData.tv=true;
+ g.userData.on=false;
+ g.userData.screen=screen;
+ g.userData.screenOffMaterial=screenOffMat;
+ g.userData.screenOnMaterial=screenOnMat;
+ g.userData.screenLight=screenLight;
+
+ g.userData.toggle=function(){
+  g.userData.on=!g.userData.on;
+
+  screen.material=
+   g.userData.on?
+    g.userData.screenOnMaterial:
+    g.userData.screenOffMaterial;
+
+  screenLight.intensity=
+   g.userData.on?0.65:0;
+ };
 
  g.position.set(x,-0.55,z);
  g.rotation.y=rot;
@@ -1010,6 +1142,11 @@ function addKitchen(parent,x,z,rot=0){
  addBox(g,-1.05,-0.25,0,0.7,2.0,0.55,0xeee8dc);
  addBox(g,1.05,-0.25,0,0.7,2.0,0.55,0xeee8dc);
 
+ g.userData.kitchen=true;
+ g.userData.onUse=function(){
+  g.userData.lastUsed=performance.now();
+ };
+
  g.position.set(x,0,z);
  g.rotation.y=rot;
  parent.add(g);
@@ -1025,6 +1162,11 @@ function addSink(parent,x,z,rot=0){
 
  addCylinder(g,0,-0.58,-0.12,0.035,0.45,0x777777,10);
 
+ g.userData.sink=true;
+ g.userData.onUse=function(){
+  g.userData.lastUsed=performance.now();
+ };
+
  g.position.set(x,0,z);
  g.rotation.y=rot;
  parent.add(g);
@@ -1038,6 +1180,11 @@ function addToilet(parent,x,z,rot=0){
  addBox(g,0,-1.65,0,0.7,0.48,0.75,0xf4f5f2,0.35);
  addBox(g,0,-1.18,-0.24,0.65,0.72,0.15,0xf4f5f2,0.35);
  addBox(g,0,-0.75,-0.3,0.62,0.5,0.12,0xf4f5f2,0.35);
+
+ g.userData.toilet=true;
+ g.userData.onUse=function(){
+  g.userData.lastUsed=performance.now();
+ };
 
  g.position.set(x,0,z);
  g.rotation.y=rot;
@@ -1059,6 +1206,11 @@ function addShower(parent,x,z,rot=0){
 
  addCylinder(g,0,0.55,0,0.055,0.5,0x777777,10);
  addCylinder(g,0,0.82,0,0.18,0.06,0x777777,12);
+
+ g.userData.shower=true;
+ g.userData.onUse=function(){
+  g.userData.lastUsed=performance.now();
+ };
 
  g.position.set(x,0,z);
  g.rotation.y=rot;
@@ -1132,6 +1284,107 @@ function addLocker(parent,x,z,count=3){
  }
 }
 
+/* ============ INTERACTION REGISTRATION ============ */
+
+function registerSeat(room,type,x,z,rot,options={}){
+ const item=registerInteriorObject(
+  room,
+  type,
+  new THREE.Vector3(x,50-1.45,z),
+  {
+   radius:options.radius||1.35,
+   sitPosition:new THREE.Vector3(
+    x,
+    50-0.72,
+    z
+   ),
+   sitRotationY:rot,
+   label:options.label||'Sit',
+   onUse:options.onUse||null,
+   ...options
+  }
+ );
+
+ return item;
+}
+
+function registerTV(room,x,z,rot,tv){
+ return registerInteriorObject(
+  room,
+  'tv',
+  new THREE.Vector3(x,49.45,z),
+  {
+   radius:1.7,
+   label:'Watch TV',
+   object:tv,
+   rotationY:rot,
+   onUse:function(item){
+    if(item.object&&item.object.userData&&item.object.userData.toggle){
+     item.object.userData.toggle();
+    }
+   }
+  }
+ );
+}
+
+function registerBed(room,x,z){
+ return registerInteriorObject(
+  room,
+  'bed',
+  new THREE.Vector3(x,48.28,z),
+  {
+   radius:1.6,
+   label:'Sleep',
+   onUse:function(){
+    if(typeof Vitals!=='undefined'&&Vitals.sleep){
+     Vitals.sleep();
+    }
+   }
+  }
+ );
+}
+
+function registerToilet(room,x,z){
+ return registerInteriorObject(
+  room,
+  'toilet',
+  new THREE.Vector3(x,48.35,z),
+  {
+   radius:1.5,
+   label:'Use Bathroom',
+   onUse:function(){
+    if(typeof Vitals!=='undefined'&&Vitals.useToilet){
+     Vitals.useToilet();
+    }
+   }
+  }
+ );
+}
+
+function registerKitchen(room,x,z){
+ return registerInteriorObject(
+  room,
+  'kitchen',
+  new THREE.Vector3(x,48.85,z),
+  {
+   radius:1.7,
+   label:'Use Kitchen'
+  }
+ );
+}
+
+function registerTable(room,x,z,type='table'){
+ return registerInteriorObject(
+  room,
+  type,
+  new THREE.Vector3(x,48.65,z),
+  {
+   radius:1.7,
+   label:type==='restaurantTable'?'Sit at Table':'Use Table'
+  }
+ );
+}
+
 /* ============ INTERIOR BUILD ============ */
 function buildInteriors(scene){
 
@@ -1148,16 +1401,17 @@ function buildInteriors(scene){
 
  addRug(hospital,0,0,7.5,8,0xe7edf2);
 
- /* reception */
  addBox(hospital,0,-1.3,-4.2,4.2,1.1,0.75,0x7a553a);
  addBox(hospital,0,-0.65,-4.25,3.9,0.08,0.7,0xe6e6e0,0.35);
 
- addTV(hospital,0.0, -5.2);
+ const hospitalTV=addTV(hospital,0,-5.2);
+ registerTV('hospital',0,-5.2,0,hospitalTV);
 
- /* beds */
- [-3,0,3].forEach((x)=>{
+ [-3,0,3].forEach(x=>{
   addBed(hospital,x,0,1.7,2.4,0xc4cbd0,0xffffff);
   addBox(hospital,x,-1.2,0.9,1.5,1.1,0.08,0x2f6fb0);
+
+  registerBed('hospital',x,0);
  });
 
  addPlant(hospital,-5,3);
@@ -1182,9 +1436,13 @@ function buildInteriors(scene){
  addChair(police,-2,-1.35,Math.PI);
  addChair(police,2,-1.35,Math.PI);
 
+ registerSeat('police','chair',-2,-1.35,Math.PI);
+ registerSeat('police','chair',2,-1.35,Math.PI);
+
  addLocker(police,-4.7,2.5,4);
 
- addTV(police,3.8,3.2,Math.PI);
+ const policeTV=addTV(police,3.8,3.2,Math.PI);
+ registerTV('police',3.8,3.2,Math.PI,policeTV);
 
  addBox(police,0,-1.0,5.1,3.0,2.0,0.15,0x333333);
 
@@ -1252,16 +1510,26 @@ function buildInteriors(scene){
 
  addWardrobe(home,-4.8,-2.2,1.4,0.55);
 
- addSofa(home,2.6,1.4,Math.PI,0x5a4034);
- addTV(home,2.6,3.5,Math.PI);
+ const homeSofa=addSofa(home,2.6,1.4,Math.PI,0x5a4034);
+ registerSeat('home','sofa',2.6,1.4,Math.PI,{radius:1.8});
+
+ const homeTV=addTV(home,2.6,3.5,Math.PI);
+ registerTV('home',2.6,3.5,Math.PI,homeTV);
 
  addTable(home,1.2,-1.0,1.4,0.85,0x70472b);
  addChair(home,0.5,-1.0,Math.PI/2);
  addChair(home,1.9,-1.0,-Math.PI/2);
 
+ registerSeat('home','chair',0.5,-1.0,Math.PI/2);
+ registerSeat('home','chair',1.9,-1.0,-Math.PI/2);
+ registerTable('home',1.2,-1.0,'table');
+
  addKitchen(home,0,4.5,0);
+ registerKitchen('home',0,4.5);
 
  addToilet(home,4.3,3.7,Math.PI);
+ registerToilet('home',4.3,3.7);
+
  addShower(home,4.0,1.7,Math.PI);
 
  addPlant(home,4.5,-3.7);
@@ -1271,6 +1539,8 @@ function buildInteriors(scene){
 
  World.homeToiletLocal=
   new THREE.Vector3(4.3,50-1.65,3.7);
+
+ registerBed('home',-3,-2.4);
 
  /* ---------- BANK ---------- */
  makeInterior(
@@ -1285,7 +1555,6 @@ function buildInteriors(scene){
 
  addRug(bank,0,0,8,8,0x9a8661);
 
- /* teller */
  addBox(bank,3.5,-1.55,3.5,2.5,0.9,0.75,0x5a4a30);
 
  const tellerGlass=new THREE.Mesh(
@@ -1304,7 +1573,16 @@ function buildInteriors(scene){
  World.bankTellerLocal=
   new THREE.Vector3(3.5,50-1.55,3.5);
 
- /* vault */
+ registerInteriorObject(
+  'bank',
+  'teller',
+  new THREE.Vector3(3.5,48.45,3.5),
+  {
+   radius:1.8,
+   label:'Banking'
+  }
+ );
+
  const vaultDoor=new THREE.Mesh(
   new THREE.CylinderGeometry(
    1.35,1.35,0.35,24
@@ -1363,7 +1641,7 @@ function buildInteriors(scene){
 
  addRug(gunshop,0,0,8,8,0x202020);
 
- const counter=addBox(
+ addBox(
   gunshop,
   0,-1.55,-3.5,
   2.8,0.9,0.8,
@@ -1372,6 +1650,16 @@ function buildInteriors(scene){
 
  World.gunShopCounterLocal=
   new THREE.Vector3(0,50-1.55,-3.5);
+
+ registerInteriorObject(
+  'gunshop',
+  'counter',
+  new THREE.Vector3(0,48.45,-3.5),
+  {
+   radius:1.8,
+   label:'Browse Weapons'
+  }
+ );
 
  [-3.2,3.2].forEach(sx=>{
   addBox(
@@ -1406,19 +1694,30 @@ function buildInteriors(scene){
  addWardrobe(studio,-4.7,-2.3,1.25,0.5);
 
  addSofa(studio,2.6,1.3,Math.PI,0x5b4638);
+ registerSeat('studio','sofa',2.6,1.3,Math.PI,{radius:1.8});
 
- addTV(studio,2.5,3.5,Math.PI);
+ const studioTV=addTV(studio,2.5,3.5,Math.PI);
+ registerTV('studio',2.5,3.5,Math.PI,studioTV);
 
  addKitchen(studio,0,4.5);
+ registerKitchen('studio',0,4.5);
 
  addToilet(studio,4.4,3.5);
+ registerToilet('studio',4.4,3.5);
+
  addShower(studio,4.2,1.7);
 
  addTable(studio,1.2,-0.7,1.25,0.8,0x6b452e);
  addChair(studio,0.55,-0.7,Math.PI/2);
  addChair(studio,1.85,-0.7,-Math.PI/2);
 
+ registerSeat('studio','chair',0.55,-0.7,Math.PI/2);
+ registerSeat('studio','chair',1.85,-0.7,-Math.PI/2);
+ registerTable('studio',1.2,-0.7,'table');
+
  addPlant(studio,4.5,-3.8);
+
+ registerBed('studio',-3,-2.6);
 
  /* ---------- FLAT 2 ---------- */
  makeInterior(
@@ -1444,19 +1743,30 @@ function buildInteriors(scene){
  addWardrobe(flat2,-4.8,-2.2,1.35,0.5);
 
  addSofa(flat2,2.3,1.5,Math.PI,0x4d514e);
+ registerSeat('flat2','sofa',2.3,1.5,Math.PI,{radius:1.8});
 
- addTV(flat2,2.3,3.5,Math.PI);
+ const flatTV=addTV(flat2,2.3,3.5,Math.PI);
+ registerTV('flat2',2.3,3.5,Math.PI,flatTV);
 
  addKitchen(flat2,-0.2,4.5);
+ registerKitchen('flat2',-0.2,4.5);
 
  addTable(flat2,1.0,-0.8,1.5,0.85,0x65442e);
  addChair(flat2,0.25,-0.8,Math.PI/2);
  addChair(flat2,1.8,-0.8,-Math.PI/2);
 
+ registerSeat('flat2','chair',0.25,-0.8,Math.PI/2);
+ registerSeat('flat2','chair',1.8,-0.8,-Math.PI/2);
+ registerTable('flat2',1.0,-0.8,'table');
+
  addToilet(flat2,4.4,3.4);
+ registerToilet('flat2',4.4,3.4);
+
  addShower(flat2,4.2,1.7);
 
  addPlant(flat2,4.6,-3.6);
+
+ registerBed('flat2',-3,-2.5);
 
  /* ---------- VILLA ---------- */
  makeInterior(
@@ -1482,24 +1792,35 @@ function buildInteriors(scene){
  addWardrobe(villa,-5,-2.4,1.6,0.6);
 
  addSofa(villa,2.5,1.4,Math.PI,0x5d463b);
+ registerSeat('villa','sofa',2.5,1.4,Math.PI,{radius:1.8});
 
- addTV(villa,2.5,3.6,Math.PI);
+ const villaTV=addTV(villa,2.5,3.6,Math.PI);
+ registerTV('villa',2.5,3.6,Math.PI,villaTV);
 
  addTable(villa,0.8,-0.5,1.8,1.0,0x6b4a30);
 
  addChair(villa,-0.15,-0.5,Math.PI/2);
  addChair(villa,1.75,-0.5,-Math.PI/2);
 
+ registerSeat('villa','chair',-0.15,-0.5,Math.PI/2);
+ registerSeat('villa','chair',1.75,-0.5,-Math.PI/2);
+ registerTable('villa',0.8,-0.5,'table');
+
  addKitchen(villa,-0.2,4.6);
+ registerKitchen('villa',-0.2,4.6);
 
  addToilet(villa,4.6,3.5);
+ registerToilet('villa',4.6,3.5);
+
  addShower(villa,4.3,1.7);
 
  addPlant(villa,4.8,-3.8);
  addPlant(villa,-5,3.6);
 
- /* second decorative seating */
  addSofa(villa,-1.0,1.6,0,0x765548);
+ registerSeat('villa','sofa',-1.0,1.6,0,{radius:1.8});
+
+ registerBed('villa',-3,-2.8);
 
  /* ---------- RESTAURANT ---------- */
  makeInterior(
@@ -1522,6 +1843,7 @@ function buildInteriors(scene){
  );
 
  addKitchen(restaurant,-3,3.6);
+ registerKitchen('restaurant',-3,3.6);
 
  [
   [-2,0.8],
@@ -1551,9 +1873,35 @@ function buildInteriors(scene){
    p[1],
    -Math.PI/2
   );
+
+  registerSeat(
+   'restaurant',
+   'restaurantChair',
+   p[0]-0.85,
+   p[1],
+   Math.PI/2,
+   {radius:1.15}
+  );
+
+  registerSeat(
+   'restaurant',
+   'restaurantChair',
+   p[0]+0.85,
+   p[1],
+   -Math.PI/2,
+   {radius:1.15}
+  );
+
+  registerTable(
+   'restaurant',
+   p[0],
+   p[1],
+   'restaurantTable'
+  );
  });
 
- addTV(restaurant,3.8,4.4,Math.PI);
+ const restaurantTV=addTV(restaurant,3.8,4.4,Math.PI);
+ registerTV('restaurant',3.8,4.4,Math.PI,restaurantTV);
 
  addPlant(restaurant,4.5,-4);
 
@@ -1568,18 +1916,16 @@ function buildInteriors(scene){
 
  const mechanic=World.interiors.mechanic;
 
- /* workshop floor markings */
  for(let i=-4;i<=4;i+=2){
   addBox(
    mechanic,
-   i, -2.43, 0,
+   i,-2.43,0,
    0.12,0.02,9,
    0xe1a92b,
    0.9
   );
  }
 
- /* workbench */
  addBox(
   mechanic,
   -3,-1.25,-3.7,
@@ -1589,7 +1935,6 @@ function buildInteriors(scene){
 
  addLocker(mechanic,1.5,3.8,4);
 
- /* lift platform */
  addBox(
   mechanic,
   2,-2.25,-0.5,
@@ -1598,7 +1943,6 @@ function buildInteriors(scene){
   0.55
  );
 
- /* car-like placeholder inside workshop */
  const workshopCar=World.makeCar(
   9999,
   9999,
@@ -1611,8 +1955,19 @@ function buildInteriors(scene){
  mechanic.add(workshopCar);
 
  addDesk(mechanic,-3,1.2);
-
  addChair(mechanic,-3,2.0,Math.PI);
+
+ registerSeat('mechanic','chair',-3,2.0,Math.PI);
+
+ registerInteriorObject(
+  'mechanic',
+  'workbench',
+  new THREE.Vector3(-3,48.7,-3.7),
+  {
+   radius:1.8,
+   label:'Use Workbench'
+  }
+ );
 
  /* ---------- SUPERMARKET ---------- */
  makeInterior(
@@ -1632,7 +1987,6 @@ function buildInteriors(scene){
   0xd0c7aa
  );
 
- /* shelves */
  [-3.2,0,3.2].forEach(x=>{
   addBox(
    supermarket,
@@ -1670,7 +2024,18 @@ function buildInteriors(scene){
   0x6b4932
  );
 
- addTV(supermarket,4.4,3.8,Math.PI);
+ const supermarketTV=addTV(supermarket,4.4,3.8,Math.PI);
+ registerTV('supermarket',4.4,3.8,Math.PI,supermarketTV);
+
+ registerInteriorObject(
+  'supermarket',
+  'counter',
+  new THREE.Vector3(0,48.7,-4.5),
+  {
+   radius:1.8,
+   label:'Checkout'
+  }
+ );
 
  /* ---------- OFFICE ---------- */
  makeInterior(
@@ -1691,12 +2056,18 @@ function buildInteriors(scene){
  addChair(office,-2,-0.45,Math.PI);
  addChair(office,2,-0.45,Math.PI);
 
+ registerSeat('office','chair',-2,-0.45,Math.PI);
+ registerSeat('office','chair',2,-0.45,Math.PI);
+
  addDesk(office,0,2.5);
  addChair(office,0,3.5,Math.PI);
 
+ registerSeat('office','chair',0,3.5,Math.PI);
+
  addLocker(office,-5,2.7,4);
 
- addTV(office,4.2,-3.5);
+ const officeTV=addTV(office,4.2,-3.5);
+ registerTV('office',4.2,-3.5,0,officeTV);
 
  addPlant(office,-4.8,-3.8);
 
@@ -1729,13 +2100,20 @@ function buildInteriors(scene){
   0xcfcfc9
  );
 
- addTV(motel,3.8,3.8,Math.PI);
+ registerBed('motel',0,-1.8);
+ registerBed('motel',0,2.0);
+
+ const motelTV=addTV(motel,3.8,3.8,Math.PI);
+ registerTV('motel',3.8,3.8,Math.PI,motelTV);
 
  addTable(motel,-3,2.2,1.2,0.8,0x62422e);
 
  addChair(motel,-3,1.2);
+ registerSeat('motel','chair',-3,1.2,0);
 
  addToilet(motel,4,-2.8);
+ registerToilet('motel',4,-2.8);
+
  addShower(motel,4,-0.7);
 
  addPlant(motel,-4,3.8);
@@ -1773,21 +2151,36 @@ function buildInteriors(scene){
  addDesk(pharmacy,-3,3.8);
  addChair(pharmacy,-3,4.7);
 
+ registerSeat('pharmacy','chair',-3,4.7,0);
+
+ registerInteriorObject(
+  'pharmacy',
+  'counter',
+  new THREE.Vector3(0,48.6,-4.5),
+  {
+   radius:1.8,
+   label:'Pharmacy Counter'
+  }
+ );
+
  /* ============ INTERIOR METADATA ============ */
  World.interiorMeta={
   hospital:{
    label:'Hospital',
    sleep:false,
+   sleepBonus:0,
    category:'medical'
   },
   police:{
    label:'Police Station',
    sleep:false,
+   sleepBonus:0,
    category:'police'
   },
   prison:{
    label:'Prison',
    sleep:false,
+   sleepBonus:0,
    category:'security'
   },
   home:{
@@ -1799,11 +2192,13 @@ function buildInteriors(scene){
   bank:{
    label:'Bank',
    sleep:false,
+   sleepBonus:0,
    category:'bank'
   },
   gunshop:{
    label:'Gun Shop',
    sleep:false,
+   sleepBonus:0,
    category:'shop'
   },
   studio:{
@@ -1827,31 +2222,37 @@ function buildInteriors(scene){
   restaurant:{
    label:'Restaurant',
    sleep:false,
+   sleepBonus:0,
    category:'food'
   },
   mechanic:{
    label:'Mechanic Workshop',
    sleep:false,
+   sleepBonus:0,
    category:'mechanic'
   },
   supermarket:{
    label:'Supermarket',
    sleep:false,
+   sleepBonus:0,
    category:'shop'
   },
   office:{
    label:'Office',
    sleep:false,
+   sleepBonus:0,
    category:'business'
   },
   motel:{
    label:'Motel',
    sleep:false,
+   sleepBonus:0,
    category:'hotel'
   },
   pharmacy:{
    label:'Pharmacy',
    sleep:false,
+   sleepBonus:0,
    category:'medical'
   }
  };
@@ -1862,7 +2263,6 @@ function buildInteriors(scene){
   villa:new THREE.Vector3(-3,50-1.72,-2.8)
  };
 
- /* Backward compatibility */
  World.homeBedLocal=
   new THREE.Vector3(-3,50-1.72,-2.4);
 
@@ -1909,10 +2309,16 @@ World.enterInterior=function(name,camera,outsidePos){
  World.interiors[name].visible=true;
  World.activeInterior=name;
 
- camera.position.set(0,49.2,3.8);
- camera.lookAt(0,49.0,-2);
+ const room=World.interiors[name];
+ const eyeY=
+  room.userData&&room.userData.eyeY?
+   room.userData.eyeY:
+   49.2;
 
- /* small metadata for other systems */
+ camera.position.set(0,eyeY,3.8);
+ camera.rotation.order='YXZ';
+ camera.lookAt(0,eyeY-0.2,-2);
+
  World.currentInteriorMeta=
   World.interiorMeta?
    World.interiorMeta[name]||null:
@@ -2715,7 +3121,7 @@ function buildChunk(cx,cz){
   sidewalkSpot('x',originX,originZ+15,1),
   sidewalkSpot('x',originX,originZ-15,-1),
   sidewalkSpot('z',originZ,originX+15,1),
-  sidewalkSpot('z',originZ,originX-15,-1)
+  sidewalkSpot('z',originX-15,-1)
  ];
 
  lampSpots.forEach((s,i)=>{
@@ -2821,8 +3227,8 @@ function buildChunk(cx,cz){
   s=sidewalkSpot(
    'x',
    originX,
-   originZ+5,
-   -1
+   originZ+(hash(cx,cz)-0.5)*20,
+   1
   );
 
   makeBillboard(

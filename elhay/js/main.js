@@ -18,28 +18,21 @@ renderer.setSize(
 );
 
 renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=THREE.PCFSoftShadowMap; // soft shadow edges instead of the default hard PCF
-renderer.outputEncoding=THREE.sRGBEncoding; // r128 API — colorSpace/SRGBColorSpace is a later-version rename
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.05;
 
-
 const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xbfd4e6);
+scene.fog=new THREE.Fog(0xbfd4e6,60,180);
 
-scene.background=
- new THREE.Color(0xbfd4e6);
-
-scene.fog=
- new THREE.Fog(0xbfd4e6,60,180);
-
-
-const camera=
- new THREE.PerspectiveCamera(
-  70,
-  innerWidth/innerHeight,
-  0.1,
-  500
- );
+const camera=new THREE.PerspectiveCamera(
+ 70,
+ innerWidth/innerHeight,
+ 0.1,
+ 500
+);
 
 camera.position.set(
  30,
@@ -47,46 +40,38 @@ camera.position.set(
  55
 );
 
-
-const hemi=
- new THREE.HemisphereLight(
-  0xdfe9f5,
-  0x2a2015,
-  0.7
- );
+const hemi=new THREE.HemisphereLight(
+ 0xdfe9f5,
+ 0x2a2015,
+ 0.7
+);
 
 scene.add(hemi);
 
-
-// Golden, crisp daylight sun: warm color, larger/higher-resolution shadow frustum so shadows stay
-// sharp across the play area instead of blurring out at a distance.
-const sun=
- new THREE.DirectionalLight(
-  0xfff1d6,
-  1.5
- );
+const sun=new THREE.DirectionalLight(
+ 0xfff1d6,
+ 1.5
+);
 
 sun.position.set(
  -45,
  70,
  -25
- );
+);
 
 sun.castShadow=true;
 
 sun.shadow.mapSize.set(
  2048,
  2048
- );
+);
 
 sun.shadow.camera.near=1;
 sun.shadow.camera.far=220;
-
 sun.shadow.camera.left=-90;
 sun.shadow.camera.right=90;
 sun.shadow.camera.top=90;
 sun.shadow.camera.bottom=-90;
-
 sun.shadow.bias=-0.0004;
 sun.shadow.radius=2.2;
 
@@ -119,7 +104,8 @@ const resumeAudioOnce=()=>{
  removeEventListener(
   'touchstart',
   resumeAudioOnce
- );
+);
+
 };
 
 addEventListener(
@@ -143,8 +129,10 @@ addEventListener(
 addEventListener(
  'resize',
  ()=>{
+
   camera.aspect=
-   innerWidth/innerHeight;
+   innerWidth/
+   innerHeight;
 
   camera.updateProjectionMatrix();
 
@@ -171,26 +159,42 @@ Player.init(
 World.applyQuality();
 
 Vehicles.initDefault();
+
 NPCPool.init();
+
 PoliceAI.init();
 
 Phone.initTabs();
 
 UI.initExtras();
+
 UI.refreshHUD();
+
 Weapons.refreshHUD();
 
 
-/* Offline vs. Multiplayer mode: only Offline has real gameplay in this build.
-   Multiplayer stays behind the NetworkManager stub — architecture is separated, not implemented. */
+/* ============ Relationships Runtime ============ */
+
+if(
+ typeof Relationships!=='undefined'&&
+ typeof Relationships.update==='function'
+){
+
+ Relationships.update(0);
+}
+
+
+/* ============ Multiplayer ============ */
 
 let gameMode='offline';
 
 const modeSelect=$('selMode');
 
 if(modeSelect){
+
  modeSelect.onchange=e=>{
-  gameMode=e.target.value;
+  gameMode=
+   e.target.value;
  };
 }
 
@@ -199,9 +203,10 @@ function tryConnectMultiplayer(){
  if(gameMode!=='multi') return;
 
  if(
-  typeof NetworkManager!=='undefined' &&
+  typeof NetworkManager!=='undefined'&&
   typeof NetworkManager.connect==='function'
  ){
+
   NetworkManager.connect(
    'wss://example-not-configured.invalid'
   );
@@ -213,19 +218,19 @@ function tryConnectMultiplayer(){
 }
 
 
-/* Respawn: if health hits 0, come back at the player's chosen spawn point (an owned property)
-   or the default home area if none is set yet. Gives Player.spawnPoint a real purpose beyond
-   just being saved data. Guarded so it only fires once per depletion, not every frame at 0 health. */
+/* ============ Respawn ============ */
 
 let awaitingRespawn=false;
 
 function respawnPlayer(){
 
  const poi=
-  Player.spawnPoint &&
-  World.pois &&
+  Player.spawnPoint&&
+  World.pois&&
   World.pois.find(
-   p=>p.id===Player.spawnPoint
+   p=>
+    p.id===
+    Player.spawnPoint
   );
 
  const pos=
@@ -248,9 +253,10 @@ function respawnPlayer(){
  Player.mode='walk';
 
  if(
-  typeof PoliceAI!=='undefined' &&
+  typeof PoliceAI!=='undefined'&&
   typeof PoliceAI.clear==='function'
  ){
+
   PoliceAI.clear();
  }
 
@@ -258,12 +264,14 @@ function respawnPlayer(){
 }
 
 
+/* ============ Cutscene ============ */
+
 function startCutscene(){
 
  tryConnectMultiplayer();
 
  if(
-  typeof Cutscenes==='undefined' ||
+  typeof Cutscenes==='undefined'||
   typeof Cutscenes.play!=='function'
  ){
 
@@ -273,18 +281,21 @@ function startCutscene(){
 
   MissionSystem.start();
 
-  if(
-   UI.dom.hud
-  ){
+  if(UI.dom.hud){
+
    UI.dom.hud.style.display=
-    S.showFps?'block':'none';
+    S.showFps
+     ? 'block'
+     : 'none';
   }
 
   if(
-   !IS_TOUCH &&
+   !IS_TOUCH&&
    UI.dom.crosshair
   ){
-   UI.dom.crosshair.style.display='block';
+
+   UI.dom.crosshair.style.display=
+    'block';
   }
 
   return;
@@ -295,15 +306,20 @@ function startCutscene(){
   ()=>{
 
    if(UI.dom.hud){
+
     UI.dom.hud.style.display=
-     S.showFps?'block':'none';
+     S.showFps
+      ? 'block'
+      : 'none';
    }
 
    if(
-    !IS_TOUCH &&
+    !IS_TOUCH&&
     UI.dom.crosshair
    ){
-    UI.dom.crosshair.style.display='block';
+
+    UI.dom.crosshair.style.display=
+     'block';
    }
 
    MissionSystem.start();
@@ -311,6 +327,8 @@ function startCutscene(){
  );
 }
 
+
+/* ============ Continue Game ============ */
 
 async function continueGame(){
 
@@ -320,24 +338,27 @@ async function continueGame(){
   await Persistence.load();
 
  if(!ok){
+
   MissionSystem.start();
  }
 
  if(
-  !IS_TOUCH &&
+  !IS_TOUCH&&
   UI.dom.crosshair
  ){
-  UI.dom.crosshair.style.display='block';
+
+  UI.dom.crosshair.style.display=
+   'block';
  }
 
  if(UI.dom.hud){
+
   UI.dom.hud.style.display=
-   S.showFps?'block':'none';
+   S.showFps
+    ? 'block'
+    : 'none';
  }
 }
-
-
-/* ============ Main UI Wiring ============ */
 
 UI.init(
  startCutscene,
@@ -345,13 +366,16 @@ UI.init(
 );
 
 
-/* ---- Main loop ---- */
+/* ============ Main Loop ============ */
 
 let last=performance.now();
-let fpsCount=0;
-let fpsSample=performance.now();
-let hudTick=0;
 
+let fpsCount=0;
+
+let fpsSample=
+ performance.now();
+
+let hudTick=0;
 
 function loop(now){
 
@@ -378,13 +402,14 @@ function loop(now){
  last=now;
 
 
- /* ============ Player ============ */
+ /* Player */
 
  Player.update(dt);
+
  Player.updatePrompt();
 
 
- /* ============ World ============ */
+ /* World */
 
  World.update(
   camera.position.x,
@@ -395,14 +420,31 @@ function loop(now){
  World.updateDayNight(dt);
 
 
- /* ============ NPC / Gang / Police ============ */
+ /* NPCs */
 
  NPCPool.update(
   camera.position,
   dt
  );
 
+
+ /* Relationships */
+
+ if(
+  typeof Relationships!=='undefined'&&
+  typeof Relationships.update==='function'
+ ){
+
+  Relationships.update(dt);
+ }
+
+
+ /* Gang */
+
  Gang.update(dt);
+
+
+ /* Police */
 
  PoliceAI.update(
   dt,
@@ -410,7 +452,7 @@ function loop(now){
  );
 
 
- /* ============ Audio ============ */
+ /* Audio */
 
  Audio.siren(
   PoliceAI.active
@@ -419,20 +461,20 @@ function loop(now){
  Audio.updateSiren(dt);
 
 
- /* ============ Vitals ============ */
+ /* Vitals */
 
  Vitals.update(dt);
 
 
- /* ============ Prison ============ */
+ /* Prison */
 
  Prison.tick(dt);
 
 
- /* ============ Respawn ============ */
+ /* Death / Respawn */
 
  if(
-  Vitals.health<=0 &&
+  Vitals.health<=0&&
   !awaitingRespawn
  ){
 
@@ -448,9 +490,12 @@ function loop(now){
  }
 
 
- /* ============ Heist / Missions ============ */
+ /* Heist */
 
  HeistSystem.tick(dt);
+
+
+ /* Missions */
 
  MissionSystem.checkProgress(
   camera.position,
@@ -459,7 +504,7 @@ function loop(now){
  );
 
 
- /* ============ Render ============ */
+ /* Render */
 
  renderer.render(
   scene,
@@ -467,7 +512,7 @@ function loop(now){
  );
 
 
- /* ============ HUD / Minimap ============ */
+ /* HUD */
 
  hudTick+=dt;
 
@@ -478,15 +523,16 @@ function loop(now){
   UI.refreshHUD();
 
   if(
-   typeof Minimap!=='undefined' &&
+   typeof Minimap!=='undefined'&&
    typeof Minimap.draw==='function'
   ){
+
    Minimap.draw(camera);
   }
  }
 
 
- /* ============ FPS ============ */
+ /* FPS */
 
  fpsCount++;
 
@@ -495,14 +541,15 @@ function loop(now){
  ){
 
   if(
-   S.showFps &&
+   S.showFps&&
    UI.dom.hud
   ){
 
    UI.dom.hud.textContent=
     'FPS: '+
     Math.round(
-     fpsCount*1000/
+     fpsCount*
+     1000/
      (now-fpsSample)
     )+
     '\n'+
@@ -514,30 +561,33 @@ function loop(now){
   }
 
   fpsCount=0;
+
   fpsSample=now;
  }
 }
 
-
 requestAnimationFrame(loop);
 
 
-/* Autosave every 20s once gameplay has started (menu closed) */
+/* ============ Autosave ============ */
 
 setInterval(
  ()=>{
+
   if(
-   UI.dom.menu &&
+   UI.dom.menu&&
    UI.dom.menu.style.display==='none'
   ){
+
    Persistence.save();
   }
+
  },
  20000
 );
 
 
-/* ---- Boot sequence ---- */
+/* ============ Boot ============ */
 
 let pct=0;
 
@@ -550,6 +600,7 @@ const bootId=
     Math.random()*10;
 
    if(UI.dom.lbFill){
+
     UI.dom.lbFill.style.width=
      Math.min(
       pct,
@@ -566,11 +617,13 @@ const bootId=
      ()=>{
 
       if(UI.dom.loading){
+
        UI.dom.loading.style.display=
         'none';
       }
 
       if(UI.dom.menu){
+
        UI.dom.menu.style.display=
         'flex';
       }
@@ -581,5 +634,5 @@ const bootId=
    }
 
   },
-  100
+ 100
  );

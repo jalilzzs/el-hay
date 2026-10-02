@@ -213,6 +213,7 @@ World.init=function(scene,renderer){
  World.playerCar=World.makeCar(-68,-18,0x274b52,'sedan');
  World.parkedCars=[];
 
+ /* Parked cars now use the real models: sedans, hatchbacks (compact sedans), an SUV and a pickup */
  const parkedTypes=['sedan','suv','pickup','hatchback','sedan'];
 
  for(let i=0;i<5;i++){
@@ -249,6 +250,8 @@ World.init=function(scene,renderer){
  World.updateChunks(0,0);
 
  Traffic.init();
+
+ CityModels.init();
 };
 
 /* ============ CHECKPOINT ============ */
@@ -369,6 +372,7 @@ const matGunShop=new THREE.MeshStandardMaterial({color:0x3a3a3a,roughness:0.9});
 const matSafehouse=new THREE.MeshStandardMaterial({map:TEX.residential2,roughness:0.85});
 const matVilla=new THREE.MeshStandardMaterial({color:0xe8dcc0,roughness:0.6,metalness:0.05});
 
+/* New building materials */
 const matRestaurant=new THREE.MeshStandardMaterial({color:0x9b3d2f,roughness:0.72});
 const matMechanic=new THREE.MeshStandardMaterial({color:0x49545b,roughness:0.82,metalness:0.1});
 const matSupermarket=new THREE.MeshStandardMaterial({color:0xd4c15b,roughness:0.78});
@@ -415,13 +419,21 @@ function buildLandmarks(scene){
  World.landmarks.villa=block(scene,-20,0,60,12,8,12,matVilla);
  roofLedge(scene,-20,8.15,60,12,12,0xe8dcc0);
 
+ /* New enterable buildings */
  World.landmarks.restaurant=block(scene,-20,0,20,10,6,10,matRestaurant);
+
+ /*
+  * IMPORTANT:
+  * Supermarket used to be at the exact same position as Restaurant.
+  * It is moved to a free block at (-40,20).
+  */
  World.landmarks.supermarket=block(scene,-40,0,20,12,6,10,matSupermarket);
  World.landmarks.mechanic=block(scene,40,0,40,12,6,14,matMechanic);
  World.landmarks.office=block(scene,60,0,60,12,8,10,matOffice);
  World.landmarks.motel=block(scene,-60,0,60,12,6,14,matMotel);
  World.landmarks.pharmacy=block(scene,20,0,60,8,5,8,matPharmacy);
 
+ /* Signs */
  mountSignboard(scene,60,7.5,-53.7,0,4.2,1.1,'مركز الشرطة','#1f3b57','#ffffff');
  mountSignboard(scene,-60,7.5,12.7,Math.PI,3.2,1.1,'البنك','#f2f0e6','#1f3b57');
  mountSignboard(scene,30,9.5,49.7,Math.PI,3.6,1.1,'السجن','#1c1c1c','#e0e0e0');
@@ -490,6 +502,7 @@ function makeInterior(scene,name,wallColor,floorColor,accent){
  const g=new THREE.Group();
  g.visible=false;
 
+ /* Every interior is a clean 12x12 room. */
  const ROOM_W=12;
  const ROOM_D=12;
  const FLOOR_Y=-2.50;
@@ -602,7 +615,7 @@ function addSofa(parent,x,z,rot=0,color=0x5a4034){
  addBox(g,0,-1.55,0,2.8,0.5,0.95,color);
  addBox(g,0,-1.05,-0.34,2.8,0.95,0.22,color);
  addBox(g,-1.25,-1.25,0,0.22,0.9,0.95,color);
- addBox(g,1.25,-1.25,0,0.22,0.9,0.95,color);
+ addBox(g,1.25,-1.25,0,0.22,0.9,0.95,color); /* fixed: depth argument was missing */
  g.position.set(x,0,z);
  g.rotation.y=rot;
  parent.add(g);
@@ -816,6 +829,7 @@ function registerTable(room,x,z,type='table'){
 /* ============ INTERIOR BUILD ============ */
 function buildInteriors(scene){
 
+ /* ---------- HOSPITAL ---------- */
  makeInterior(scene,'hospital',0xeaf1f8,0xdfe9f2,0xc0392b);
  const hospital=World.interiors.hospital;
  addRug(hospital,0,0,7.5,8,0xe7edf2);
@@ -831,6 +845,7 @@ function buildInteriors(scene){
  addPlant(hospital,-5,3);
  addPlant(hospital,5,3);
 
+ /* ---------- POLICE ---------- */
  makeInterior(scene,'police',0x3a3733,0x2a2825,0x146b3a);
  const police=World.interiors.police;
  addRug(police,0,0,8,8,0x333c38);
@@ -845,6 +860,7 @@ function buildInteriors(scene){
  registerTV('police',3.8,3.2,Math.PI,policeTV);
  addBox(police,0,-1.0,5.1,3.0,2.0,0.15,0x333333);
 
+ /* ---------- PRISON ---------- */
  makeInterior(scene,'prison',0x2c2c2c,0x1f1f1f,0x555555);
  const prison=World.interiors.prison;
  addRug(prison,0,0,8,8,0x292929);
@@ -859,6 +875,7 @@ function buildInteriors(scene){
  }
  addBox(prison,0,-1.0,5.25,7.5,0.12,0.15,0x333333);
 
+ /* ---------- HOME ---------- */
  makeInterior(scene,'home',0xe7d9be,0xc7a97a,0x8a5a3a);
  const home=World.interiors.home;
  addRug(home,0,0,7.5,5.5,0xa67b54);
@@ -884,6 +901,7 @@ function buildInteriors(scene){
  World.homeToiletLocal=new THREE.Vector3(4.3,50-1.65,3.7);
  registerBed('home',-3,-2.4);
 
+ /* ---------- BANK ---------- */
  makeInterior(scene,'bank',0xd9d4c4,0xb8ae94,0x8a7a4a);
  const bank=World.interiors.bank;
  addRug(bank,0,0,8,8,0x9a8661);
@@ -912,6 +930,7 @@ function buildInteriors(scene){
   return {mesh:bag,localPos:new THREE.Vector3(p[0],50+p[1],p[2]),collected:false};
  });
 
+ /* ---------- GUN SHOP ---------- */
  makeInterior(scene,'gunshop',0x2a2a2a,0x1c1c1c,0x8a2020);
  const gunshop=World.interiors.gunshop;
  addRug(gunshop,0,0,8,8,0x202020);
@@ -920,6 +939,7 @@ function buildInteriors(scene){
  registerInteriorObject('gunshop','counter',new THREE.Vector3(0,48.45,-3.5),{radius:1.8,label:'Browse Weapons'});
  [-3.2,3.2].forEach(sx=>{addBox(gunshop,sx,-0.9,-4.7,0.7,2.0,0.3,0x333333);});
 
+ /* ---------- STUDIO ---------- */
  makeInterior(scene,'studio',0xe7d9be,0xc7a97a,0x8a5a3a);
  const studio=World.interiors.studio;
  addRug(studio,0,0,7.5,7,0xb78d67);
@@ -943,6 +963,7 @@ function buildInteriors(scene){
  addPlant(studio,4.5,-3.8);
  registerBed('studio',-3,-2.6);
 
+ /* ---------- FLAT 2 ---------- */
  makeInterior(scene,'flat2',0xded2bf,0xb7a98e,0x6b5947);
  const flat2=World.interiors.flat2;
  addRug(flat2,1,0,6.5,4.2,0x8e6b50);
@@ -966,6 +987,7 @@ function buildInteriors(scene){
  addPlant(flat2,4.6,-3.6);
  registerBed('flat2',-3,-2.5);
 
+ /* ---------- VILLA ---------- */
  makeInterior(scene,'villa',0xf0e6cc,0xd8c49a,0xc9a24b);
  const villa=World.interiors.villa;
  addRug(villa,0,0,9,7,0xa8362f);
@@ -992,6 +1014,7 @@ function buildInteriors(scene){
  registerSeat('villa','sofa',-1.0,1.6,0,{radius:1.8});
  registerBed('villa',-3,-2.8);
 
+ /* ---------- RESTAURANT ---------- */
  makeInterior(scene,'restaurant',0x4b2520,0x6c4030,0xb53b2d);
  const restaurant=World.interiors.restaurant;
  addRug(restaurant,0,0,9,8,0x57251e);
@@ -1010,6 +1033,7 @@ function buildInteriors(scene){
  registerTV('restaurant',3.8,4.4,Math.PI,restaurantTV);
  addPlant(restaurant,4.5,-4);
 
+ /* ---------- MECHANIC WORKSHOP ---------- */
  makeInterior(scene,'mechanic',0x3d454a,0x3a3d3e,0xe1a92b);
  const mechanic=World.interiors.mechanic;
  for(let i=-4;i<=4;i+=2){addBox(mechanic,i,-2.43,0,0.12,0.02,9,0xe1a92b,0.9);}
@@ -1017,6 +1041,7 @@ function buildInteriors(scene){
  addLocker(mechanic,1.5,3.8,4);
  addBox(mechanic,2,-2.25,-0.5,3.4,0.15,5.0,0x202326,0.55);
 
+ /* The workshop car uses a real model (loaded asynchronously) */
  const workshopCar=World.makeCar(9999,9999,0x5b6870,'sedan');
  workshopCar.scale.setScalar(0.72);
  workshopCar.position.set(2,-2.2,-0.5);
@@ -1027,6 +1052,7 @@ function buildInteriors(scene){
  registerSeat('mechanic','chair',-3,2.0,Math.PI);
  registerInteriorObject('mechanic','workbench',new THREE.Vector3(-3,48.7,-3.7),{radius:1.8,label:'Use Workbench'});
 
+ /* ---------- SUPERMARKET ---------- */
  makeInterior(scene,'supermarket',0xd8cfad,0xb9b29a,0xd4b52c);
  const supermarket=World.interiors.supermarket;
  addRug(supermarket,0,0,10,9,0xd0c7aa);
@@ -1044,6 +1070,7 @@ function buildInteriors(scene){
  registerTV('supermarket',4.4,3.8,Math.PI,supermarketTV);
  registerInteriorObject('supermarket','counter',new THREE.Vector3(0,48.7,-4.5),{radius:1.8,label:'Checkout'});
 
+ /* ---------- OFFICE ---------- */
  makeInterior(scene,'office',0x687989,0x8e8d82,0x2e506f);
  const office=World.interiors.office;
  addRug(office,0,0,8.5,8,0x5a6671);
@@ -1061,6 +1088,7 @@ function buildInteriors(scene){
  registerTV('office',4.2,-3.5,0,officeTV);
  addPlant(office,-4.8,-3.8);
 
+ /* ---------- MOTEL ---------- */
  makeInterior(scene,'motel',0x7e5f4b,0x735c4a,0xa17a57);
  const motel=World.interiors.motel;
  addRug(motel,0,0,9,8,0x6c4d3d);
@@ -1078,6 +1106,7 @@ function buildInteriors(scene){
  addShower(motel,4,-0.7);
  addPlant(motel,-4,3.8);
 
+ /* ---------- PHARMACY ---------- */
  makeInterior(scene,'pharmacy',0xdde8df,0xcfd8d1,0x4b9a68);
  const pharmacy=World.interiors.pharmacy;
  addBox(pharmacy,0,-1.4,-4.5,5.0,1.0,0.7,0xffffff);
@@ -1165,7 +1194,15 @@ World.exitInterior=function(camera,outsidePos){
 
 /* =====================================================================
  * CAR MODELS  (files live in  elhay/public/cars/)
- * (OBJ CAR LOADER UNTOUCHED)
+ *
+ *   cars/sedan_01.obj ... suv_10.obj, pickup_01.obj, tractor_01.obj, truck_01.obj ...
+ *   cars/textures/color_1024x1024.jpg      <- from textures.rar
+ *
+ * Every model: origin = ground centre, front = +Z, units = meters.
+ * No extra three.js loader is needed (tiny OBJ parser below).
+ * If a file or the texture is missing, the old boxy procedural car stays
+ * visible, so the game never breaks.
+ * Change the folder with  ASSET_PATHS.cars = '/my/path/'  if needed.
  * ===================================================================== */
 const CAR_BASE=(typeof ASSET_PATHS!=='undefined'&&ASSET_PATHS.cars)||'/cars/';
 const CAR_TEXTURE='textures/color_1024x1024.jpg';
@@ -1179,6 +1216,7 @@ const CAR_POOLS={
  truck:['truck_01','truck_02','truck_03','truck_04']
 };
 
+/* game type -> which models, target length in meters (null = native size), dark = tinted material */
 const CAR_TYPES={
  sedan:{pool:CAR_POOLS.sedanLong,len:4.5},
  hatchback:{pool:CAR_POOLS.sedanCompact,len:4.0},
@@ -1204,12 +1242,13 @@ function carSRGB(tex){
  else if(THREE.sRGBEncoding!==undefined)tex.encoding=THREE.sRGBEncoding;
 }
 
+/* one shared material (+ one dark copy for police) for ALL vehicles = very cheap */
 CarModels.material=function(dark){
  const key=dark?'dark':'normal';
  if(CarModels.mats[key])return CarModels.mats[key];
 
  const m=new THREE.MeshStandardMaterial({
-  color:dark?0x2c2f33:0x9aa4ab,
+  color:dark?0x2c2f33:0x9aa4ab, /* fallback colour until the texture arrives */
   roughness:0.6,
   metalness:0.15
  });
@@ -1240,17 +1279,18 @@ CarModels.material=function(dark){
  return m;
 };
 
+/* minimal OBJ -> BufferGeometry (positions, uvs, normals; faces are fan-triangulated) */
 function parseCarOBJ(text){
  const v=[],vt=[],vn=[],pos=[],uv=[],nor=[];
  const lines=text.split('\n');
  for(let i=0;i<lines.length;i++){
   const l=lines[i];
-  if(l.charCodeAt(0)===118){
+  if(l.charCodeAt(0)===118){ /* 'v' */
    const t=l.split(' ');
    if(t[0]==='v')v.push(+t[1],+t[2],+t[3]);
    else if(t[0]==='vt')vt.push(+t[1],+t[2]);
    else if(t[0]==='vn')vn.push(+t[1],+t[2],+t[3]);
-  }else if(l.charCodeAt(0)===102){
+  }else if(l.charCodeAt(0)===102){ /* 'f' */
    const t=l.trim().split(/\s+/);
    const c=[];
    for(let k=1;k<t.length;k++){
@@ -1276,6 +1316,7 @@ function parseCarOBJ(text){
  return geo;
 }
 
+/* load once, cache forever, share between all cars of that model */
 CarModels.load=function(id){
  if(CarModels.loading[id])return CarModels.loading[id];
  CarModels.loading[id]=fetch(CAR_BASE+id+'.obj')
@@ -1295,6 +1336,7 @@ CarModels.load=function(id){
  return CarModels.loading[id];
 };
 
+/* decide which model a car gets */
 CarModels.resolve=function(type,modelId){
  let id=modelId||null;
  let def=CAR_TYPES[type]||null;
@@ -1314,6 +1356,7 @@ CarModels.resolve=function(type,modelId){
  return {id,len:def?def.len:null,dark:!!(def&&def.dark)};
 };
 
+/* swap the procedural placeholder for the real model once it is loaded */
 CarModels.apply=function(g,proc,type,modelId){
  const spec=CarModels.resolve(type,modelId);
  if(!spec)return;
@@ -1345,81 +1388,14 @@ CarModels.apply=function(g,proc,type,modelId){
 
   g.userData.model=info;
   if(g.userData.fitModel)g.userData.fitModel(info);
- }).catch(()=>{});
+ }).catch(()=>{ /* keep procedural car */ });
 };
 
+/* place a vehicle anywhere: World.spawnVehicle('truck',10,20,Math.PI/2) or ('suv_03',...) */
 World.spawnVehicle=function(type,x,z,rotY,color){
  const c=World.makeCar(x,z,color||0x888888,type);
  c.rotation.y=rotY||0;
  return c;
-};
-
-/* =====================================================================
- * GLB MODEL LOADER (For Buildings, Roads, NPCs, Fences, Windows)
- *
- * Scans & loads GLB files without altering vehicle OBJ logic.
- * ===================================================================== */
-const GLB_BASE=(typeof ASSET_PATHS!=='undefined'&&ASSET_PATHS.models)||'/models/';
-
-const GLBModels={
- cache:new Map(),
- loader:null,
- stats:{loaded:0,failed:0}
-};
-
-GLBModels.getLoader=function(){
- if(!GLBModels.loader&&typeof THREE.GLTFLoader!=='undefined'){
-  GLBModels.loader=new THREE.GLTFLoader();
- }
- return GLBModels.loader;
-};
-
-GLBModels.load=function(filePath){
- const fullPath=filePath.startsWith('http')||filePath.startsWith('/')?filePath:GLB_BASE+filePath;
- if(GLBModels.cache.has(fullPath)){
-  return GLBModels.cache.get(fullPath);
- }
-
- const loader=GLBModels.getLoader();
- if(!loader){
-  console.warn('[GLBModels] THREE.GLTFLoader missing.');
-  return Promise.reject('GLTFLoader missing');
- }
-
- const promise=new Promise((resolve,reject)=>{
-  loader.load(
-   fullPath,
-   (gltf)=>{
-    GLBModels.stats.loaded++;
-    resolve(gltf.scene);
-   },
-   undefined,
-   (err)=>{
-    GLBModels.stats.failed++;
-    console.warn('[GLBModels] Failed to load GLB: '+fullPath,err);
-    reject(err);
-   }
-  );
- });
-
- GLBModels.cache.set(fullPath,promise);
- return promise;
-};
-
-World.spawnGLBAsset=function(parent,fileName,x,y,z,scale=1,rotY=0){
- GLBModels.load(fileName).then((model)=>{
-  const clone=model.clone(true);
-  clone.position.set(x,y,z);
-  clone.scale.setScalar(scale);
-  clone.rotation.y=rotY;
-  clone.traverse((child)=>{
-   if(child.isMesh){
-    child.castShadow=true;
-    child.receiveShadow=true;
-   }
-  });
-  parent.add(clone);
- }).catch(()=>{});
 };
 
 /* ============ VEHICLES ============ */
@@ -1441,6 +1417,7 @@ World.makeCar=function(x,z,color,type,modelId){
 
  const g=new THREE.Group();
 
+ /* procedural body = fallback shown until (or if) the real model loads */
  const proc=new THREE.Group();
  g.add(proc);
 
@@ -1515,6 +1492,7 @@ World.makeCar=function(x,z,color,type,modelId){
    proc.add(panel);
   });
 
+  /* light bar + decals live on the main group so they stay visible on the real model */
   const barBase=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.1,0.32),new THREE.MeshStandardMaterial({color:0x1a1a1a}));
   barBase.position.set(0,1.16,0.25);
   g.add(barBase);
@@ -1547,6 +1525,7 @@ World.makeCar=function(x,z,color,type,modelId){
 
   g.userData.lightBar={red,blue};
 
+  /* re-fit the light bar and decals to the real model's roof / sides */
   g.userData.fitModel=function(info){
    const roof=info.height;
    barBase.position.set(0,roof+0.05,0.15);
@@ -1686,6 +1665,7 @@ function makeTree(parent,x,z){
 /* ============ TRAFFIC ============ */
 const Traffic={cars:[],size:6};
 
+/* mix of real models driving around */
 const TRAFFIC_TYPES=['sedan','hatchback','suv','sedan','pickup','hatchback'];
 
 Traffic.init=function(){
@@ -1802,6 +1782,311 @@ World.update=function(px,pz,dt){
  Traffic.update(dt,new THREE.Vector3(px,0,pz));
 };
 
+/* =====================================================================
+ * CITY MODELS  (GLB environment)
+ *
+ *   city/glb, city/glb2 ... city/glb6   -> buildings, chimneys, props ...
+ *   city/textures                       -> shared colormap used by the GLBs
+ *
+ * Base folder defaults to '/city/'  (override with ASSET_PATHS.city = '/my/path/').
+ * Every .glb in the six folders is loaded once, normalised (origin = ground centre)
+ * and cached; the game then clones them:
+ *   - chunk buildings  : the procedural boxes are replaced by GLB buildings (+ chimneys)
+ *   - landmarks        : hospital, bank, police ... get a GLB building fitted to their
+ *                        exact footprint (collision boxes / interiors are untouched)
+ *   - sidewalks        : trees, signs, props, people from the GLBs
+ * If anything fails (loader, files, network) the old procedural world stays visible.
+ * Vehicles are NOT touched here - cars keep using CarModels / World.makeCar.
+ * ===================================================================== */
+const CITY_BASE=(typeof ASSET_PATHS!=='undefined'&&ASSET_PATHS.city)||'/city/';
+const CITY_FOLDERS=['glb','glb2','glb3','glb4','glb5','glb6'];
+
+/* A browser cannot list a folder by itself. Names listed here are always loaded;
+   the rest of each folder is discovered automatically (directory index or GitHub API).
+   Add file names to the other folders if you want a 100% offline / deterministic list. */
+const CITY_FILES={
+ glb:['building-o.glb','building-p.glb','building-q.glb','building-r.glb','building-s.glb','building-t.glb','chimney-basic.glb','chimney-large.glb','chimney-medium.glb','chimney-small.glb'],
+ glb2:[],glb3:[],glb4:[],glb5:[],glb6:[]
+};
+
+/* used only for auto-discovery through the GitHub contents API (public repos) */
+const CITY_REPO={owner:'jalilzzs',repo:'el-hay',branch:'main',dir:'elhay/city'};
+
+const CityModels={items:[],cats:{},byName:{},ready:false,stats:{found:0,loaded:0,failed:0}};
+
+function cityCat(n){
+ n=n.toLowerCase();
+ if(/^(car|cars|truck|van|taxi|ambulance|suv|sedan|pickup|tractor|vehicle|motorcycle|bike)([-_\d]|$)/.test(n))return 'vehicle'; /* never placed here */
+ if(/chimney/.test(n))return 'chimney';
+ if(/^(road|street|asphalt|crossing|intersection|bridge|highway)/.test(n))return 'road';
+ if(/^(wall|roof|door|window|balcony|stairs?|awning|overhang|detail|floor|corner|pillar|column|ledge|trim|fence|path|driveway|pavement|tile|ground)/.test(n))return 'part';
+ if(/character|person|people|human|npc|woman|citizen|pedestrian/.test(n))return 'ped';
+ if(/building|skyscraper|house|shop|store|apartment|tower|villa|hotel|church|mosque|school|hospital|office|garage|mall|factory|warehouse/.test(n))return 'building';
+ if(/tree|bush|hedge|plant|flower|palm|grass|rock|stone|planter/.test(n))return 'vegetation';
+ if(/sign|light|lamp|pole|hydrant|bench|bin|trash|cone|barrier|bollard|mailbox|box|post|stop|kiosk|vend|cabinet|billboard|traffic/.test(n))return 'furniture';
+ return 'prop';
+}
+
+function cityClone(o){
+ return (THREE.SkeletonUtils&&THREE.SkeletonUtils.clone)?THREE.SkeletonUtils.clone(o):o.clone(true);
+}
+
+/* GLTFLoader: use the one already on THREE, otherwise pull the matching build from a CDN */
+CityModels.getLoader=function(){
+ if(CityModels._lp)return CityModels._lp;
+ const mgr=new THREE.LoadingManager();
+ /* GLBs that point to  glbN/Textures/xxx.png  are redirected to  city/textures/xxx.png */
+ mgr.setURLModifier(u=>u.replace(/\/glb\d*\/textures\//i,'/textures/'));
+ CityModels._lp=new Promise((res,rej)=>{
+  const make=C=>res(new C(mgr));
+  const G=THREE.GLTFLoader||window.GLTFLoader;
+  if(G)return make(G);
+  const rev=parseInt(THREE.REVISION,10);
+  if(rev<=147){
+   const s=document.createElement('script');
+   s.src='https://cdn.jsdelivr.net/npm/three@0.'+rev+'.0/examples/js/loaders/GLTFLoader.js';
+   s.onload=()=>THREE.GLTFLoader?make(THREE.GLTFLoader):rej(new Error('GLTFLoader missing after load'));
+   s.onerror=()=>rej(new Error('could not download GLTFLoader'));
+   document.head.appendChild(s);
+  }else{
+   import('https://esm.sh/three@0.'+rev+'.0/examples/jsm/loaders/GLTFLoader.js').then(m=>make(m.GLTFLoader),rej);
+  }
+ });
+ return CityModels._lp;
+};
+
+/* file names of one folder: manifest + directory index + GitHub API (cached 30 min) */
+CityModels.list=async function(folder){
+ const base=CITY_FILES[folder]||[];
+ const out=new Set(base);
+ const add=n=>{if(/\.glb$/i.test(n))out.add(decodeURIComponent(String(n).split('/').pop()));};
+ const key='cityGlbList:'+folder;
+ try{
+  const c=JSON.parse(localStorage.getItem(key)||'null');
+  if(c&&Date.now()-c.t<1800000){c.names.forEach(add);return Array.from(out);}
+ }catch(e){}
+ try{
+  const r=await fetch(CITY_BASE+folder+'/');
+  if(r.ok){
+   const t=await r.text();
+   (t.match(/href="[^"]+?\.glb"/gi)||[]).forEach(h=>add(h.slice(6,-1)));
+  }
+ }catch(e){}
+ try{
+  const R=CITY_REPO;
+  const r=await fetch('https://api.github.com/repos/'+R.owner+'/'+R.repo+'/contents/'+R.dir+'/'+folder+'?ref='+R.branch);
+  if(r.ok)(await r.json()).forEach(f=>add(f.name));
+ }catch(e){}
+ const names=Array.from(out);
+ if(names.length>base.length){
+  try{localStorage.setItem(key,JSON.stringify({t:Date.now(),names}));}catch(e){}
+ }
+ return names;
+};
+
+CityModels.register=function(folder,file,gltf){
+ const root=gltf.scene;
+ root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+ root.updateMatrixWorld(true);
+ const box=new THREE.Box3().setFromObject(root);
+ const size=box.getSize(new THREE.Vector3());
+ const c=box.getCenter(new THREE.Vector3());
+ root.position.set(-c.x,-box.min.y,-c.z); /* origin = centre of the base */
+ const pivot=new THREE.Group();
+ pivot.add(root);
+ const name=file.replace(/\.glb$/i,'');
+ const info={name,folder,cat:cityCat(name),obj:pivot,w:size.x,h:size.y,d:size.z};
+ CityModels.items.push(info);
+ CityModels.byName[folder+'/'+name]=info;
+ if(info.cat!=='building'||(info.w>0.01&&info.h>0.01&&info.d>0.01)){
+  (CityModels.cats[info.cat]=CityModels.cats[info.cat]||[]).push(info);
+ }
+};
+
+CityModels.loadFile=function(loader,folder,file){
+ return new Promise(res=>{
+  loader.load(
+   CITY_BASE+folder+'/'+encodeURI(file),
+   gltf=>{
+    try{CityModels.register(folder,file,gltf);CityModels.stats.loaded++;}
+    catch(e){CityModels.stats.failed++;console.warn('[city] bad model '+folder+'/'+file,e);}
+    res();
+   },
+   undefined,
+   ()=>{CityModels.stats.failed++;console.warn('[city] could not load '+CITY_BASE+folder+'/'+file);res();}
+  );
+ });
+};
+
+/* everything that can stand on a sidewalk */
+CityModels.propPool=function(){
+ if(!CityModels._pp){
+  CityModels._pp=['vegetation','furniture','ped','prop'].reduce((a,k)=>a.concat(CityModels.cats[k]||[]),[]);
+ }
+ return CityModels._pp;
+};
+
+CityModels.placeProp=function(parent,it,x,z,r){
+ const o=cityClone(it.obj);
+ const n=it.name.toLowerCase();
+ let th=1.2;
+ if(it.cat==='vegetation')th=/tree|palm/.test(n)?3.5+r*2:1.0;
+ else if(it.cat==='ped')th=1.75;
+ else if(/lamp|light|pole|sign|billboard/.test(n))th=3.2;
+ else if(/hydrant|bin|trash|cone|bollard|mailbox/.test(n))th=0.9;
+ let s=th/Math.max(it.h,0.01);
+ s=Math.min(s,3/Math.max(it.w,it.d,0.01));
+ o.scale.setScalar(s);
+ o.position.set(x,0,z);
+ o.rotation.y=r*Math.PI*8;
+ parent.add(o);
+};
+
+/* landmark boxes (hospital, bank ...) -> best fitting GLB building, same footprint and height */
+CityModels.dressLandmarks=function(){
+ const pool=CityModels.cats.building;
+ if(!pool||!pool.length)return;
+ const used=new Map();
+ Object.values(World.landmarks).forEach(m=>{
+  if(!m||!m.geometry||!m.geometry.parameters||!m.geometry.parameters.width)return;
+  const p=m.geometry.parameters;
+  let best=null,bc=1e9;
+  pool.forEach(b=>{
+   const sx=p.width/b.w,sy=p.height/b.h,sz=p.depth/b.d;
+   const c=Math.abs(Math.log(sx/sz))+Math.abs(Math.log(sy/Math.sqrt(sx*sz)))+(used.get(b)||0)*0.2;
+   if(c<bc){bc=c;best=b;}
+  });
+  if(!best)return;
+  used.set(best,(used.get(best)||0)+1);
+  const o=cityClone(best.obj);
+  o.scale.set(p.width/best.w,p.height/best.h,p.depth/best.d);
+  o.position.set(m.position.x,m.position.y-p.height/2,m.position.z);
+  World.scene.add(o);
+  m.visible=false; /* collision + interior logic live elsewhere and are unchanged */
+ });
+};
+
+/* props along the sidewalks of the central (landmark) area, which has no streamed chunks */
+CityModels.scatterCore=function(){
+ const pp=CityModels.propPool();
+ if(!pp.length)return;
+ const grp=new THREE.Group();
+ for(let a=-2;a<=2;a++){
+  for(let t=-96;t<=96;t+=12){
+   if(Math.abs(t-Math.round(t/40)*40)<8)continue; /* keep intersections clear */
+   [-1,1].forEach(side=>{
+    [0,1].forEach(ax=>{
+     const hv=hash(a*41+t+ax*7,side*19+t*3+ax);
+     if(hv<0.5)return;
+     const along=t+(hash(t+ax,a+side*7)-0.5)*4;
+     const sp=ax?sidewalkSpot('z',a*40,along,side):sidewalkSpot('x',a*40,along,side);
+     const x=sp.x+(ax?0:side*0.9),z=sp.z+(ax?side*0.9:0);
+     const hit=World.collidables.some(c=>x>c.min.x-0.8&&x<c.max.x+0.8&&z>c.min.z-0.8&&z<c.max.z+0.8);
+     if(hit)return;
+     CityModels.placeProp(grp,pp[Math.floor(hv*pp.length*1.999)%pp.length],x,z,hv);
+    });
+   });
+  }
+ }
+ World.scene.add(grp);
+};
+
+/* streamed chunk: swap the procedural boxes for GLB buildings, add chimneys + props */
+CityModels.dressChunk=function(g,cx,cz){
+ g.userData.cx=cx;
+ g.userData.cz=cz;
+ if(!CityModels.ready||g.userData.cityDressed)return;
+ g.userData.cityDressed=true;
+
+ const pool=CityModels.cats.building||[];
+ const chim=CityModels.cats.chimney||[];
+ const boxes=g.userData.boxes||[];
+ let placed=0;
+
+ if(pool.length){
+  boxes.forEach((b,i)=>{
+   const w=b.max.x-b.min.x,d=b.max.z-b.min.z,ht=b.max.y;
+   const px=(b.min.x+b.max.x)/2,pz=(b.min.z+b.max.z)/2;
+   const dx=px-Math.round(px/40)*40,dz=pz-Math.round(pz/40)*40;
+   const side=Math.abs(dx)<Math.abs(dz); /* nearest road runs along z -> face along x */
+   const rot=side?(dx<0?Math.PI/2:-Math.PI/2):(dz<0?0:Math.PI);
+   const fw=side?d:w,fd=side?w:d; /* footprint in the model's own axes */
+
+   let best=null,bc=1e9;
+   for(let k=0;k<3;k++){
+    const cand=pool[Math.floor(hash(cx*31+i*5+k*11,cz*17+i*3+k*7)*pool.length)%pool.length];
+    const c=Math.abs(Math.log((fw/fd)/(cand.w/cand.d)));
+    if(c<bc){bc=c;best=cand;}
+   }
+   if(!best)return;
+
+   const s=Math.min(fw/best.w,fd/best.d,(ht*1.5)/best.h);
+   const o=cityClone(best.obj);
+   o.scale.setScalar(s);
+   o.rotation.y=rot;
+   o.position.set(px,0,pz);
+
+   if(chim.length){
+    const r1=hash(cx*7+i,cz*3+i*2);
+    if(r1>0.45){
+     const ci=chim[Math.floor(hash(cx+i*9,cz*5+i)*chim.length)%chim.length];
+     const c=cityClone(ci.obj);
+     c.position.set((r1-0.7)*best.w*0.5,best.h-ci.h*0.25,(hash(cz+i,cx*2+i*4)-0.5)*best.d*0.5);
+     o.add(c); /* child of the building: inherits its scale and rotation */
+    }
+   }
+
+   g.add(o);
+   placed++;
+  });
+ }
+
+ const base=g.children[0];
+ if(placed&&base&&base.isInstancedMesh)base.visible=false; /* hide the old boxes (colliders stay) */
+
+ const pp=CityModels.propPool();
+ if(pp.length){
+  const ox=cx*World.CHUNK,oz=cz*World.CHUNK;
+  for(let k=0;k<3;k++){
+   const hv=hash(cx*53+k*13,cz*29+k*5);
+   const sd=k%2?1:-1;
+   const along=(hash(cx*7+k,cz*11+k*3)-0.5)*34;
+   const sp=k<2?sidewalkSpot('x',ox,oz+along,sd):sidewalkSpot('z',oz,ox+along,sd);
+   const x=sp.x+(k<2?sd*0.9:0),z=sp.z+(k<2?0:sd*0.9);
+   CityModels.placeProp(g,pp[Math.floor(hv*pp.length*1.999)%pp.length],x,z,hv);
+  }
+ }
+};
+
+/* load every .glb of glb ... glb6 (6 at a time), then dress what already exists */
+CityModels.init=function(){
+ if(CityModels._started)return;
+ CityModels._started=true;
+ CityModels.getLoader().then(async loader=>{
+  const lists=await Promise.all(CITY_FOLDERS.map(f=>CityModels.list(f)));
+  const jobs=[];
+  lists.forEach((names,i)=>names.forEach(n=>jobs.push([CITY_FOLDERS[i],n])));
+  CityModels.stats.found=jobs.length;
+
+  let next=0;
+  await Promise.all(Array.from({length:6},async()=>{
+   while(next<jobs.length){
+    const j=jobs[next++];
+    await CityModels.loadFile(loader,j[0],j[1]);
+   }
+  }));
+
+  CityModels.ready=true;
+  const counts={};
+  CityModels.items.forEach(it=>{counts[it.cat]=(counts[it.cat]||0)+1;});
+  console.log('[city] GLBs loaded:',CityModels.stats.loaded+'/'+CityModels.stats.found,'failed:',CityModels.stats.failed,counts);
+
+  CityModels.dressLandmarks();
+  CityModels.scatterCore();
+  World.chunks.forEach(g=>CityModels.dressChunk(g,g.userData.cx,g.userData.cz));
+ }).catch(err=>console.warn('[city] GLB environment disabled ('+err.message+') - procedural world stays'));
+};
+
 /* ============ CHUNK STREAMING ============ */
 World.CHUNK=40;
 World.RADIUS=3;
@@ -1881,7 +2166,7 @@ function buildChunk(cx,cz){
   sidewalkSpot('x',originX,originZ+15,1),
   sidewalkSpot('x',originX,originZ-15,-1),
   sidewalkSpot('z',originZ,originX+15,1),
-  sidewalkSpot('z',originZ,originX-15,-1)
+  sidewalkSpot('z',originZ,originX-15,-1) /* fixed: 'originZ' argument was missing */
  ];
 
  lampSpots.forEach((s,i)=>{
@@ -1910,46 +2195,138 @@ function buildChunk(cx,cz){
  s=sidewalkSpot('x',originX,originZ-8,-1);
  makeTrafficSign(group,s.x,s.z);
 
- const parkedTypes=['sedan','suv','pickup','hatchback','sedan'];
-
  if(hash(cx*3,cz*5)>0.55){
   s=sidewalkSpot('x',originX,originZ+(hash(cx,cz)-0.5)*20,1);
 
   const curbX=originX+ROAD_HALF+0.9;
 
-  const carType=parkedTypes[Math.floor(hash(cx*7,cz*11)*parkedTypes.length)];
-  const pCar=World.makeCar(curbX,s.z,0x666666,carType);
-  pCar.rotation.y=Math.PI/2;
-  group.add(pCar);
+  /* parked cars along the road: sedans, hatchbacks, SUVs, pickups */
+  const parkedPool=['sedan','hatchback','suv','pickup'];
+
+  const pc=World.makeCar(
+   curbX,
+   s.z,
+   [0x8a3a3a,0x3a5a8a,0x555555,0x2f6b4a][Math.floor(hash(cx,cz+1)*4)],
+   parkedPool[Math.floor(hash(cx,cz+2)*parkedPool.length)%parkedPool.length]
+  );
+
+  pc.rotation.y=Math.PI/2;
+  group.add(pc);
  }
 
- World.chunks.set(chunkKey(cx,cz),group);
- World.scene.add(group);
+ if(hash(cx*17,cz*19)>0.7){
+  s=sidewalkSpot('x',originX,originZ+(hash(cx,cz)-0.5)*20,1);
+  makeBillboard(group,s.x,3,s.z,s.faceRotY,'ad_generic.jpg','SIDEWALK AD');
+ }
+
+ CityModels.dressChunk(group,cx,cz);
+
+ return group;
 }
 
-World.updateChunks=function(px,pz){
- const currentCX=Math.floor((px+World.CHUNK/2)/World.CHUNK);
- const currentCZ=Math.floor((pz+World.CHUNK/2)/World.CHUNK);
+World.landmarkCollidableCount=0;
 
- const keepKeys=new Set();
+World.updateChunks=function(px,pz){
+ const ccx=Math.round(px/World.CHUNK);
+ const ccz=Math.round(pz/World.CHUNK);
+
+ const wanted=new Set();
+ let changed=false;
 
  for(let dx=-World.RADIUS;dx<=World.RADIUS;dx++){
   for(let dz=-World.RADIUS;dz<=World.RADIUS;dz++){
-   const cx=currentCX+dx;
-   const cz=currentCZ+dz;
+   const cx=ccx+dx;
+   const cz=ccz+dz;
+
+   if(Math.abs(cx)<=2&&Math.abs(cz)<=2)continue;
+
    const key=chunkKey(cx,cz);
-   keepKeys.add(key);
+   wanted.add(key);
 
    if(!World.chunks.has(key)){
-    buildChunk(cx,cz);
+    const g=buildChunk(cx,cz);
+    World.scene.add(g);
+    World.chunks.set(key,g);
+    changed=true;
    }
   }
  }
 
- for(const [key,group] of World.chunks.entries()){
-  if(!keepKeys.has(key)){
-   World.scene.remove(group);
+ for(const [key,g] of World.chunks){
+  if(!wanted.has(key)){
+   World.scene.remove(g);
    World.chunks.delete(key);
+   changed=true;
   }
+ }
+
+ if(changed){
+  World.collidables.length=World.landmarkCollidableCount;
+  for(const g of World.chunks.values()){
+   World.collidables.push(...g.userData.boxes);
+  }
+ }
+};
+
+/* ============ QUALITY ============ */
+World.applyQuality=function(){
+ const m={
+  low:{pr:1,sh:false,fog:200},
+  med:{pr:1.5,sh:true,fog:150},
+  high:{pr:2,sh:true,fog:120},
+  ultra:{pr:2,sh:true,fog:80}
+ }[S.qual]||{pr:1.5,sh:true,fog:150};
+
+ World.renderer.setPixelRatio(Math.min(devicePixelRatio,m.pr));
+ World.renderer.shadowMap.enabled=m.sh;
+ World.scene.fog.far=m.fog;
+};
+
+/* ============ DAY / NIGHT ============ */
+World.dayNight={time:12,speedPerSec:24/1200};
+
+World.setLights=function(hemi,sun){
+ World._hemi=hemi;
+ World._sun=sun;
+};
+
+const DAYNIGHT_SKY_NIGHT=new THREE.Color(0x0b1220);
+const DAYNIGHT_SKY_DAY=new THREE.Color(0xbfd4e6);
+const DAYNIGHT_TMP=new THREE.Color();
+
+World.updateDayNight=function(dt){
+
+ World.dayNight.time=(World.dayNight.time+World.dayNight.speedPerSec*dt)%24;
+
+ const angle=((World.dayNight.time-6)/24)*Math.PI*2;
+ const sunHeight=Math.sin(angle);
+ const dayAmt=Math.max(0,sunHeight);
+
+ if(World._sun){
+  World._sun.position.set(Math.cos(angle)*80,Math.max(5,sunHeight*80),Math.sin(angle)*24-20);
+  World._sun.intensity=0.15+dayAmt*1.15;
+
+  const warmth=1-Math.min(1,Math.abs(sunHeight)*2);
+  World._sun.color.setRGB(1,0.85-warmth*0.15,0.7-warmth*0.25);
+ }
+
+ if(World._hemi){
+  World._hemi.intensity=0.25+dayAmt*0.5;
+  World._hemi.color.setHSL(0.58,0.4,0.5+dayAmt*0.3);
+  World._hemi.groundColor.setHSL(0.08,0.3,0.15+dayAmt*0.15);
+ }
+
+ if(World.scene){
+  DAYNIGHT_TMP.copy(DAYNIGHT_SKY_NIGHT).lerp(DAYNIGHT_SKY_DAY,dayAmt);
+  World.scene.background.copy(DAYNIGHT_TMP);
+  if(World.scene.fog){World.scene.fog.color.copy(DAYNIGHT_TMP);}
+ }
+
+ const wantLit=sunHeight<0.15;
+
+ if(World._lampsLit!==wantLit){
+  World._lampsLit=wantLit;
+  lampHeadMat.emissiveIntensity=wantLit?1.4:0.15;
+  lampHeadMat.color.set(wantLit?0xffe9b0:0x554433);
  }
 };

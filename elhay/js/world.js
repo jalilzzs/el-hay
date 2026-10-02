@@ -1699,17 +1699,22 @@ function cityParseGLB(buf){
  function getTex(ti){
   if(texCache[ti]!==undefined)return texCache[ti];
   const t=j.textures[ti],im=j.images[t.source];
-  let url=null,blob=false;
+  let urls=[],blob=false;
   if(im.bufferView!==undefined){
    const bv=j.bufferViews[im.bufferView];
-   url=URL.createObjectURL(new Blob([new Uint8Array(bin,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/png'}));
+   urls=[URL.createObjectURL(new Blob([new Uint8Array(bin,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/png'}))];
    blob=true;
   }else if(im.uri){
-   url=im.uri.indexOf('data:')===0?im.uri:CITY_BASE+'textures/'+decodeURIComponent(im.uri.split('/').pop());
-   if(CityAssets._texCache[url]){texCache[ti]=CityAssets._texCache[url];return texCache[ti];}
+   if(im.uri.indexOf('data:')===0)urls=[im.uri];
+   else{
+    /* your GLBs ask for "Textures/colormap.png": look in city/textures/ first, then next to the models (city/glb5/) */
+    const nm=decodeURIComponent(im.uri.split('/').pop());
+    urls=[CITY_BASE+'textures/'+nm,CITY_BASE+'glb5/'+nm,CITY_BASE+nm];
+   }
+   if(CityAssets._texCache[urls[0]]){texCache[ti]=CityAssets._texCache[urls[0]];return texCache[ti];}
   }
-  if(!url){texCache[ti]=null;return null;}
-  const tx=new THREE.TextureLoader().load(url,()=>{if(blob)URL.revokeObjectURL(url);},undefined,()=>console.warn('[city] texture failed: '+url));
+  if(!urls.length){texCache[ti]=null;return null;}
+  const tx=new THREE.Texture();
   tx.flipY=false;
   citySRGB(tx);
   const sm=t.sampler!==undefined&&j.samplers?j.samplers[t.sampler]:null;
@@ -1718,7 +1723,21 @@ function cityParseGLB(buf){
   tx.wrapT=wrap(sm&&sm.wrapT);
   tx.generateMipmaps=false;           /* stops colour bleeding on palette textures */
   tx.minFilter=THREE.LinearFilter;
-  if(!blob)CityAssets._texCache[url]=tx;
+  (function tryLoad(i){
+   if(i>=urls.length){
+    /* nothing found: grey instead of black so models stay visible */
+    console.warn('[city] texture not found, tried: '+urls.join(' , '));
+    const cv=document.createElement('canvas');cv.width=cv.height=2;
+    const g=cv.getContext('2d');g.fillStyle='#b8b4aa';g.fillRect(0,0,2,2);
+    tx.image=cv;tx.needsUpdate=true;
+    return;
+   }
+   const img=new Image();
+   img.onload=()=>{tx.image=img;tx.needsUpdate=true;if(blob)URL.revokeObjectURL(urls[0]);};
+   img.onerror=()=>tryLoad(i+1);
+   img.src=urls[i];
+  })(0);
+  if(!blob)CityAssets._texCache[urls[0]]=tx;
   texCache[ti]=tx;
   return tx;
  }
@@ -1729,13 +1748,14 @@ function cityParseGLB(buf){
   const m=(mi!==undefined&&j.materials&&j.materials[mi])||{};
   const p=m.pbrMetallicRoughness||{};
   const c=p.baseColorFactor||[1,1,1,1];
-  const mat=new THREE.MeshStandardMaterial({
+  const unlit=!!(m.extensions&&m.extensions.KHR_materials_unlit);
+  const mat=unlit?new THREE.MeshBasicMaterial({color:new THREE.Color(c[0],c[1],c[2])}):new THREE.MeshStandardMaterial({
    color:new THREE.Color(c[0],c[1],c[2]),
    roughness:p.roughnessFactor!==undefined?Math.max(p.roughnessFactor,0.5):0.85,
    metalness:p.metallicFactor!==undefined?Math.min(p.metallicFactor,0.3):0
   });
   if(p.baseColorTexture){const tx=getTex(p.baseColorTexture.index);if(tx)mat.map=tx;}
-  if(m.emissiveFactor&&(m.emissiveFactor[0]+m.emissiveFactor[1]+m.emissiveFactor[2])>0){
+  if(!unlit&&m.emissiveFactor&&(m.emissiveFactor[0]+m.emissiveFactor[1]+m.emissiveFactor[2])>0){
    mat.emissive=new THREE.Color(m.emissiveFactor[0],m.emissiveFactor[1],m.emissiveFactor[2]);
   }
   if(m.doubleSided)mat.side=THREE.DoubleSide;

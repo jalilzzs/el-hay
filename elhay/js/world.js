@@ -1202,7 +1202,7 @@ World.exitInterior=function(camera,outsidePos){
  * visible, so the game never breaks.
  * Change the folder with  ASSET_PATHS.cars = '/my/path/'  if needed.
  * ===================================================================== */
-const CAR_BASE=(typeof ASSET_PATHS!=='undefined'&&ASSET_PATHS.cars)||'cars/';
+const CAR_BASE=(typeof ASSET_PATHS!=='undefined'&&ASSET_PATHS.cars)||'/cars/';
 const CAR_TEXTURE='textures/color_1024x1024.jpg';
 
 const CAR_POOLS={
@@ -1389,7 +1389,7 @@ CarModels.apply=function(g,proc,type,modelId){
  }).catch(()=>{ /* keep procedural car */ });
 };
 
-/* place a vehicle anywhere:  World.spawnVehicle('truck',10,20,Math.PI/2)  or  ('suv_03',...) */
+/* place a vehicle anywhere: World.spawnVehicle('truck',10,20,Math.PI/2) or ('suv_03',...) */
 World.spawnVehicle=function(type,x,z,rotY,color){
  const c=World.makeCar(x,z,color||0x888888,type);
  c.rotation.y=rotY||0;

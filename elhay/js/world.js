@@ -136,6 +136,7 @@ World.init=function(scene,renderer){
  World.renderer=renderer;
  World.collidables=[];
  World.npcs=[];
+ World._roadMeshes=[];
  World.interiors={};
  World.interiorInteractables={};
  World.interiorMeta={};
@@ -172,11 +173,13 @@ World.init=function(scene,renderer){
   asphalt.position.set(x,0.02,z);
   asphalt.receiveShadow=true;
   scene.add(asphalt);
+  World._roadMeshes.push(asphalt);
 
   const stripe=new THREE.Mesh(new THREE.PlaneGeometry(w,l),stripeMat);
   stripe.rotation.x=-Math.PI/2;
   stripe.position.set(x,0.04,z);
   scene.add(stripe);
+  World._roadMeshes.push(stripe);
  }
 
  function makeSidewalk(x,z,w,l){
@@ -251,7 +254,8 @@ World.init=function(scene,renderer){
 
  Traffic.init();
 
- CityModels.init();
+ /* city models (GLB): buildings, roads, characters, trees */
+ CityAssets.start();
 };
 
 /* ============ CHECKPOINT ============ */
@@ -1613,6 +1617,427 @@ function buildBillboardLandmarks(scene){
  makeBillboard(scene,p.x,3,p.z,p.faceRotY,'ad3.jpg','TELECOM+');
 }
 
+/* =====================================================================
+ * CITY ASSETS  (GLB files in  elhay/city/glb, glb2 ... glb6)
+ *
+ * Buildings, roads, characters and trees are generated from your GLB
+ * files. Cars are NOT touched (they still use the OBJ system above).
+ * Nothing here needs GLTFLoader: a small GLB reader is built in.
+ *
+ * How it finds your files (in this order):
+ *   1) city/manifest.json   (optional:  ["glb/building-a.glb", ...])
+ *   2) a 6-hour cache in the browser
+ *   3) GitHub tree API using CITY_GH below (repo must be public)
+ * If nothing is found, the old procedural city is used, so the game never breaks.
+ * Files are classified by NAME (see cityClassify). Open the browser console
+ * (F12) and look for  "[city]"  lines to see what was found.
+ * ===================================================================== */
+const CITY_BASE='/city/';
+const CITY_GH={owner:'jalilzzs',repo:'el-hay',branch:'main',root:'elhay/'};
+const CITY_LIMITS={buildings:24,characters:8,trees:4};
+const CITY_ROAD_ROT=0;          /* if road tiles look turned 90 degrees, change to Math.PI/2 */
+const CITY_ROAD_TILE=8;         /* road width in meters (= ROAD_HALF*2) */
+const CITY_CACHE_KEY='elhay_city_files_v1';
+const CITY_REV=parseInt(THREE.REVISION,10)||150;
+
+const CityAssets={
+ ready:false,started:false,
+ buildings:[],characters:[],trees:[],
+ roadStraight:null,roadCross:null,
+ pending:[],npcs:[],
+ _rs:null,_rc:null,_center:null,_texCache:{}
+};
+
+/* ---------- tiny GLB reader (static meshes, materials, embedded or external textures) ---------- */
+function citySRGB(tx){
+ if(tx.colorSpace!==undefined&&THREE.SRGBColorSpace!==undefined)tx.colorSpace=THREE.SRGBColorSpace;
+ else if(THREE.sRGBEncoding!==undefined)tx.encoding=THREE.sRGBEncoding;
+}
+
+function cityAcc(j,bin,idx){
+ const a=j.accessors[idx];
+ const nc={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[a.type];
+ const T={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array}[a.componentType];
+ const es=T.BYTES_PER_ELEMENT;
+ let out=new T(a.count*nc);
+ if(a.bufferView!==undefined){
+  const bv=j.bufferViews[a.bufferView];
+  const base=(bv.byteOffset||0)+(a.byteOffset||0);
+  const stride=bv.byteStride||nc*es;
+  if(stride===nc*es){
+   out.set(new T(bin.slice(base,base+a.count*nc*es)));
+  }else{
+   const dvb=new DataView(bin);
+   const get={5120:'getInt8',5121:'getUint8',5122:'getInt16',5123:'getUint16',5125:'getUint32',5126:'getFloat32'}[a.componentType];
+   for(let i=0;i<a.count;i++)for(let k=0;k<nc;k++)out[i*nc+k]=dvb[get](base+i*stride+k*es,true);
+  }
+ }
+ if(a.normalized&&a.componentType!==5126){
+  const div={5120:127,5121:255,5122:32767,5123:65535}[a.componentType];
+  const f=new Float32Array(out.length);
+  for(let i=0;i<out.length;i++)f[i]=Math.max(out[i]/div,-1);
+  out=f;
+ }
+ return {data:out,nc};
+}
+
+function cityParseGLB(buf){
+ const dv=new DataView(buf);
+ if(dv.getUint32(0,true)!==0x46546C67)throw new Error('not a GLB file');
+ let off=12,j=null,bin=null;
+ while(off+8<=buf.byteLength){
+  const len=dv.getUint32(off,true),type=dv.getUint32(off+4,true);
+  if(type===0x4E4F534A)j=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,off+8,len)));
+  else if(type===0x004E4942&&!bin)bin=buf.slice(off+8,off+8+len);
+  off+=8+len;
+ }
+ if(!j)throw new Error('GLB has no JSON chunk');
+ if(!bin)throw new Error('GLB uses an external .bin (unsupported)');
+
+ const texCache={},matCache={},meshCache={};
+
+ function getTex(ti){
+  if(texCache[ti]!==undefined)return texCache[ti];
+  const t=j.textures[ti],im=j.images[t.source];
+  let url=null,blob=false;
+  if(im.bufferView!==undefined){
+   const bv=j.bufferViews[im.bufferView];
+   url=URL.createObjectURL(new Blob([new Uint8Array(bin,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/png'}));
+   blob=true;
+  }else if(im.uri){
+   url=im.uri.indexOf('data:')===0?im.uri:CITY_BASE+'textures/'+decodeURIComponent(im.uri.split('/').pop());
+   if(CityAssets._texCache[url]){texCache[ti]=CityAssets._texCache[url];return texCache[ti];}
+  }
+  if(!url){texCache[ti]=null;return null;}
+  const tx=new THREE.TextureLoader().load(url,()=>{if(blob)URL.revokeObjectURL(url);},undefined,()=>console.warn('[city] texture failed: '+url));
+  tx.flipY=false;
+  citySRGB(tx);
+  const sm=t.sampler!==undefined&&j.samplers?j.samplers[t.sampler]:null;
+  const wrap=w=>w===33071?THREE.ClampToEdgeWrapping:(w===33648?THREE.MirroredRepeatWrapping:THREE.RepeatWrapping);
+  tx.wrapS=wrap(sm&&sm.wrapS);
+  tx.wrapT=wrap(sm&&sm.wrapT);
+  tx.generateMipmaps=false;           /* stops colour bleeding on palette textures */
+  tx.minFilter=THREE.LinearFilter;
+  if(!blob)CityAssets._texCache[url]=tx;
+  texCache[ti]=tx;
+  return tx;
+ }
+
+ function getMat(mi,vc){
+  const key=mi+'|'+vc;
+  if(matCache[key])return matCache[key];
+  const m=(mi!==undefined&&j.materials&&j.materials[mi])||{};
+  const p=m.pbrMetallicRoughness||{};
+  const c=p.baseColorFactor||[1,1,1,1];
+  const mat=new THREE.MeshStandardMaterial({
+   color:new THREE.Color(c[0],c[1],c[2]),
+   roughness:p.roughnessFactor!==undefined?Math.max(p.roughnessFactor,0.5):0.85,
+   metalness:p.metallicFactor!==undefined?Math.min(p.metallicFactor,0.3):0
+  });
+  if(p.baseColorTexture){const tx=getTex(p.baseColorTexture.index);if(tx)mat.map=tx;}
+  if(m.emissiveFactor&&(m.emissiveFactor[0]+m.emissiveFactor[1]+m.emissiveFactor[2])>0){
+   mat.emissive=new THREE.Color(m.emissiveFactor[0],m.emissiveFactor[1],m.emissiveFactor[2]);
+  }
+  if(m.doubleSided)mat.side=THREE.DoubleSide;
+  if(m.alphaMode==='BLEND'){mat.transparent=true;mat.opacity=c[3];}
+  else if(m.alphaMode==='MASK'){mat.alphaTest=m.alphaCutoff!==undefined?m.alphaCutoff:0.5;}
+  if(vc)mat.vertexColors=(THREE.VertexColors!==undefined&&CITY_REV<127)?THREE.VertexColors:true;
+  matCache[key]=mat;
+  return mat;
+ }
+
+ function getMesh(mi){
+  if(meshCache[mi])return meshCache[mi];
+  const parts=[];
+  j.meshes[mi].primitives.forEach(p=>{
+   if(p.mode!==undefined&&p.mode!==4)return;
+   const A=p.attributes,g=new THREE.BufferGeometry();
+   const setAttr=(g.setAttribute||g.addAttribute).bind(g);
+   const pos=cityAcc(j,bin,A.POSITION);
+   setAttr('position',new THREE.BufferAttribute(pos.data,3));
+   if(A.NORMAL!==undefined)setAttr('normal',new THREE.BufferAttribute(cityAcc(j,bin,A.NORMAL).data,3));
+   if(A.TEXCOORD_0!==undefined)setAttr('uv',new THREE.BufferAttribute(cityAcc(j,bin,A.TEXCOORD_0).data,2));
+   let hasColor=false;
+   if(A.COLOR_0!==undefined){
+    const col=cityAcc(j,bin,A.COLOR_0);
+    let d=col.data;
+    if(col.nc===4){const f=new Float32Array(d.length/4*3);for(let i=0;i<d.length/4;i++){f[i*3]=d[i*4];f[i*3+1]=d[i*4+1];f[i*3+2]=d[i*4+2];}d=f;}
+    if(!(d instanceof Float32Array))d=Float32Array.from(d);
+    setAttr('color',new THREE.BufferAttribute(d,3));
+    hasColor=true;
+   }
+   if(p.indices!==undefined){
+    let ia=cityAcc(j,bin,p.indices).data;
+    if(ia instanceof Uint8Array)ia=Uint16Array.from(ia);
+    g.setIndex(new THREE.BufferAttribute(ia,1));
+   }
+   if(A.NORMAL===undefined)g.computeVertexNormals();
+   parts.push({geo:g,mat:getMat(p.material,hasColor)});
+  });
+  meshCache[mi]=parts;
+  return parts;
+ }
+
+ function buildNode(ni){
+  const n=j.nodes[ni],o=new THREE.Group();
+  if(n.matrix){new THREE.Matrix4().fromArray(n.matrix).decompose(o.position,o.quaternion,o.scale);}
+  else{
+   if(n.translation)o.position.fromArray(n.translation);
+   if(n.rotation)o.quaternion.fromArray(n.rotation);
+   if(n.scale)o.scale.fromArray(n.scale);
+  }
+  if(n.mesh!==undefined)getMesh(n.mesh).forEach(p=>o.add(new THREE.Mesh(p.geo,p.mat)));
+  (n.children||[]).forEach(c=>o.add(buildNode(c)));
+  return o;
+ }
+
+ const root=new THREE.Group();
+ const sc=j.scenes[j.scene||0];
+ sc.nodes.forEach(n=>root.add(buildNode(n)));
+ return root;
+}
+
+/* template = parsed model + measured size; instances are cheap clones (shared geometry/materials) */
+function cityTemplate(root){
+ root.updateMatrixWorld(true);
+ const bb=new THREE.Box3().setFromObject(root);
+ const sz=bb.getSize(new THREE.Vector3());
+ return {root,w:sz.x,h:sz.y,d:sz.z,cx:(bb.min.x+bb.max.x)/2,cz:(bb.min.z+bb.max.z)/2,minY:bb.min.y};
+}
+
+function cityInstance(t,s,shadows){
+ const g=new THREE.Group();
+ const inner=t.root.clone();
+ inner.position.set(-t.cx,-t.minY,-t.cz);
+ g.add(inner);
+ g.scale.setScalar(s);
+ if(shadows)inner.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+ return g;
+}
+
+CityAssets.loadModel=function(rel){
+ return fetch(CITY_BASE+rel).then(r=>{
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.arrayBuffer();
+ }).then(b=>cityTemplate(cityParseGLB(b)));
+};
+
+/* ---------- finding + classifying files ---------- */
+CityAssets.discover=function(){
+ return fetch(CITY_BASE+'manifest.json')
+  .then(r=>{if(!r.ok)throw 0;return r.json();})
+  .then(m=>Array.isArray(m)?m:(m.files||[]))
+  .catch(()=>{
+   try{
+    const c=JSON.parse(localStorage.getItem(CITY_CACHE_KEY));
+    if(c&&c.files&&c.files.length&&c.t>Date.now()-6*3600*1000)return c.files;
+   }catch(e){}
+   const u='https://api.github.com/repos/'+CITY_GH.owner+'/'+CITY_GH.repo+'/git/trees/'+CITY_GH.branch+'?recursive=1';
+   return fetch(u).then(r=>{
+    if(!r.ok)throw new Error('GitHub API '+r.status+' (repo private or owner/repo wrong?)');
+    return r.json();
+   }).then(t=>{
+    const pre=CITY_GH.root+'city/';
+    const files=t.tree.filter(e=>e.type==='blob'&&e.path.indexOf(pre)===0&&/\.glb$/i.test(e.path)).map(e=>e.path.slice(pre.length));
+    try{localStorage.setItem(CITY_CACHE_KEY,JSON.stringify({t:Date.now(),files}));}catch(e){}
+    return files;
+   });
+  });
+};
+
+function cityClassify(files){
+ const c={buildings:[],characters:[],trees:[],straight:[],cross:[]};
+ files.forEach(f=>{
+  const b=f.split('/').pop().toLowerCase();
+  if(/^road-straight\.glb$/.test(b))c.straight.unshift(f);
+  else if(/^road.*straight/.test(b)&&!/(half|arrow|light|crossing|path)/.test(b))c.straight.push(f);
+  else if(/^road-crossroad\.glb$/.test(b))c.cross.unshift(f);
+  else if(/^road.*(crossroad|intersection)/.test(b)&&!/(path|light|half)/.test(b))c.cross.push(f);
+  else if(/^(character|char-|people|person|npc|citizen|human|male|female)/.test(b))c.characters.push(f);
+  else if(/^(tree|palm|pine)/.test(b))c.trees.push(f);
+  else if(/^(building|skyscraper|house|apartment|shop|store|office|tower|large-building)/.test(b)&&!/(chimney|detail|low-detail|door|window)/.test(b))c.buildings.push(f);
+ });
+ return c;
+}
+
+function cityPick(list,n){
+ const a=list.slice();
+ for(let i=a.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));[a[i],a[k]]=[a[k],a[i]];}
+ return a.slice(0,n);
+}
+
+CityAssets.start=function(){
+ if(CityAssets.started)return;
+ CityAssets.started=true;
+ CityAssets.discover().then(files=>{
+  const c=cityClassify(files);
+  console.info('[city] '+files.length+' glb files found: '+c.buildings.length+' buildings, '+c.characters.length+' characters, '+c.trees.length+' trees, road straight='+(c.straight[0]||'none')+', crossroad='+(c.cross[0]||'none'));
+  const safe=rel=>CityAssets.loadModel(rel).catch(e=>{console.warn('[city] failed '+rel+': '+e.message);return null;});
+  const many=(list,n)=>Promise.all(cityPick(list,n).map(safe)).then(a=>a.filter(t=>t&&t.w>0&&t.h>0));
+  return Promise.all([
+   many(c.buildings,CITY_LIMITS.buildings),
+   many(c.characters,CITY_LIMITS.characters),
+   many(c.trees,CITY_LIMITS.trees),
+   c.straight.length?safe(c.straight[0]):null,
+   c.cross.length?safe(c.cross[0]):null
+  ]);
+ }).then(r=>{
+  CityAssets.buildings=r[0];CityAssets.characters=r[1];CityAssets.trees=r[2];
+  CityAssets.roadStraight=r[3];CityAssets.roadCross=r[4];
+  CityAssets.ready=true;
+  CityAssets._onReady();
+ }).catch(e=>console.warn('[city] disabled, using procedural city: '+e.message));
+};
+
+CityAssets._onReady=function(){
+ CityAssets._initRoads();
+ let upgraded=false;
+ CityAssets.pending.forEach(p=>{
+  if(World.chunks&&World.chunks.get(p.cx+','+p.cz)===p.group){
+   if(CityAssets._lots(p.group,p.cx,p.cz,p.bMesh))upgraded=true;
+  }
+ });
+ CityAssets.pending.length=0;
+ if(upgraded){
+  World.collidables.length=World.landmarkCollidableCount;
+  for(const g of World.chunks.values())World.collidables.push(...g.userData.boxes);
+ }
+ CityAssets.npcs.forEach(g=>CityAssets._dress(g));
+ CityAssets.npcs.length=0;
+};
+
+/* ---------- buildings: 4 lots per chunk, each lot sits between roads and faces one ---------- */
+CityAssets.decorateChunk=function(group,cx,cz,bMesh){
+ if(!CityAssets.ready){CityAssets.pending.push({group,cx,cz,bMesh});return;}
+ CityAssets._lots(group,cx,cz,bMesh);
+};
+
+CityAssets._lots=function(group,cx,cz,bMesh){
+ const pool=CityAssets.buildings;
+ if(!pool.length)return false;
+ bMesh.visible=false;
+ const boxes=group.userData.boxes;
+ boxes.length=0;
+ const ox=cx*World.CHUNK,oz=cz*World.CHUNK;
+ [[-1,-1],[1,-1],[-1,1],[1,1]].forEach((q,i)=>{
+  const h=hash(cx*29+i*7,cz*31+i*3);
+  const t=pool[Math.floor(h*pool.length)%pool.length];
+  const foot=9+((h*97)%1)*2;            /* 9..11 m footprint inside a 13 m lot */
+  const s=foot/Math.max(t.w,t.d);
+  const px=ox+q[0]*13.5,pz=oz+q[1]*13.5;
+  const alongX=((h*13)%1)<0.5;          /* face the road on the x side or on the z side */
+  const inst=cityInstance(t,s,true);
+  inst.position.set(px,0,pz);
+  inst.rotation.y=alongX?Math.atan2(-q[0],0):Math.atan2(0,-q[1]);
+  group.add(inst);
+  const w=t.w*s/2,d=t.d*s/2;
+  const ex=alongX?d:w,ez=alongX?w:d;
+  boxes.push({min:new THREE.Vector3(px-ex,0,pz-ez),max:new THREE.Vector3(px+ex,t.h*s,pz+ez)});
+ });
+ return true;
+};
+
+/* ---------- roads: instanced tiles along the grid lines, replacing the flat road planes ---------- */
+CityAssets._makeSet=function(t,cap){
+ const parts=[];
+ t.root.updateMatrixWorld(true);
+ t.root.traverse(o=>{if(o.isMesh)parts.push({geo:o.geometry,mat:o.material,m:o.matrixWorld.clone()});});
+ const s=CITY_ROAD_TILE/Math.max(t.w,t.d);
+ const base=new THREE.Matrix4().makeScale(s,s,s).multiply(new THREE.Matrix4().makeTranslation(-t.cx,-t.minY,-t.cz));
+ const meshes=parts.map(p=>{
+  const im=new THREE.InstancedMesh(p.geo,p.mat,cap);
+  im.receiveShadow=true;
+  im.frustumCulled=false;
+  im.count=0;
+  World.scene.add(im);
+  return im;
+ });
+ return {parts,base,meshes,n:0,cap};
+};
+
+CityAssets._put=function(set,x,z,rot){
+ if(set.n>=set.cap)return;
+ const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rot);
+ const inst=new THREE.Matrix4().compose(new THREE.Vector3(x,0.03,z),q,new THREE.Vector3(1,1,1));
+ const m=new THREE.Matrix4();
+ for(let i=0;i<set.parts.length;i++){
+  m.copy(inst).multiply(set.base).multiply(set.parts[i].m);
+  set.meshes[i].setMatrixAt(set.n,m);
+ }
+ set.n++;
+};
+
+CityAssets._initRoads=function(){
+ if(!CityAssets.roadStraight)return;
+ CityAssets._rs=CityAssets._makeSet(CityAssets.roadStraight,1500);
+ if(CityAssets.roadCross)CityAssets._rc=CityAssets._makeSet(CityAssets.roadCross,200);
+ (World._roadMeshes||[]).forEach(m=>{m.visible=false;});
+ if(CityAssets._center)CityAssets._updateRoads(CityAssets._center[0],CityAssets._center[1]);
+};
+
+CityAssets.onCenter=function(ccx,ccz){
+ const c=CityAssets._center;
+ if(c&&c[0]===ccx&&c[1]===ccz)return;
+ CityAssets._center=[ccx,ccz];
+ CityAssets._updateRoads(ccx,ccz);
+};
+
+CityAssets._updateRoads=function(ccx,ccz){
+ const rs=CityAssets._rs;
+ if(!rs)return;
+ const rc=CityAssets._rc;
+ rs.n=0;if(rc)rc.n=0;
+ const R=World.RADIUS+1,T=CITY_ROAD_TILE,L=World.CHUNK;
+ const x0=(ccx-R)*L,x1=(ccx+R)*L,z0=(ccz-R)*L,z1=(ccz+R)*L;
+ const lineMax=4;
+ for(let k=-lineMax;k<=lineMax;k++){
+  const line=k*L;
+  if(line>=x0-T&&line<=x1+T){            /* road running along z at x=line */
+   for(let z=Math.ceil(z0/T)*T;z<=z1;z+=T){
+    const onCross=Math.abs(z%L)<0.01&&Math.abs(z)<=lineMax*L;
+    if(onCross){if(rc)CityAssets._put(rc,line,z,0);else CityAssets._put(rs,line,z,CITY_ROAD_ROT);}
+    else CityAssets._put(rs,line,z,CITY_ROAD_ROT);
+   }
+  }
+  if(line>=z0-T&&line<=z1+T){            /* road running along x at z=line */
+   for(let x=Math.ceil(x0/T)*T;x<=x1;x+=T){
+    const onCross=Math.abs(x%L)<0.01&&Math.abs(x)<=lineMax*L;
+    if(onCross)continue;                  /* crossing already placed above */
+    CityAssets._put(rs,x,line,CITY_ROAD_ROT+Math.PI/2);
+   }
+  }
+ }
+ [rs,rc].forEach(set=>{
+  if(!set)return;
+  set.meshes.forEach(im=>{im.count=set.n;im.instanceMatrix.needsUpdate=true;});
+ });
+};
+
+/* ---------- characters ---------- */
+CityAssets.dressNPC=function(g){
+ if(!CityAssets.ready){CityAssets.npcs.push(g);return;}
+ CityAssets._dress(g);
+};
+
+CityAssets._dress=function(g){
+ const pool=CityAssets.characters;
+ if(!pool.length)return;
+ const t=pool[Math.floor(Math.random()*pool.length)];
+ const inst=cityInstance(t,1.65/t.h,true);
+ g.children.forEach(c=>{c.visible=false;});   /* procedural body stays (hidden) so other code keeps working */
+ g.add(inst);
+};
+
+/* ---------- trees ---------- */
+CityAssets.addTree=function(parent,x,z){
+ if(!CityAssets.ready||!CityAssets.trees.length)return false;
+ const t=CityAssets.trees[Math.floor(Math.random()*CityAssets.trees.length)];
+ const inst=cityInstance(t,(3.5+Math.random()*1.5)/t.h,true);
+ inst.position.set(x,0,z);
+ parent.add(inst);
+ return true;
+};
+
 /* ============ STREET FURNITURE ============ */
 function trafficSignTex(){
  return canvasTex((g,w,h)=>{
@@ -1651,6 +2076,7 @@ const treeTrunkMat=new THREE.MeshStandardMaterial({color:0x6b4a30,roughness:0.9}
 const treeFoliageMat=new THREE.MeshStandardMaterial({color:0x3f7a3f,roughness:0.85});
 
 function makeTree(parent,x,z){
+ if(CityAssets.addTree(parent,x,z))return;
  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,1.4,6),treeTrunkMat);
  trunk.position.set(x,0.7,z);
  trunk.castShadow=true;
@@ -1759,6 +2185,7 @@ function spawnNPC(x,z){
  legR.castShadow=true;
  g.add(legR);
 
+ CityAssets.dressNPC(g);
  g.scale.setScalar(height);
  g.position.set(x,0,z);
 
@@ -1780,311 +2207,6 @@ function spawnKeyNpcs(){
 World.update=function(px,pz,dt){
  World.updateChunks(px,pz);
  Traffic.update(dt,new THREE.Vector3(px,0,pz));
-};
-
-/* =====================================================================
- * CITY MODELS  (GLB environment)
- *
- *   city/glb, city/glb2 ... city/glb6   -> buildings, chimneys, props ...
- *   city/textures                       -> shared colormap used by the GLBs
- *
- * Base folder defaults to '/city/'  (override with ASSET_PATHS.city = '/my/path/').
- * Every .glb in the six folders is loaded once, normalised (origin = ground centre)
- * and cached; the game then clones them:
- *   - chunk buildings  : the procedural boxes are replaced by GLB buildings (+ chimneys)
- *   - landmarks        : hospital, bank, police ... get a GLB building fitted to their
- *                        exact footprint (collision boxes / interiors are untouched)
- *   - sidewalks        : trees, signs, props, people from the GLBs
- * If anything fails (loader, files, network) the old procedural world stays visible.
- * Vehicles are NOT touched here - cars keep using CarModels / World.makeCar.
- * ===================================================================== */
-const CITY_BASE=(typeof ASSET_PATHS!=='undefined'&&ASSET_PATHS.city)||'/city/';
-const CITY_FOLDERS=['glb','glb2','glb3','glb4','glb5','glb6'];
-
-/* A browser cannot list a folder by itself. Names listed here are always loaded;
-   the rest of each folder is discovered automatically (directory index or GitHub API).
-   Add file names to the other folders if you want a 100% offline / deterministic list. */
-const CITY_FILES={
- glb:['building-o.glb','building-p.glb','building-q.glb','building-r.glb','building-s.glb','building-t.glb','chimney-basic.glb','chimney-large.glb','chimney-medium.glb','chimney-small.glb'],
- glb2:[],glb3:[],glb4:[],glb5:[],glb6:[]
-};
-
-/* used only for auto-discovery through the GitHub contents API (public repos) */
-const CITY_REPO={owner:'jalilzzs',repo:'el-hay',branch:'main',dir:'elhay/city'};
-
-const CityModels={items:[],cats:{},byName:{},ready:false,stats:{found:0,loaded:0,failed:0}};
-
-function cityCat(n){
- n=n.toLowerCase();
- if(/^(car|cars|truck|van|taxi|ambulance|suv|sedan|pickup|tractor|vehicle|motorcycle|bike)([-_\d]|$)/.test(n))return 'vehicle'; /* never placed here */
- if(/chimney/.test(n))return 'chimney';
- if(/^(road|street|asphalt|crossing|intersection|bridge|highway)/.test(n))return 'road';
- if(/^(wall|roof|door|window|balcony|stairs?|awning|overhang|detail|floor|corner|pillar|column|ledge|trim|fence|path|driveway|pavement|tile|ground)/.test(n))return 'part';
- if(/character|person|people|human|npc|woman|citizen|pedestrian/.test(n))return 'ped';
- if(/building|skyscraper|house|shop|store|apartment|tower|villa|hotel|church|mosque|school|hospital|office|garage|mall|factory|warehouse/.test(n))return 'building';
- if(/tree|bush|hedge|plant|flower|palm|grass|rock|stone|planter/.test(n))return 'vegetation';
- if(/sign|light|lamp|pole|hydrant|bench|bin|trash|cone|barrier|bollard|mailbox|box|post|stop|kiosk|vend|cabinet|billboard|traffic/.test(n))return 'furniture';
- return 'prop';
-}
-
-function cityClone(o){
- return (THREE.SkeletonUtils&&THREE.SkeletonUtils.clone)?THREE.SkeletonUtils.clone(o):o.clone(true);
-}
-
-/* GLTFLoader: use the one already on THREE, otherwise pull the matching build from a CDN */
-CityModels.getLoader=function(){
- if(CityModels._lp)return CityModels._lp;
- const mgr=new THREE.LoadingManager();
- /* GLBs that point to  glbN/Textures/xxx.png  are redirected to  city/textures/xxx.png */
- mgr.setURLModifier(u=>u.replace(/\/glb\d*\/textures\//i,'/textures/'));
- CityModels._lp=new Promise((res,rej)=>{
-  const make=C=>res(new C(mgr));
-  const G=THREE.GLTFLoader||window.GLTFLoader;
-  if(G)return make(G);
-  const rev=parseInt(THREE.REVISION,10);
-  if(rev<=147){
-   const s=document.createElement('script');
-   s.src='https://cdn.jsdelivr.net/npm/three@0.'+rev+'.0/examples/js/loaders/GLTFLoader.js';
-   s.onload=()=>THREE.GLTFLoader?make(THREE.GLTFLoader):rej(new Error('GLTFLoader missing after load'));
-   s.onerror=()=>rej(new Error('could not download GLTFLoader'));
-   document.head.appendChild(s);
-  }else{
-   import('https://esm.sh/three@0.'+rev+'.0/examples/jsm/loaders/GLTFLoader.js').then(m=>make(m.GLTFLoader),rej);
-  }
- });
- return CityModels._lp;
-};
-
-/* file names of one folder: manifest + directory index + GitHub API (cached 30 min) */
-CityModels.list=async function(folder){
- const base=CITY_FILES[folder]||[];
- const out=new Set(base);
- const add=n=>{if(/\.glb$/i.test(n))out.add(decodeURIComponent(String(n).split('/').pop()));};
- const key='cityGlbList:'+folder;
- try{
-  const c=JSON.parse(localStorage.getItem(key)||'null');
-  if(c&&Date.now()-c.t<1800000){c.names.forEach(add);return Array.from(out);}
- }catch(e){}
- try{
-  const r=await fetch(CITY_BASE+folder+'/');
-  if(r.ok){
-   const t=await r.text();
-   (t.match(/href="[^"]+?\.glb"/gi)||[]).forEach(h=>add(h.slice(6,-1)));
-  }
- }catch(e){}
- try{
-  const R=CITY_REPO;
-  const r=await fetch('https://api.github.com/repos/'+R.owner+'/'+R.repo+'/contents/'+R.dir+'/'+folder+'?ref='+R.branch);
-  if(r.ok)(await r.json()).forEach(f=>add(f.name));
- }catch(e){}
- const names=Array.from(out);
- if(names.length>base.length){
-  try{localStorage.setItem(key,JSON.stringify({t:Date.now(),names}));}catch(e){}
- }
- return names;
-};
-
-CityModels.register=function(folder,file,gltf){
- const root=gltf.scene;
- root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
- root.updateMatrixWorld(true);
- const box=new THREE.Box3().setFromObject(root);
- const size=box.getSize(new THREE.Vector3());
- const c=box.getCenter(new THREE.Vector3());
- root.position.set(-c.x,-box.min.y,-c.z); /* origin = centre of the base */
- const pivot=new THREE.Group();
- pivot.add(root);
- const name=file.replace(/\.glb$/i,'');
- const info={name,folder,cat:cityCat(name),obj:pivot,w:size.x,h:size.y,d:size.z};
- CityModels.items.push(info);
- CityModels.byName[folder+'/'+name]=info;
- if(info.cat!=='building'||(info.w>0.01&&info.h>0.01&&info.d>0.01)){
-  (CityModels.cats[info.cat]=CityModels.cats[info.cat]||[]).push(info);
- }
-};
-
-CityModels.loadFile=function(loader,folder,file){
- return new Promise(res=>{
-  loader.load(
-   CITY_BASE+folder+'/'+encodeURI(file),
-   gltf=>{
-    try{CityModels.register(folder,file,gltf);CityModels.stats.loaded++;}
-    catch(e){CityModels.stats.failed++;console.warn('[city] bad model '+folder+'/'+file,e);}
-    res();
-   },
-   undefined,
-   ()=>{CityModels.stats.failed++;console.warn('[city] could not load '+CITY_BASE+folder+'/'+file);res();}
-  );
- });
-};
-
-/* everything that can stand on a sidewalk */
-CityModels.propPool=function(){
- if(!CityModels._pp){
-  CityModels._pp=['vegetation','furniture','ped','prop'].reduce((a,k)=>a.concat(CityModels.cats[k]||[]),[]);
- }
- return CityModels._pp;
-};
-
-CityModels.placeProp=function(parent,it,x,z,r){
- const o=cityClone(it.obj);
- const n=it.name.toLowerCase();
- let th=1.2;
- if(it.cat==='vegetation')th=/tree|palm/.test(n)?3.5+r*2:1.0;
- else if(it.cat==='ped')th=1.75;
- else if(/lamp|light|pole|sign|billboard/.test(n))th=3.2;
- else if(/hydrant|bin|trash|cone|bollard|mailbox/.test(n))th=0.9;
- let s=th/Math.max(it.h,0.01);
- s=Math.min(s,3/Math.max(it.w,it.d,0.01));
- o.scale.setScalar(s);
- o.position.set(x,0,z);
- o.rotation.y=r*Math.PI*8;
- parent.add(o);
-};
-
-/* landmark boxes (hospital, bank ...) -> best fitting GLB building, same footprint and height */
-CityModels.dressLandmarks=function(){
- const pool=CityModels.cats.building;
- if(!pool||!pool.length)return;
- const used=new Map();
- Object.values(World.landmarks).forEach(m=>{
-  if(!m||!m.geometry||!m.geometry.parameters||!m.geometry.parameters.width)return;
-  const p=m.geometry.parameters;
-  let best=null,bc=1e9;
-  pool.forEach(b=>{
-   const sx=p.width/b.w,sy=p.height/b.h,sz=p.depth/b.d;
-   const c=Math.abs(Math.log(sx/sz))+Math.abs(Math.log(sy/Math.sqrt(sx*sz)))+(used.get(b)||0)*0.2;
-   if(c<bc){bc=c;best=b;}
-  });
-  if(!best)return;
-  used.set(best,(used.get(best)||0)+1);
-  const o=cityClone(best.obj);
-  o.scale.set(p.width/best.w,p.height/best.h,p.depth/best.d);
-  o.position.set(m.position.x,m.position.y-p.height/2,m.position.z);
-  World.scene.add(o);
-  m.visible=false; /* collision + interior logic live elsewhere and are unchanged */
- });
-};
-
-/* props along the sidewalks of the central (landmark) area, which has no streamed chunks */
-CityModels.scatterCore=function(){
- const pp=CityModels.propPool();
- if(!pp.length)return;
- const grp=new THREE.Group();
- for(let a=-2;a<=2;a++){
-  for(let t=-96;t<=96;t+=12){
-   if(Math.abs(t-Math.round(t/40)*40)<8)continue; /* keep intersections clear */
-   [-1,1].forEach(side=>{
-    [0,1].forEach(ax=>{
-     const hv=hash(a*41+t+ax*7,side*19+t*3+ax);
-     if(hv<0.5)return;
-     const along=t+(hash(t+ax,a+side*7)-0.5)*4;
-     const sp=ax?sidewalkSpot('z',a*40,along,side):sidewalkSpot('x',a*40,along,side);
-     const x=sp.x+(ax?0:side*0.9),z=sp.z+(ax?side*0.9:0);
-     const hit=World.collidables.some(c=>x>c.min.x-0.8&&x<c.max.x+0.8&&z>c.min.z-0.8&&z<c.max.z+0.8);
-     if(hit)return;
-     CityModels.placeProp(grp,pp[Math.floor(hv*pp.length*1.999)%pp.length],x,z,hv);
-    });
-   });
-  }
- }
- World.scene.add(grp);
-};
-
-/* streamed chunk: swap the procedural boxes for GLB buildings, add chimneys + props */
-CityModels.dressChunk=function(g,cx,cz){
- g.userData.cx=cx;
- g.userData.cz=cz;
- if(!CityModels.ready||g.userData.cityDressed)return;
- g.userData.cityDressed=true;
-
- const pool=CityModels.cats.building||[];
- const chim=CityModels.cats.chimney||[];
- const boxes=g.userData.boxes||[];
- let placed=0;
-
- if(pool.length){
-  boxes.forEach((b,i)=>{
-   const w=b.max.x-b.min.x,d=b.max.z-b.min.z,ht=b.max.y;
-   const px=(b.min.x+b.max.x)/2,pz=(b.min.z+b.max.z)/2;
-   const dx=px-Math.round(px/40)*40,dz=pz-Math.round(pz/40)*40;
-   const side=Math.abs(dx)<Math.abs(dz); /* nearest road runs along z -> face along x */
-   const rot=side?(dx<0?Math.PI/2:-Math.PI/2):(dz<0?0:Math.PI);
-   const fw=side?d:w,fd=side?w:d; /* footprint in the model's own axes */
-
-   let best=null,bc=1e9;
-   for(let k=0;k<3;k++){
-    const cand=pool[Math.floor(hash(cx*31+i*5+k*11,cz*17+i*3+k*7)*pool.length)%pool.length];
-    const c=Math.abs(Math.log((fw/fd)/(cand.w/cand.d)));
-    if(c<bc){bc=c;best=cand;}
-   }
-   if(!best)return;
-
-   const s=Math.min(fw/best.w,fd/best.d,(ht*1.5)/best.h);
-   const o=cityClone(best.obj);
-   o.scale.setScalar(s);
-   o.rotation.y=rot;
-   o.position.set(px,0,pz);
-
-   if(chim.length){
-    const r1=hash(cx*7+i,cz*3+i*2);
-    if(r1>0.45){
-     const ci=chim[Math.floor(hash(cx+i*9,cz*5+i)*chim.length)%chim.length];
-     const c=cityClone(ci.obj);
-     c.position.set((r1-0.7)*best.w*0.5,best.h-ci.h*0.25,(hash(cz+i,cx*2+i*4)-0.5)*best.d*0.5);
-     o.add(c); /* child of the building: inherits its scale and rotation */
-    }
-   }
-
-   g.add(o);
-   placed++;
-  });
- }
-
- const base=g.children[0];
- if(placed&&base&&base.isInstancedMesh)base.visible=false; /* hide the old boxes (colliders stay) */
-
- const pp=CityModels.propPool();
- if(pp.length){
-  const ox=cx*World.CHUNK,oz=cz*World.CHUNK;
-  for(let k=0;k<3;k++){
-   const hv=hash(cx*53+k*13,cz*29+k*5);
-   const sd=k%2?1:-1;
-   const along=(hash(cx*7+k,cz*11+k*3)-0.5)*34;
-   const sp=k<2?sidewalkSpot('x',ox,oz+along,sd):sidewalkSpot('z',oz,ox+along,sd);
-   const x=sp.x+(k<2?sd*0.9:0),z=sp.z+(k<2?0:sd*0.9);
-   CityModels.placeProp(g,pp[Math.floor(hv*pp.length*1.999)%pp.length],x,z,hv);
-  }
- }
-};
-
-/* load every .glb of glb ... glb6 (6 at a time), then dress what already exists */
-CityModels.init=function(){
- if(CityModels._started)return;
- CityModels._started=true;
- CityModels.getLoader().then(async loader=>{
-  const lists=await Promise.all(CITY_FOLDERS.map(f=>CityModels.list(f)));
-  const jobs=[];
-  lists.forEach((names,i)=>names.forEach(n=>jobs.push([CITY_FOLDERS[i],n])));
-  CityModels.stats.found=jobs.length;
-
-  let next=0;
-  await Promise.all(Array.from({length:6},async()=>{
-   while(next<jobs.length){
-    const j=jobs[next++];
-    await CityModels.loadFile(loader,j[0],j[1]);
-   }
-  }));
-
-  CityModels.ready=true;
-  const counts={};
-  CityModels.items.forEach(it=>{counts[it.cat]=(counts[it.cat]||0)+1;});
-  console.log('[city] GLBs loaded:',CityModels.stats.loaded+'/'+CityModels.stats.found,'failed:',CityModels.stats.failed,counts);
-
-  CityModels.dressLandmarks();
-  CityModels.scatterCore();
-  World.chunks.forEach(g=>CityModels.dressChunk(g,g.userData.cx,g.userData.cz));
- }).catch(err=>console.warn('[city] GLB environment disabled ('+err.message+') - procedural world stays'));
 };
 
 /* ============ CHUNK STREAMING ============ */
@@ -2219,7 +2341,7 @@ function buildChunk(cx,cz){
   makeBillboard(group,s.x,3,s.z,s.faceRotY,'ad_generic.jpg','SIDEWALK AD');
  }
 
- CityModels.dressChunk(group,cx,cz);
+ CityAssets.decorateChunk(group,cx,cz,bMesh);
 
  return group;
 }
@@ -2229,6 +2351,7 @@ World.landmarkCollidableCount=0;
 World.updateChunks=function(px,pz){
  const ccx=Math.round(px/World.CHUNK);
  const ccz=Math.round(pz/World.CHUNK);
+ CityAssets.onCenter(ccx,ccz);
 
  const wanted=new Set();
  let changed=false;

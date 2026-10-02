@@ -1191,357 +1191,1710 @@ World.exitInterior=function(camera,outsidePos){
 };
 
 /* =====================================================================
- * CAR MODELS  (files live in  elhay/public/cars/)
+ * CAR MODELS
  *
- *   cars/sedan_01.obj ... suv_10.obj, pickup_01.obj, tractor_01.obj, truck_01.obj ...
- *   cars/textures/color_1024x1024.jpg      <- from textures.rar
+ * Vehicle files:
+ *   public/cars/sedan_01.obj ... sedan_10.obj
+ *   public/cars/suv_01.obj ... suv_10.obj
+ *   public/cars/pickup_01.obj ... pickup_02.obj
+ *   public/cars/tractor_01.obj ... tractor_04.obj
+ *   public/cars/truck_01.obj ... truck_04.obj
  *
- * Every model: origin = ground centre, front = +Z, units = meters.
- * No extra three.js loader is needed (tiny OBJ parser below).
- * If a file or the texture is missing, the old boxy procedural car stays
- * visible, so the game never breaks.
- * Change the folder with  ASSET_PATHS.cars = '/my/path/'  if needed.
+ * Texture:
+ *   public/cars/textures/color_1024x1024.jpg
+ *
+ * Real vehicle models replace the procedural fallback automatically.
+ * If a model fails to load, the procedural vehicle remains visible.
  * ===================================================================== */
-const CAR_BASE=(typeof ASSET_PATHS!=='undefined'&&ASSET_PATHS.cars)||'cars/';
-const CAR_TEXTURE='textures/color_1024x1024.jpg';
 
-const CAR_POOLS={
- sedanLong:['sedan_02','sedan_04','sedan_06','sedan_08'],
- sedanCompact:['sedan_01','sedan_03','sedan_05','sedan_07','sedan_09','sedan_10'],
- suv:['suv_01','suv_02','suv_03','suv_04','suv_05','suv_06','suv_07','suv_08','suv_09','suv_10'],
- pickup:['pickup_01','pickup_02'],
- tractor:['tractor_01','tractor_02','tractor_03','tractor_04'],
- truck:['truck_01','truck_02','truck_03','truck_04']
+const CAR_BASE =
+ '/cars/';
+
+const CAR_TEXTURE =
+ 'textures/color_1024x1024.jpg';
+
+
+/* =====================================================================
+ * VEHICLE MODEL POOLS
+ * ===================================================================== */
+
+const CAR_POOLS = {
+
+ sedanLong: [
+  'sedan_02',
+  'sedan_04',
+  'sedan_06',
+  'sedan_08'
+ ],
+
+ sedanCompact: [
+  'sedan_01',
+  'sedan_03',
+  'sedan_05',
+  'sedan_07',
+  'sedan_09',
+  'sedan_10'
+ ],
+
+ suv: [
+  'suv_01',
+  'suv_02',
+  'suv_03',
+  'suv_04',
+  'suv_05',
+  'suv_06',
+  'suv_07',
+  'suv_08',
+  'suv_09',
+  'suv_10'
+ ],
+
+ pickup: [
+  'pickup_01',
+  'pickup_02'
+ ],
+
+ tractor: [
+  'tractor_01',
+  'tractor_02',
+  'tractor_03',
+  'tractor_04'
+ ],
+
+ truck: [
+  'truck_01',
+  'truck_02',
+  'truck_03',
+  'truck_04'
+ ]
+
 };
 
-/* game type -> which models, target length in meters (null = native size), dark = tinted material */
-const CAR_TYPES={
- sedan:{pool:CAR_POOLS.sedanLong,len:4.5},
- hatchback:{pool:CAR_POOLS.sedanCompact,len:4.0},
- police:{pool:['sedan_02'],len:4.6,dark:true},
- suv:{pool:CAR_POOLS.suv,len:4.8},
- pickup:{pool:CAR_POOLS.pickup,len:5.0},
- tractor:{pool:CAR_POOLS.tractor,len:null},
- truck:{pool:CAR_POOLS.truck,len:null}
+
+/* =====================================================================
+ * GAME VEHICLE TYPES
+ * ===================================================================== */
+
+const CAR_TYPES = {
+
+ sedan: {
+  pool: CAR_POOLS.sedanLong,
+  len: 4.5
+ },
+
+ hatchback: {
+  pool: CAR_POOLS.sedanCompact,
+  len: 4.0
+ },
+
+ police: {
+  pool: ['sedan_02'],
+  len: 4.6,
+  dark: true
+ },
+
+ suv: {
+  pool: CAR_POOLS.suv,
+  len: 4.8
+ },
+
+ pickup: {
+  pool: CAR_POOLS.pickup,
+  len: 5.0
+ },
+
+ tractor: {
+  pool: CAR_POOLS.tractor,
+  len: null
+ },
+
+ truck: {
+  pool: CAR_POOLS.truck,
+  len: null
+ }
+
 };
 
-const CAR_ID_RE=/^(sedan|suv|pickup|tractor|truck)_\d\d$/;
 
-const CarModels={
- loading:{},
- counters:{},
- texture:null,
- mats:{},
- stats:{loaded:0,failed:0}
+/* Accept direct model names such as:
+ * World.spawnVehicle('suv_03', ...)
+ */
+
+const CAR_ID_RE =
+ /^(sedan|suv|pickup|tractor|truck)_\d\d$/;
+
+
+/* =====================================================================
+ * CAR MODEL CACHE
+ * ===================================================================== */
+
+const CarModels = {
+
+ loading: {},
+
+ counters: {},
+
+ texture: null,
+
+ mats: {},
+
+ stats: {
+  loaded: 0,
+  failed: 0
+ }
+
 };
+
+
+/* =====================================================================
+ * TEXTURE COLOR SPACE
+ * ===================================================================== */
 
 function carSRGB(tex){
- if(tex.colorSpace!==undefined&&THREE.SRGBColorSpace!==undefined)tex.colorSpace=THREE.SRGBColorSpace;
- else if(THREE.sRGBEncoding!==undefined)tex.encoding=THREE.sRGBEncoding;
+
+ if(
+  tex.colorSpace !== undefined &&
+  THREE.SRGBColorSpace !== undefined
+ ){
+
+  tex.colorSpace =
+   THREE.SRGBColorSpace;
+
+ }else if(
+  THREE.sRGBEncoding !== undefined
+ ){
+
+  tex.encoding =
+   THREE.sRGBEncoding;
+
+ }
+
 }
 
-/* one shared material (+ one dark copy for police) for ALL vehicles = very cheap */
-CarModels.material=function(dark){
- const key=dark?'dark':'normal';
- if(CarModels.mats[key])return CarModels.mats[key];
 
- const m=new THREE.MeshStandardMaterial({
-  color:dark?0x2c2f33:0x9aa4ab, /* fallback colour until the texture arrives */
-  roughness:0.6,
-  metalness:0.15
- });
- CarModels.mats[key]=m;
+/* =====================================================================
+ * SHARED CAR MATERIAL
+ * ===================================================================== */
+
+CarModels.material = function(dark){
+
+ const key =
+  dark ? 'dark' : 'normal';
+
+ if(CarModels.mats[key]){
+  return CarModels.mats[key];
+ }
+
+
+ const material =
+  new THREE.MeshStandardMaterial({
+
+   color:
+    dark
+     ? 0x666a70
+     : 0xffffff,
+
+   roughness: 0.6,
+
+   metalness: 0.12
+
+  });
+
+
+ CarModels.mats[key] =
+  material;
+
+
+ /*
+  * Load the shared atlas texture only once.
+  */
 
  if(!CarModels.texture){
-  CarModels.texture=new THREE.TextureLoader().load(
-   CAR_BASE+CAR_TEXTURE,
-   tex=>{
-    carSRGB(tex);
-    tex.anisotropy=4;
-    tex.needsUpdate=true;
-    Object.keys(CarModels.mats).forEach(k=>{
-     const mm=CarModels.mats[k];
-     mm.map=tex;
-     mm.color.set(k==='dark'?0x666a70:0xffffff);
-     mm.needsUpdate=true;
-    });
-    CarModels._texOK=true;
-   },
-   undefined,
-   ()=>console.warn('[cars] texture not found: '+CAR_BASE+CAR_TEXTURE)
-  );
- }else if(CarModels._texOK){
-  m.map=CarModels.texture;
-  m.color.set(dark?0x666a70:0xffffff);
- }
- return m;
-};
 
-/* minimal OBJ -> BufferGeometry (positions, uvs, normals; faces are fan-triangulated) */
-function parseCarOBJ(text){
- const v=[],vt=[],vn=[],pos=[],uv=[],nor=[];
- const lines=text.split('\n');
- for(let i=0;i<lines.length;i++){
-  const l=lines[i];
-  if(l.charCodeAt(0)===118){ /* 'v' */
-   const t=l.split(' ');
-   if(t[0]==='v')v.push(+t[1],+t[2],+t[3]);
-   else if(t[0]==='vt')vt.push(+t[1],+t[2]);
-   else if(t[0]==='vn')vn.push(+t[1],+t[2],+t[3]);
-  }else if(l.charCodeAt(0)===102){ /* 'f' */
-   const t=l.trim().split(/\s+/);
-   const c=[];
-   for(let k=1;k<t.length;k++){
-    const p=t[k].split('/');
-    c.push([(+p[0]-1)*3,p[1]?(+p[1]-1)*2:-1,p[2]?(+p[2]-1)*3:-1]);
-   }
-   for(let k=1;k<c.length-1;k++){
-    [c[0],c[k],c[k+1]].forEach(q=>{
-     pos.push(v[q[0]],v[q[0]+1],v[q[0]+2]);
-     if(q[1]>=0)uv.push(vt[q[1]],vt[q[1]+1]);
-     if(q[2]>=0)nor.push(vn[q[2]],vn[q[2]+1],vn[q[2]+2]);
-    });
-   }
-  }
- }
- const geo=new THREE.BufferGeometry();
- const setAttr=(geo.setAttribute||geo.addAttribute).bind(geo);
- setAttr('position',new THREE.Float32BufferAttribute(pos,3));
- if(uv.length)setAttr('uv',new THREE.Float32BufferAttribute(uv,2));
- if(nor.length)setAttr('normal',new THREE.Float32BufferAttribute(nor,3));
- else geo.computeVertexNormals();
- geo.computeBoundingBox();
- return geo;
-}
+  CarModels.texture =
+   new THREE.TextureLoader().load(
 
-/* load once, cache forever, share between all cars of that model */
-CarModels.load=function(id){
- if(CarModels.loading[id])return CarModels.loading[id];
- CarModels.loading[id]=fetch(CAR_BASE+id+'.obj')
-  .then(r=>{
-   if(!r.ok)throw new Error('HTTP '+r.status);
-   return r.text();
-  })
-  .then(txt=>{
-   CarModels.stats.loaded++;
-   return parseCarOBJ(txt);
-  })
-  .catch(err=>{
-   CarModels.stats.failed++;
-   console.warn('[cars] could not load '+CAR_BASE+id+'.obj ('+err.message+') - using fallback car');
-   throw err;
-  });
- return CarModels.loading[id];
-};
+    CAR_BASE + CAR_TEXTURE,
 
-/* decide which model a car gets */
-CarModels.resolve=function(type,modelId){
- let id=modelId||null;
- let def=CAR_TYPES[type]||null;
+    tex => {
 
- if(!id&&CAR_ID_RE.test(type)){
-  id=type;
-  def=CAR_TYPES[type.split('_')[0]]||null;
- }
+     carSRGB(tex);
 
- if(!id){
-  if(!def)return null;
-  const pool=def.pool;
-  if(CarModels.counters[type]===undefined)CarModels.counters[type]=Math.floor(Math.random()*pool.length);
-  id=pool[CarModels.counters[type]++%pool.length];
- }
+     tex.anisotropy =
+      Math.min(
+       4,
+       World.renderer &&
+       World.renderer.capabilities
+        ? World.renderer.capabilities.getMaxAnisotropy()
+        : 4
+      );
 
- return {id,len:def?def.len:null,dark:!!(def&&def.dark)};
-};
+     tex.needsUpdate = true;
 
-/* swap the procedural placeholder for the real model once it is loaded */
-CarModels.apply=function(g,proc,type,modelId){
- const spec=CarModels.resolve(type,modelId);
- if(!spec)return;
 
- g.userData.carType=type;
- g.userData.modelId=spec.id;
+     Object.keys(CarModels.mats).forEach(k => {
 
- CarModels.load(spec.id).then(geo=>{
-  const bb=geo.boundingBox;
-  const length=bb.max.z-bb.min.z;
-  const s=spec.len?spec.len/length:1;
+      const mat =
+       CarModels.mats[k];
 
-  const mesh=new THREE.Mesh(geo,CarModels.material(spec.dark));
-  mesh.scale.setScalar(s);
-  mesh.castShadow=true;
-  mesh.receiveShadow=true;
-  g.add(mesh);
+      mat.map =
+       tex;
 
-  proc.visible=false;
+      mat.color.set(
+       k === 'dark'
+        ? 0x666a70
+        : 0xffffff
+      );
 
-  const info={
-   id:spec.id,
-   mesh,
-   scale:s,
-   length:length*s,
-   width:(bb.max.x-bb.min.x)*s,
-   height:bb.max.y*s
-  };
+      mat.needsUpdate = true;
 
-  g.userData.model=info;
-  if(g.userData.fitModel)g.userData.fitModel(info);
- }).catch(()=>{ /* keep procedural car */ });
-};
+     });
 
-/* place a vehicle anywhere:  World.spawnVehicle('truck',10,20,Math.PI/2)  or  ('suv_03',...) */
-World.spawnVehicle=function(type,x,z,rotY,color){
- const c=World.makeCar(x,z,color||0x888888,type);
- c.rotation.y=rotY||0;
- return c;
-};
 
-/* ============ VEHICLES ============ */
-function policeDecalTex(){
- return canvasTex((g,w,h)=>{
-  g.clearRect(0,0,w,h);
-  g.fillStyle='#111';
-  g.font='bold '+(h*0.6)+'px sans-serif';
-  g.textAlign='center';
-  g.textBaseline='middle';
-  g.fillText('POLICE',w/2,h/2);
- },256,64);
-}
+     CarModels._texOK =
+      true;
 
-const policeDecal=policeDecalTex();
 
-World.makeCar=function(x,z,color,type,modelId){
- type=type||'sedan';
+     console.log(
+      '[cars] texture loaded:',
+      CAR_BASE + CAR_TEXTURE
+     );
 
- const g=new THREE.Group();
+    },
 
- /* procedural body = fallback shown until (or if) the real model loads */
- const proc=new THREE.Group();
- g.add(proc);
+    undefined,
 
- const bodyMat=new THREE.MeshStandardMaterial({
-  color:type==='police'?0x151515:color,
-  metalness:0.5,
-  roughness:0.35
- });
+    err => {
 
- const isHatch=type==='hatchback';
+     CarModels._texOK =
+      false;
 
- const bodyLen=isHatch?3.5:4.3;
- const hoodLen=isHatch?0.65:0.95;
- const trunkLen=isHatch?0.35:0.85;
- const midLen=bodyLen-hoodLen-trunkLen;
+     console.warn(
+      '[cars] texture failed:',
+      CAR_BASE + CAR_TEXTURE,
+      err
+     );
 
- const lower=new THREE.Mesh(new THREE.BoxGeometry(1.78,0.34,bodyLen),bodyMat);
- lower.position.y=0.35;
- lower.castShadow=true;
- proc.add(lower);
+    }
 
- const hood=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.22,hoodLen),bodyMat);
- hood.position.set(0,0.57,bodyLen/2-hoodLen/2);
- hood.castShadow=true;
- proc.add(hood);
-
- const trunk=new THREE.Mesh(new THREE.BoxGeometry(1.7,isHatch?0.5:0.26,trunkLen),bodyMat);
- trunk.position.set(0,isHatch?0.68:0.6,-(bodyLen/2-trunkLen/2));
- trunk.castShadow=true;
- proc.add(trunk);
-
- const cabin=new THREE.Mesh(
-  new THREE.BoxGeometry(1.5,0.48,midLen*0.92),
-  new THREE.MeshPhysicalMaterial({color:0x0e1b1d,transparent:true,opacity:0.55,roughness:0.1})
- );
- cabin.position.set(0,0.9,(hoodLen-trunkLen)*0.15);
- proc.add(cabin);
-
- const lightMat=new THREE.MeshStandardMaterial({color:0xfff3c0,emissive:0xffdd88,emissiveIntensity:0.8});
- const tailMat=new THREE.MeshStandardMaterial({color:0x990000,emissive:0x660000,emissiveIntensity:0.6});
-
- [[-0.62,0.42,bodyLen/2-0.05],[0.62,0.42,bodyLen/2-0.05]].forEach(p=>{
-  const l=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.13,0.06),lightMat);
-  l.position.set(p[0],p[1],p[2]);
-  proc.add(l);
- });
-
- [[-0.62,0.42,-(bodyLen/2-0.05)],[0.62,0.42,-(bodyLen/2-0.05)]].forEach(p=>{
-  const l=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.13,0.06),tailMat);
-  l.position.set(p[0],p[1],p[2]);
-  proc.add(l);
- });
-
- const wheelMat=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.9});
- const wheelX=0.92;
- const wheelZ=bodyLen/2-0.75;
-
- [[-wheelX,0.33,wheelZ],[wheelX,0.33,wheelZ],[-wheelX,0.33,-wheelZ],[wheelX,0.33,-wheelZ]].forEach(p=>{
-  const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.26,14),wheelMat);
-  wheel.rotation.z=Math.PI/2;
-  wheel.position.set(p[0],p[1],p[2]);
-  wheel.castShadow=true;
-  proc.add(wheel);
- });
-
- if(type==='police'){
-  const doorMat=new THREE.MeshStandardMaterial({color:0xf2f2f2});
-
-  [-1,1].forEach(side=>{
-   const panel=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.26,midLen*0.85),doorMat);
-   panel.position.set(side*0.9,0.42,0);
-   proc.add(panel);
-  });
-
-  /* light bar + decals live on the main group so they stay visible on the real model */
-  const barBase=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.1,0.32),new THREE.MeshStandardMaterial({color:0x1a1a1a}));
-  barBase.position.set(0,1.16,0.25);
-  g.add(barBase);
-
-  const red=new THREE.Mesh(
-   new THREE.BoxGeometry(0.38,0.09,0.28),
-   new THREE.MeshStandardMaterial({color:0xff2222,emissive:0xff0000,emissiveIntensity:1})
-  );
-  red.position.set(-0.22,1.22,0.25);
-  g.add(red);
-
-  const blue=new THREE.Mesh(
-   new THREE.BoxGeometry(0.38,0.09,0.28),
-   new THREE.MeshStandardMaterial({color:0x2244ff,emissive:0x0033ff,emissiveIntensity:1})
-  );
-  blue.position.set(0.22,1.22,0.25);
-  g.add(blue);
-
-  const decals=[];
-  [-1,1].forEach(side=>{
-   const decal=new THREE.Mesh(
-    new THREE.PlaneGeometry(midLen*0.75,0.28),
-    new THREE.MeshBasicMaterial({map:policeDecal,transparent:true})
    );
-   decal.position.set(side*0.905,0.42,0);
-   decal.rotation.y=side>0?Math.PI/2:-Math.PI/2;
-   g.add(decal);
-   decals.push({mesh:decal,side});
-  });
 
-  g.userData.lightBar={red,blue};
+ }else if(CarModels._texOK){
 
-  /* re-fit the light bar and decals to the real model's roof / sides */
-  g.userData.fitModel=function(info){
-   const roof=info.height;
-   barBase.position.set(0,roof+0.05,0.15);
-   red.position.set(-0.22,roof+0.11,0.15);
-   blue.position.set(0.22,roof+0.11,0.15);
-   decals.forEach(d=>{
-    d.mesh.scale.set(info.length*0.4/(midLen*0.75),1,1);
-    d.mesh.position.set(d.side*(info.width/2+0.01),info.height*0.33,0);
-   });
-  };
+  material.map =
+   CarModels.texture;
+
+  material.color.set(
+   dark
+    ? 0x666a70
+    : 0xffffff
+  );
+
+  material.needsUpdate =
+   true;
+
  }
 
- CarModels.apply(g,proc,type,modelId);
 
- g.position.set(x,0,z);
- World.scene.add(g);
+ return material;
 
- return g;
+};
+
+
+/* =====================================================================
+ * OBJ PARSER
+ *
+ * Reads:
+ *   v
+ *   vt
+ *   vn
+ *   f
+ *
+ * Supports:
+ *   v/vt/vn
+ *   v//vn
+ *   v/vt
+ *   v
+ *
+ * Faces are triangulated automatically.
+ * ===================================================================== */
+
+function parseCarOBJ(text){
+
+ const vertices = [];
+
+ const uvs = [];
+
+ const normals = [];
+
+ const positions = [];
+
+ const texcoords = [];
+
+ const normalData = [];
+
+
+ const lines =
+  text.split(/\r?\n/);
+
+
+ for(let i=0;i<lines.length;i++){
+
+  const line =
+   lines[i].trim();
+
+
+  if(!line || line.charAt(0)==='#'){
+   continue;
+  }
+
+
+  const parts =
+   line.split(/\s+/);
+
+
+  const type =
+   parts[0];
+
+
+  /* ---------------- VERTEX ---------------- */
+
+  if(type === 'v'){
+
+   vertices.push(
+    Number(parts[1]),
+    Number(parts[2]),
+    Number(parts[3])
+   );
+
+   continue;
+  }
+
+
+  /* ---------------- UV ---------------- */
+
+  if(type === 'vt'){
+
+   uvs.push(
+    Number(parts[1]),
+    Number(parts[2])
+   );
+
+   continue;
+  }
+
+
+  /* ---------------- NORMAL ---------------- */
+
+  if(type === 'vn'){
+
+   normals.push(
+    Number(parts[1]),
+    Number(parts[2]),
+    Number(parts[3])
+   );
+
+   continue;
+  }
+
+
+  /* ---------------- FACE ---------------- */
+
+  if(type === 'f'){
+
+   const face = [];
+
+
+   for(let j=1;j<parts.length;j++){
+
+    const values =
+     parts[j].split('/');
+
+
+    let vi =
+     parseInt(values[0],10);
+
+    let ti =
+     values[1]
+      ? parseInt(values[1],10)
+      : 0;
+
+    let ni =
+     values[2]
+      ? parseInt(values[2],10)
+      : 0;
+
+
+    /*
+     * OBJ supports negative indices.
+     */
+
+    if(vi < 0){
+
+     vi =
+      vertices.length / 3 +
+      vi +
+      1;
+
+    }
+
+    if(ti < 0){
+
+     ti =
+      uvs.length / 2 +
+      ti +
+      1;
+
+    }
+
+    if(ni < 0){
+
+     ni =
+      normals.length / 3 +
+      ni +
+      1;
+
+    }
+
+
+    face.push({
+     v: vi - 1,
+     t: ti ? ti - 1 : -1,
+     n: ni ? ni - 1 : -1
+    });
+
+   }
+
+
+   /*
+    * Triangle fan.
+    */
+
+   for(let j=1;j<face.length-1;j++){
+
+    const triangle = [
+     face[0],
+     face[j],
+     face[j+1]
+    ];
+
+
+    triangle.forEach(index => {
+
+     const vp =
+      index.v * 3;
+
+
+     positions.push(
+      vertices[vp],
+      vertices[vp+1],
+      vertices[vp+2]
+     );
+
+
+     if(index.t >= 0){
+
+      const tp =
+       index.t * 2;
+
+      texcoords.push(
+       uvs[tp],
+       uvs[tp+1]
+      );
+
+     }else{
+
+      texcoords.push(
+       0,
+       0
+      );
+
+     }
+
+
+     if(index.n >= 0){
+
+      const np =
+       index.n * 3;
+
+      normalData.push(
+       normals[np],
+       normals[np+1],
+       normals[np+2]
+      );
+
+     }
+
+    });
+
+   }
+
+  }
+
+ }
+
+
+ const geometry =
+  new THREE.BufferGeometry();
+
+
+ geometry.setAttribute(
+  'position',
+  new THREE.Float32BufferAttribute(
+   positions,
+   3
+  )
+ );
+
+
+ if(texcoords.length){
+
+  geometry.setAttribute(
+   'uv',
+   new THREE.Float32BufferAttribute(
+    texcoords,
+    2
+   )
+  );
+
+ }
+
+
+ if(
+  normalData.length ===
+  positions.length
+ ){
+
+  geometry.setAttribute(
+   'normal',
+   new THREE.Float32BufferAttribute(
+    normalData,
+    3
+   )
+  );
+
+ }else{
+
+  geometry.computeVertexNormals();
+
+ }
+
+
+ geometry.computeBoundingBox();
+
+ geometry.computeBoundingSphere();
+
+
+ return geometry;
+
+}
+
+
+/* =====================================================================
+ * LOAD VEHICLE MODEL
+ * ===================================================================== */
+
+CarModels.load = function(id){
+
+ if(CarModels.loading[id]){
+  return CarModels.loading[id];
+ }
+
+
+ const url =
+  CAR_BASE +
+  id +
+  '.obj';
+
+
+ CarModels.loading[id] =
+  fetch(url)
+
+   .then(response => {
+
+    if(!response.ok){
+
+     throw new Error(
+      'HTTP ' +
+      response.status
+     );
+
+    }
+
+    return response.text();
+
+   })
+
+   .then(text => {
+
+    const geometry =
+     parseCarOBJ(text);
+
+
+    if(
+     !geometry.attributes.position ||
+     geometry.attributes.position.count === 0
+    ){
+
+     throw new Error(
+      'OBJ contains no geometry'
+     );
+
+    }
+
+
+    CarModels.stats.loaded++;
+
+
+    console.log(
+     '[cars] loaded:',
+     id
+    );
+
+
+    return geometry;
+
+   })
+
+   .catch(error => {
+
+    CarModels.stats.failed++;
+
+
+    console.warn(
+     '[cars] failed:',
+     url,
+     error
+    );
+
+
+    throw error;
+
+   });
+
+
+ return CarModels.loading[id];
+
+};
+
+
+/* =====================================================================
+ * RESOLVE MODEL
+ * ===================================================================== */
+
+CarModels.resolve =
+ function(type,modelId){
+
+  let id =
+   modelId || null;
+
+  let def =
+   CAR_TYPES[type] || null;
+
+
+  /*
+   * Direct model:
+   * World.makeCar(...,'suv_03')
+   */
+
+  if(
+   !id &&
+   CAR_ID_RE.test(type)
+  ){
+
+   id =
+    type;
+
+   def =
+    CAR_TYPES[
+     type.split('_')[0]
+    ] || null;
+
+  }
+
+
+  if(!id){
+
+   if(!def){
+    return null;
+   }
+
+
+   const pool =
+    def.pool;
+
+
+   if(
+    CarModels.counters[type] ===
+    undefined
+   ){
+
+    CarModels.counters[type] =
+     Math.floor(
+      Math.random() *
+      pool.length
+     );
+
+   }
+
+
+   id =
+    pool[
+     CarModels.counters[type]++
+      % pool.length
+    ];
+
+  }
+
+
+  return {
+
+   id,
+
+   len:
+    def
+     ? def.len
+     : null,
+
+   dark:
+    !!(
+     def &&
+     def.dark
+    )
+
+  };
+
+ };
+
+
+/* =====================================================================
+ * APPLY REAL MODEL
+ * ===================================================================== */
+
+CarModels.apply =
+ function(
+  g,
+  proc,
+  type,
+  modelId
+ ){
+
+  const spec =
+   CarModels.resolve(
+    type,
+    modelId
+   );
+
+
+  if(!spec){
+   return;
+  }
+
+
+  g.userData.carType =
+   type;
+
+  g.userData.modelId =
+   spec.id;
+
+
+  CarModels.load(spec.id)
+
+   .then(geometry => {
+
+    const bb =
+     geometry.boundingBox;
+
+
+    if(!bb){
+     throw new Error(
+      'Missing bounding box'
+     );
+    }
+
+
+    const nativeLength =
+     bb.max.z -
+     bb.min.z;
+
+
+    const nativeWidth =
+     bb.max.x -
+     bb.min.x;
+
+
+    const nativeHeight =
+     bb.max.y -
+     bb.min.y;
+
+
+    /*
+     * Some OBJ files can have their
+     * dimensions reversed or very small.
+     */
+
+    if(
+     !isFinite(nativeLength) ||
+     nativeLength <= 0
+    ){
+
+     throw new Error(
+      'Invalid vehicle dimensions'
+     );
+
+    }
+
+
+    let scale =
+     spec.len
+      ? spec.len / nativeLength
+      : 1;
+
+
+    /*
+     * Prevent absurd scale values
+     * caused by an incorrectly exported OBJ.
+     */
+
+    scale =
+     Math.max(
+      0.01,
+      Math.min(
+       100,
+       scale
+      )
+     );
+
+
+    const mesh =
+     new THREE.Mesh(
+      geometry,
+      CarModels.material(
+       spec.dark
+      )
+     );
+
+
+    mesh.scale.setScalar(
+     scale
+    );
+
+
+    /*
+     * Move the model so that:
+     * - its ground is at Y = 0
+     * - its horizontal center is X/Z = 0
+     */
+
+    const centerX =
+     (bb.min.x + bb.max.x) / 2;
+
+    const centerZ =
+     (bb.min.z + bb.max.z) / 2;
+
+
+    mesh.position.x =
+     -centerX * scale;
+
+    mesh.position.z =
+     -centerZ * scale;
+
+    mesh.position.y =
+     -bb.min.y * scale;
+
+
+    mesh.castShadow =
+     true;
+
+    mesh.receiveShadow =
+     true;
+
+
+    /*
+     * Make sure the model does not
+     * accidentally use a material
+     * coming from the OBJ.
+     */
+
+    mesh.material =
+     CarModels.material(
+      spec.dark
+     );
+
+
+    g.add(mesh);
+
+
+    proc.visible =
+     false;
+
+
+    const info = {
+
+     id:
+      spec.id,
+
+     mesh,
+
+     scale,
+
+     length:
+      nativeLength * scale,
+
+     width:
+      nativeWidth * scale,
+
+     height:
+      nativeHeight * scale
+
+    };
+
+
+    g.userData.model =
+     info;
+
+
+    if(
+     typeof g.userData.fitModel ===
+     'function'
+    ){
+
+     g.userData.fitModel(
+      info
+     );
+
+    }
+
+
+   })
+
+   .catch(() => {
+
+    /*
+     * Keep procedural fallback.
+     */
+
+    proc.visible =
+     true;
+
+   });
+
+ };
+
+
+/* =====================================================================
+ * SPAWN VEHICLE
+ * ===================================================================== */
+
+World.spawnVehicle =
+ function(
+  type,
+  x,
+  z,
+  rotY,
+  color
+ ){
+
+  const c =
+   World.makeCar(
+    x,
+    z,
+    color || 0x888888,
+    type
+   );
+
+
+  c.rotation.y =
+   rotY || 0;
+
+
+  return c;
+
+ };
+
+
+/* =====================================================================
+ * POLICE DECAL
+ * ===================================================================== */
+
+function policeDecalTex(){
+
+ return canvasTex(
+  (g,w,h)=>{
+
+   g.clearRect(
+    0,
+    0,
+    w,
+    h
+   );
+
+   g.fillStyle =
+    '#111';
+
+   g.font =
+    'bold ' +
+    (h*0.6) +
+    'px sans-serif';
+
+   g.textAlign =
+    'center';
+
+   g.textBaseline =
+    'middle';
+
+   g.fillText(
+    'POLICE',
+    w/2,
+    h/2
+   );
+
+  },
+  256,
+  64
+ );
+
+}
+
+
+const policeDecal =
+ policeDecalTex();
+
+
+/* =====================================================================
+ * CREATE VEHICLE
+ * ===================================================================== */
+
+World.makeCar =
+ function(
+  x,
+  z,
+  color,
+  type,
+  modelId
+ ){
+
+  type =
+   type ||
+   'sedan';
+
+
+  const g =
+   new THREE.Group();
+
+
+  /*
+   * ---------------------------------------------------------------
+   * PROCEDURAL FALLBACK
+   * ---------------------------------------------------------------
+   */
+
+  const proc =
+   new THREE.Group();
+
+  g.add(proc);
+
+
+  const bodyMat =
+   new THREE.MeshStandardMaterial({
+
+    color:
+     type === 'police'
+      ? 0x151515
+      : color,
+
+    metalness:
+     0.5,
+
+    roughness:
+     0.35
+
+   });
+
+
+  const isHatch =
+   type === 'hatchback';
+
+
+  const bodyLen =
+   isHatch
+    ? 3.5
+    : 4.3;
+
+
+  const hoodLen =
+   isHatch
+    ? 0.65
+    : 0.95;
+
+
+  const trunkLen =
+   isHatch
+    ? 0.35
+    : 0.85;
+
+
+  const midLen =
+   bodyLen -
+   hoodLen -
+   trunkLen;
+
+
+  const lower =
+   new THREE.Mesh(
+    new THREE.BoxGeometry(
+     1.78,
+     0.34,
+     bodyLen
+    ),
+    bodyMat
+   );
+
+
+  lower.position.y =
+   0.35;
+
+  lower.castShadow =
+   true;
+
+  proc.add(lower);
+
+
+  const hood =
+   new THREE.Mesh(
+    new THREE.BoxGeometry(
+     1.7,
+     0.22,
+     hoodLen
+    ),
+    bodyMat
+   );
+
+
+  hood.position.set(
+   0,
+   0.57,
+   bodyLen/2 -
+   hoodLen/2
+  );
+
+  hood.castShadow =
+   true;
+
+  proc.add(hood);
+
+
+  const trunk =
+   new THREE.Mesh(
+    new THREE.BoxGeometry(
+     1.7,
+     isHatch
+      ? 0.5
+      : 0.26,
+     trunkLen
+    ),
+    bodyMat
+   );
+
+
+  trunk.position.set(
+   0,
+   isHatch
+    ? 0.68
+    : 0.6,
+   -(bodyLen/2 -
+     trunkLen/2)
+  );
+
+  trunk.castShadow =
+   true;
+
+  proc.add(trunk);
+
+
+  const cabin =
+   new THREE.Mesh(
+
+    new THREE.BoxGeometry(
+     1.5,
+     0.48,
+     midLen * 0.92
+    ),
+
+    new THREE.MeshPhysicalMaterial({
+
+     color:
+      0x0e1b1d,
+
+     transparent:
+      true,
+
+     opacity:
+      0.55,
+
+     roughness:
+      0.1
+
+    })
+
+   );
+
+
+  cabin.position.set(
+   0,
+   0.9,
+   (hoodLen -
+    trunkLen) * 0.15
+  );
+
+
+  proc.add(cabin);
+
+
+  const lightMat =
+   new THREE.MeshStandardMaterial({
+
+    color:
+     0xfff3c0,
+
+    emissive:
+     0xffdd88,
+
+    emissiveIntensity:
+     0.8
+
+   });
+
+
+  const tailMat =
+   new THREE.MeshStandardMaterial({
+
+    color:
+     0x990000,
+
+    emissive:
+     0x660000,
+
+    emissiveIntensity:
+     0.6
+
+   });
+
+
+  [
+   [
+    -0.62,
+    0.42,
+    bodyLen/2 - 0.05
+   ],
+   [
+    0.62,
+    0.42,
+    bodyLen/2 - 0.05
+   ]
+  ].forEach(p => {
+
+   const l =
+    new THREE.Mesh(
+     new THREE.BoxGeometry(
+      0.24,
+      0.13,
+      0.06
+     ),
+     lightMat
+    );
+
+   l.position.set(
+    p[0],
+    p[1],
+    p[2]
+   );
+
+   proc.add(l);
+
+  });
+
+
+  [
+   [
+    -0.62,
+    0.42,
+    -(bodyLen/2 - 0.05)
+   ],
+   [
+    0.62,
+    0.42,
+    -(bodyLen/2 - 0.05)
+   ]
+  ].forEach(p => {
+
+   const l =
+    new THREE.Mesh(
+     new THREE.BoxGeometry(
+      0.24,
+      0.13,
+      0.06
+     ),
+     tailMat
+    );
+
+   l.position.set(
+    p[0],
+    p[1],
+    p[2]
+   );
+
+   proc.add(l);
+
+  });
+
+
+  const wheelMat =
+   new THREE.MeshStandardMaterial({
+
+    color:
+     0x111111,
+
+    roughness:
+     0.9
+
+   });
+
+
+  const wheelX =
+   0.92;
+
+
+  const wheelZ =
+   bodyLen/2 -
+   0.75;
+
+
+  [
+   [
+    -wheelX,
+    0.33,
+    wheelZ
+   ],
+   [
+    wheelX,
+    0.33,
+    wheelZ
+   ],
+   [
+    -wheelX,
+    0.33,
+    -wheelZ
+   ],
+   [
+    wheelX,
+    0.33,
+    -wheelZ
+   ]
+  ].forEach(p => {
+
+   const wheel =
+    new THREE.Mesh(
+     new THREE.CylinderGeometry(
+      0.35,
+      0.35,
+      0.26,
+      14
+     ),
+     wheelMat
+    );
+
+   wheel.rotation.z =
+    Math.PI/2;
+
+   wheel.position.set(
+    p[0],
+    p[1],
+    p[2]
+   );
+
+   wheel.castShadow =
+    true;
+
+   proc.add(wheel);
+
+  });
+
+
+  /* ===============================================================
+   * POLICE EQUIPMENT
+   * =============================================================== */
+
+  if(type === 'police'){
+
+   const doorMat =
+    new THREE.MeshStandardMaterial({
+     color:
+      0xf2f2f2
+    });
+
+
+   [-1,1].forEach(side => {
+
+    const panel =
+     new THREE.Mesh(
+      new THREE.BoxGeometry(
+       0.04,
+       0.26,
+       midLen * 0.85
+      ),
+      doorMat
+     );
+
+
+    panel.position.set(
+     side * 0.9,
+     0.42,
+     0
+    );
+
+
+    proc.add(panel);
+
+   });
+
+
+   const barBase =
+    new THREE.Mesh(
+     new THREE.BoxGeometry(
+      0.85,
+      0.1,
+      0.32
+     ),
+     new THREE.MeshStandardMaterial({
+      color:
+       0x1a1a1a
+     })
+    );
+
+
+   barBase.position.set(
+    0,
+    1.16,
+    0.25
+   );
+
+
+   g.add(barBase);
+
+
+   const red =
+    new THREE.Mesh(
+
+     new THREE.BoxGeometry(
+      0.38,
+      0.09,
+      0.28
+     ),
+
+     new THREE.MeshStandardMaterial({
+
+      color:
+       0xff2222,
+
+      emissive:
+       0xff0000,
+
+      emissiveIntensity:
+       1
+
+     })
+
+    );
+
+
+   red.position.set(
+    -0.22,
+    1.22,
+    0.25
+   );
+
+
+   g.add(red);
+
+
+   const blue =
+    new THREE.Mesh(
+
+     new THREE.BoxGeometry(
+      0.38,
+      0.09,
+      0.28
+     ),
+
+     new THREE.MeshStandardMaterial({
+
+      color:
+       0x2244ff,
+
+      emissive:
+       0x0033ff,
+
+      emissiveIntensity:
+       1
+
+     })
+
+    );
+
+
+   blue.position.set(
+    0.22,
+    1.22,
+    0.25
+   );
+
+
+   g.add(blue);
+
+
+   const decals = [];
+
+
+   [-1,1].forEach(side => {
+
+    const decal =
+     new THREE.Mesh(
+
+      new THREE.PlaneGeometry(
+       midLen * 0.75,
+       0.28
+      ),
+
+      new THREE.MeshBasicMaterial({
+
+       map:
+        policeDecal,
+
+       transparent:
+        true
+
+      })
+
+     );
+
+
+    decal.position.set(
+     side * 0.905,
+     0.42,
+     0
+    );
+
+
+    decal.rotation.y =
+     side > 0
+      ? Math.PI/2
+      : -Math.PI/2;
+
+
+    g.add(decal);
+
+
+    decals.push({
+     mesh:
+      decal,
+
+     side
+
+    });
+
+   });
+
+
+   g.userData.lightBar = {
+    red,
+    blue
+   };
+
+
+   /*
+    * Reposition police equipment
+    * after the real model loads.
+    */
+
+   g.userData.fitModel =
+    function(info){
+
+     const roof =
+      info.height;
+
+
+     barBase.position.set(
+      0,
+      roof + 0.05,
+      0.15
+     );
+
+
+     red.position.set(
+      -0.22,
+      roof + 0.11,
+      0.15
+     );
+
+
+     blue.position.set(
+      0.22,
+      roof + 0.11,
+      0.15
+     );
+
+
+     decals.forEach(d => {
+
+      d.mesh.scale.set(
+       info.length * 0.4 /
+       (midLen * 0.75),
+       1,
+       1
+      );
+
+
+      d.mesh.position.set(
+       d.side *
+        (info.width/2 + 0.01),
+
+       info.height * 0.33,
+
+       0
+      );
+
+     });
+
+    };
+
+  }
+
+
+  /* ===============================================================
+   * LOAD REAL MODEL
+   * =============================================================== */
+
+  CarModels.apply(
+   g,
+   proc,
+   type,
+   modelId
+  );
+
+
+  g.position.set(
+   x,
+   0,
+   z
+  );
+
+
+  World.scene.add(g);
+
+
+  return g;
+
 };
 
 /* ============ BILLBOARDS ============ */

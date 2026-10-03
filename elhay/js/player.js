@@ -2146,6 +2146,10 @@ Player.updatePrompt =
         };
 
 
+        if (!labels[type] && hit.label && type !== 'door') {
+          labels[type] = 'E: ' + hit.label;
+        }
+
         if (labels[type]) {
 
           d.prompt.textContent =

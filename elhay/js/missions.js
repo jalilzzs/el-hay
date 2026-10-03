@@ -264,7 +264,18 @@ const POI_ICONS={
  gunshop:'🔫',
  studio:'🏠',
  flat2:'🏠',
- villa:'🏠'
+ villa:'🏠',
+ restaurant:'🍽️',
+ mechanic:'🔧',
+ supermarket:'🛒',
+ office:'🏢',
+ motel:'🛏️',
+ pharmacy:'💊',
+ factory:'🏭',
+ warehouse:'📦',
+ postOffice:'📮',
+ constructionSite:'🚧',
+ taxiDepot:'🚕'
 };
 
 function drawMinimapTo(
@@ -288,14 +299,52 @@ function drawMinimapTo(
   h
  );
 
- ctx.fillStyle='#141a1e';
+ ctx.fillStyle='#2c4527';
+ ctx.fillRect(0,0,w,h);
 
- ctx.fillRect(
-  0,
-  0,
-  w,
-  h
- );
+ (function(){
+  if(typeof World==='undefined')return;
+  const cx0=camera.position.x,cz0=camera.position.z;
+  const hx=w/2/scale+20,hz=h/2/scale+20;
+  const S=40;
+  /* sidewalks then asphalt, along both axes */
+  [[14,'#8d8d86'],[8,'#3b3f44']].forEach(function(L){
+   ctx.fillStyle=L[1];
+   for(let k=Math.ceil((cx0-hx)/S);k<=Math.floor((cx0+hx)/S);k++){
+    ctx.fillRect(w/2+(k*S-L[0]/2-cx0)*scale,0,L[0]*scale,h);
+   }
+   for(let k=Math.ceil((cz0-hz)/S);k<=Math.floor((cz0+hz)/S);k++){
+    ctx.fillRect(0,h/2+(k*S-L[0]/2-cz0)*scale,w,L[0]*scale);
+   }
+  });
+  /* dashed centre lines */
+  ctx.strokeStyle='rgba(240,220,120,.55)';
+  ctx.lineWidth=1;
+  ctx.setLineDash([6,6]);
+  ctx.beginPath();
+  for(let k=Math.ceil((cx0-hx)/S);k<=Math.floor((cx0+hx)/S);k++){
+   const X=w/2+(k*S-cx0)*scale;ctx.moveTo(X,0);ctx.lineTo(X,h);
+  }
+  for(let k=Math.ceil((cz0-hz)/S);k<=Math.floor((cz0+hz)/S);k++){
+   const Y=h/2+(k*S-cz0)*scale;ctx.moveTo(0,Y);ctx.lineTo(w,Y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  /* real building footprints */
+  if(Array.isArray(World.collidables)){
+   ctx.fillStyle='#9aa3ad';
+   ctx.strokeStyle='#4b535c';
+   World.collidables.forEach(function(b){
+    if(!b||!b.min||!b.max)return;
+    if(b.max.x<cx0-hx||b.min.x>cx0+hx||b.max.z<cz0-hz||b.min.z>cz0+hz)return;
+    const x=w/2+(b.min.x-cx0)*scale,y=h/2+(b.min.z-cz0)*scale;
+    const bw=(b.max.x-b.min.x)*scale,bh=(b.max.z-b.min.z)*scale;
+    if(bw<1.5||bh<1.5)return;
+    ctx.fillRect(x,y,bw,bh);
+    ctx.strokeRect(x,y,bw,bh);
+   });
+  }
+ })();
 
  const px=
   camera.position.x;

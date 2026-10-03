@@ -94,7 +94,14 @@ NPCPool.getRelationshipNPC=function(id){
  )||null;
 };
 
-NPCPool.update=function(playerPos,dt){
+NPCPool.outPos=new THREE.Vector3(30,0,55);
+
+NPCPool.update=function(rawPos,dt){
+ /* inside a building the camera sits at y=50: keep NPCs working from the last outdoor position */
+ const inside=!!World.activeInterior;
+ if(!inside) NPCPool.outPos.copy(rawPos);
+ const playerPos=inside?NPCPool.outPos:rawPos;
+ NPCPool._inside=inside;
  let activeCount=0;
 
  for(const n of NPCPool.pool){
@@ -179,23 +186,14 @@ NPCPool.updateRelationshipNPC=function(n,playerPos,dt){
 
  if(!n.active) return;
 
- /*
-  * Married spouse follows the player.
-  */
+ /* Married spouse: follows, rides along, lives at home */
  if(
   typeof Relationships!=='undefined' &&
   n.relationshipId &&
   Relationships.isSpouse &&
   Relationships.isSpouse(n.relationshipId)
  ){
-
-  NPCPool.followPlayer(
-   n,
-   playerPos,
-   dt,
-   2.8
-  );
-
+  NPCPool.updateSpouse(n,playerPos,dt);
   return;
  }
 
@@ -319,7 +317,7 @@ NPCPool.nearest=function(pos,maxDist){
 
  for(const n of NPCPool.pool){
 
-  if(!n.active) continue;
+  if(!n.active||!n.mesh.visible) continue;
 
   const d=
    pos.distanceTo(
@@ -743,4 +741,85 @@ NPCPool.interact=function(n){
  NPCPool.greet(n);
 
  return true;
+};
+
+
+/* ---- Spouse behaviour ---- */
+NPCPool.spouseFigure=null;
+
+NPCPool.updateSpouse=function(n,pp,dt){
+ const id=n.relationshipId;
+ const def=n.relationshipDef||Relationships.getDef(id);
+ const follow=Relationships.isFollowing(id);
+ const inside=NPCPool._inside;
+ const driving=(typeof Player!=='undefined'&&Player.mode==='drive');
+ const res=Relationships.residence();
+ const hour=World.dayNight?World.dayNight.time:12;
+ const night=hour>=22||hour<6;
+
+ /* interior figure: she lives in the player's house */
+ if(!NPCPool.spouseFigure&&typeof DrivingTest!=='undefined'){
+  NPCPool.spouseFigure=DrivingTest.ped(0xc0568a);
+  NPCPool.spouseFigure.visible=false;
+ }
+ const fig=NPCPool.spouseFigure;
+ const inHome=inside&&World.activeInterior===res;
+ if(fig){
+  const room=World.interiors[res];
+  if(room&&fig.parent!==room){room.add(fig);fig.position.set(3.4,-2.5,-0.8);}
+  const show=inHome&&!(night&&false);
+  if(show&&!fig.visible&&def)
+   Jobs.msg('❤️ '+def.name+': Welcome home!');
+  fig.visible=show;
+ }
+
+ const wasHidden=n.spouseHidden;
+
+ if(follow){
+  if(inside||driving){
+   n.mesh.visible=false;
+   n.spouseHidden=true;
+   n.mesh.position.set(pp.x,0,pp.z);
+   return;
+  }
+  if(wasHidden){
+   n.mesh.visible=true;
+   n.spouseHidden=false;
+   n.mesh.position.set(pp.x+1.5,0,pp.z+1.5);
+  }
+  n.mesh.visible=true;
+  NPCPool.followPlayer(n,pp,dt,2.8);
+  if(pp.distanceTo(n.mesh.position)>40)
+   n.mesh.position.set(pp.x+2,0,pp.z+2);
+  return;
+ }
+
+ /* stays at home: walks to the door and spends the day around it, sleeps at night */
+ const poi=World.pois.find(p=>p.id===res&&!p.dyn);
+ if(!poi)return;
+ if(night||inside){
+  n.mesh.visible=false;
+  n.spouseHidden=true;
+  n.mesh.position.set(poi.pos.x,0,poi.pos.z);
+  return;
+ }
+ if(wasHidden){
+  n.mesh.visible=true;
+  n.spouseHidden=false;
+ }
+ n.mesh.visible=true;
+ const d=Math.hypot(poi.pos.x-n.mesh.position.x,poi.pos.z-n.mesh.position.z);
+ if(d>60){
+  n.mesh.position.set(poi.pos.x+1.5,0,poi.pos.z+1.5);
+ }else if(d>4){
+  n.mesh.position.x+=(poi.pos.x-n.mesh.position.x)/d*2.2*dt;
+  n.mesh.position.z+=(poi.pos.z-n.mesh.position.z)/d*2.2*dt;
+  n.mesh.rotation.y=Math.atan2(poi.pos.x-n.mesh.position.x,poi.pos.z-n.mesh.position.z);
+ }else{
+  n.timer-=dt;
+  if(n.timer<=0){n.dir=Math.random()*Math.PI*2;n.timer=3+Math.random()*3;}
+  n.mesh.position.x+=Math.sin(n.dir)*dt*0.5;
+  n.mesh.position.z+=Math.cos(n.dir)*dt*0.5;
+  n.mesh.rotation.y=n.dir;
+ }
 };

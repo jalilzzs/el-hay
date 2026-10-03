@@ -171,6 +171,11 @@ MissionSystem.checkProgress=function(
 
  if(!m) return;
 
+ if(m.id===7&&typeof License!=='undefined'&&License.has){
+  MissionSystem.complete();
+  return;
+ }
+
  if(
   m.type==='goto'&&
   playerPos.distanceTo(
@@ -202,6 +207,7 @@ MissionSystem.checkProgress=function(
 };
 
 MissionSystem.render=function(){
+ MissionSystem.renderList();
 
  const box=$('missionBox');
 
@@ -588,7 +594,7 @@ Minimap.draw=function(
   drawMinimapTo(
    $('fullMapCanvas'),
    camera,
-   0.7
+   Minimap.detail?1.5:0.7
   );
  }
 };
@@ -609,3 +615,44 @@ Minimap.toggleFullscreen=function(){
   );
  }
 };
+
+
+/* ============ Map menu: missions list, settings, detailed map ============ */
+MissionSystem.renderList=function(){
+ const el=$('mapMissions');
+ if(!el)return;
+ const cur=MissionSystem.current();
+ let h='';
+ if(cur){
+  h+='<div class="mi"><b>'+cur.title+'</b>'+cur.desc+'</div>';
+ }else{
+  h+='<div class="mi">لا توجد مهمة نشطة حالياً.</div>';
+ }
+ const idx=MissionSystem.index||0;
+ for(let i=Math.max(0,idx-3);i<idx&&i<MISSIONS.length;i++){
+  h+='<div class="mi done"><b>✔ '+MISSIONS[i].title+'</b></div>';
+ }
+ el.innerHTML=h;
+};
+
+Minimap.detail=false;
+Minimap.setView=function(detail){
+ Minimap.detail=!!detail;
+ const fm=$('fullMap'),ml=$('mapMissions');
+ if(fm)fm.classList.toggle('detail',Minimap.detail);
+ if(ml)ml.style.display=Minimap.detail?'none':'block';
+ const b1=$('mapBtnView'),b2=$('mapBtnMis');
+ if(b1)b1.classList.toggle('on',Minimap.detail);
+ if(b2)b2.classList.toggle('on',!Minimap.detail);
+ MissionSystem.renderList();
+};
+(function(){
+ const wire=function(){
+  const a=$('mapBtnSet'),b=$('mapBtnView'),c=$('mapBtnMis');
+  if(!a||!b||!c)return setTimeout(wire,500);
+  a.onclick=function(){const p=$('pSettings');if(p)p.classList.add('open');};
+  b.onclick=function(){Minimap.setView(true);};
+  c.onclick=function(){Minimap.setView(false);};
+ };
+ wire();
+})();

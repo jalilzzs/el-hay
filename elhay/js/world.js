@@ -248,9 +248,12 @@ World.init=function(scene,renderer){
  World.checkpointOfficer2.mesh.children[0].material.color.set(0x1f3b57);
 
  World.checkpointCruiser=World.makeCar(0,0,0x151515,'police');
- World.checkpointPos=new THREE.Vector3();
-
- World.randomizeCheckpoint();
+ World.checkpointCruiser2=World.makeCar(0,0,0x151515,'police');
+ World.checkpointPos=null;
+ World.cp={state:'init',t:0,hold:0,dir:1,vertical:true,k:0,stop:0};
+ World.checkpointBarrier.visible=false;
+ World.checkpointOfficer.mesh.visible=false;
+ World.checkpointOfficer2.mesh.visible=false;
 
  World.chunks=new Map();
  World.updateChunks(0,0);
@@ -261,29 +264,104 @@ World.init=function(scene,renderer){
  CityAssets.start();
 };
 
-/* ============ CHECKPOINT ============ */
-World.randomizeCheckpoint=function(){
- const vertical=Math.random()<0.5;
- const k=(Math.floor(Math.random()*7)-3)*40;
- const along=(Math.random()<0.5?-1:1)*(60+Math.random()*90);
+/* ============ MOBILE CHECKPOINT ============
+ * Two police cruisers patrol the roads, stop at a random spot, set up a
+ * roadblock for a while, then pack up and move to another place.
+ */
+function cpLane(vertical,k,along,dir){
+ /* lane position + heading of a car driving in direction dir on a road line */
+ if(vertical)return {x:k+(dir>0?-2:2),z:along,rot:dir>0?0:Math.PI};
+ return {x:along,z:k+(dir>0?2:-2),rot:dir>0?Math.PI/2:-Math.PI/2};
+}
 
- let x,z,rotY;
+World.cpSpawn=function(px,pz){
+ const cp=World.cp;
+ cp.vertical=Math.random()<0.5;
+ cp.dir=Math.random()<0.5?1:-1;
+ const near=cp.vertical?px:pz;
+ const alongP=cp.vertical?pz:px;
+ cp.k=(Math.round(near/40)+Math.floor(Math.random()*5)-2)*40;
+ const raw=alongP+(Math.random()<0.5?-1:1)*(50+Math.random()*60);
+ cp.stop=Math.floor(raw/40)*40+12+Math.random()*16; /* never inside an intersection */
+ cp.pos=cp.stop-cp.dir*70;
+ cp.state='drive';
+ cp.t=0;
+ World.cpPlaceCars();
+};
 
- if(vertical){x=k;z=along;rotY=0;}
- else{x=along;z=k;rotY=Math.PI/2;}
+World.cpPlaceCars=function(){
+ const cp=World.cp;
+ const a=cpLane(cp.vertical,cp.k,cp.pos,cp.dir);
+ const b=cpLane(cp.vertical,cp.k,cp.pos-cp.dir*8,cp.dir);
+ World.checkpointCruiser.position.set(a.x,0,a.z);
+ World.checkpointCruiser.rotation.y=a.rot;
+ World.checkpointCruiser2.position.set(b.x,0,b.z);
+ World.checkpointCruiser2.rotation.y=b.rot;
+};
 
+World.cpSetup=function(){
+ const cp=World.cp;
+ const x=cp.vertical?cp.k:cp.stop;
+ const z=cp.vertical?cp.stop:cp.k;
+ const v=cp.vertical;
+ const rotY=v?0:Math.PI/2;
+
+ World.checkpointBarrier.visible=true;
  World.checkpointBarrier.position.set(x,0.6,z);
  World.checkpointBarrier.rotation.y=rotY;
 
- World.checkpointOfficer.mesh.position.set(x+(vertical?1.5:0),0,z+(vertical?0:1.5));
- World.checkpointOfficer2.mesh.position.set(x-(vertical?1.5:0),0,z-(vertical?0:1.5));
+ const o1=World.checkpointOfficer.mesh,o2=World.checkpointOfficer2.mesh;
+ o1.visible=o2.visible=true;
+ o1.position.set(x+(v?1.5:0),0,z+(v?0:1.5));
+ o2.position.set(x-(v?1.5:0),0,z-(v?0:1.5));
+ o1.rotation.y=o2.rotation.y=rotY;
 
- World.checkpointOfficer.mesh.rotation.y=
- World.checkpointOfficer2.mesh.rotation.y=rotY;
-
- World.checkpointCruiser.position.set(x+(vertical?3:0),0,z+(vertical?0:3));
+ World.checkpointCruiser.position.set(x+(v?3:0),0,z+(v?0:3));
  World.checkpointCruiser.rotation.y=rotY+Math.PI/2;
- World.checkpointPos.set(x,0,z);
+ World.checkpointCruiser2.position.set(x-(v?3:0),0,z-(v?0:3));
+ World.checkpointCruiser2.rotation.y=rotY-Math.PI/2;
+
+ World.checkpointPos=new THREE.Vector3(x,0,z);
+ cp.state='hold';
+ cp.hold=50+Math.random()*40;
+};
+
+World.cpPack=function(){
+ const cp=World.cp;
+ World.checkpointBarrier.visible=false;
+ World.checkpointOfficer.mesh.visible=false;
+ World.checkpointOfficer2.mesh.visible=false;
+ World.checkpointPos=null;
+ cp.state='leave';
+ cp.pos=cp.stop;
+ cp.t=0;
+ World.cpPlaceCars();
+};
+
+World.updateCheckpoint=function(px,pz,dt){
+ const cp=World.cp;
+ if(!cp)return;
+ if(cp.state==='init'){World.cpSpawn(px,pz);return;}
+
+ if(cp.state==='drive'||cp.state==='leave'){
+  cp.pos+=cp.dir*9*dt;
+  cp.t+=dt;
+  World.cpPlaceCars();
+  if(cp.state==='drive'&&(cp.pos-cp.stop)*cp.dir>=0){World.cpSetup();return;}
+  if(cp.state==='leave'){
+   const A=World.checkpointCruiser.position;
+   const far=Math.hypot(A.x-px,A.z-pz)>170;
+   if(far||cp.t>30)World.cpSpawn(px,pz);
+  }
+ }else if(cp.state==='hold'){
+  cp.hold-=dt;
+  if(cp.hold<=0&&!(typeof Police!=='undefined'&&Police.checkpointActive))World.cpPack();
+ }
+};
+
+World.randomizeCheckpoint=function(){
+ if(World.cp&&World.cp.state==='hold')World.cpPack();
+ if(World.cp)World.cp.state='init';
 };
 
 /* ============ COLLISION ============ */
@@ -411,10 +489,37 @@ const Jobs={
    Vitals.hunger=Math.max(0,Vitals.hunger-(o.hunger||4));
   }
   Jobs.last[id]=now;
-  const pay=Math.round(o.pay*(0.9+Math.random()*0.3));
+  const room=id.split(':')[0];
+  const mult=Jobs.employed===room?1.25:(Jobs.employed?0.7:0.6);
+  const pay=Math.round(o.pay*mult*(0.9+Math.random()*0.3));
   if(typeof Economy!=='undefined')Economy.cash+=pay;
   Jobs.msg('💼 '+o.title+' — you earned $'+pay);
  }
+};
+
+Jobs.employed=null;
+Jobs.list=[
+ {id:'factory',name:'Factory',desc:'Assembly line shifts',pay:48},
+ {id:'warehouse',name:'Warehouse',desc:'Load and move crates',pay:42},
+ {id:'postOffice',name:'Post Office',desc:'Sort mail',pay:36},
+ {id:'constructionSite',name:'Construction Site',desc:'Heavy work, best pay on foot',pay:62},
+ {id:'taxiDepot',name:'Taxi Depot',desc:'Taxi shifts (license needed)',pay:72},
+ {id:'hospital',name:'Hospital',desc:'Nurse shifts',pay:58},
+ {id:'office',name:'Office',desc:'Desk work',pay:52},
+ {id:'mechanic',name:'Mechanic Workshop',desc:'Repair cars',pay:56},
+ {id:'restaurant',name:'Restaurant',desc:'Wait tables',pay:30},
+ {id:'supermarket',name:'Supermarket',desc:'Work the till',pay:30},
+ {id:'pharmacy',name:'Pharmacy',desc:'Serve customers',pay:32}
+];
+Jobs.apply=function(id){Jobs.employed=id;Jobs.msg('✅ You now work at: '+(Jobs.list.find(j=>j.id===id)||{}).name);};
+Jobs.quit=function(){Jobs.employed=null;Jobs.msg('You quit your job.');};
+Jobs.teleport=function(id){
+ if(World.activeInterior){Jobs.msg('Leave the building first.');return false;}
+ if(typeof Player!=='undefined'&&Player.mode==='drive'){Jobs.msg('Get out of the car first.');return false;}
+ const poi=World.pois.find(p=>p.id===id&&!p.dyn);
+ if(!poi||typeof camera==='undefined')return false;
+ camera.position.set(poi.pos.x,camera.position.y,poi.pos.z+1.5);
+ return true;
 };
 
 function jobSpot(room,x,z,o){
@@ -900,6 +1005,7 @@ function buildInteriors(scene){
  const policeTV=addTV(police,3.8,3.2,Math.PI);
  registerTV('police',3.8,3.2,Math.PI,policeTV);
  addBox(police,0,-1.0,5.1,3.0,2.0,0.15,0x333333);
+ registerInteriorObject('police','licenseDesk',new THREE.Vector3(2,48.9,-1.9),{radius:2.2,label:'Licensing Desk (Gun License)',onUse:()=>{Jobs.msg('👮 Officer: "Licensing desk — how can I help?"');UI.openShop('policeDesk');}});
 
  /* ---------- PRISON ---------- */
  makeInterior(scene,'prison',0x2c2c2c,0x1f1f1f,0x555555);
@@ -1210,11 +1316,10 @@ function buildInteriors(scene){
  jobSpot('office',-4.4,-4.6,{title:'Desk Work',pay:52,energy:7,hunger:4});
  addBox(World.interiors.office,-4.4,0.3,-5.8,1.8,1.1,0.1,0x2e506f,0.6);
  jobSpot('mechanic',-1,-3.9,{title:'Repair Cars',pay:56,energy:13,hunger:5});
- [['supermarket','Work the Till',30],['pharmacy','Serve Customers',32]].forEach(a=>{
-  const arr=World.interiorInteractables[a[0]]||[];
-  const c=arr.find(o=>o.type==='counter');
-  if(c){c.type='job';c.label=a[1];c.onUse=()=>Jobs.work(a[0]+':'+a[1],{title:a[1],pay:a[2],energy:6,hunger:3});}
- });
+ jobSpot('supermarket',4.4,-4.6,{title:'Work the Till',pay:30,energy:6,hunger:3});
+ addBox(World.interiors.supermarket,4.4,0.3,-5.8,1.8,1.1,0.1,0xd4b52c,0.6);
+ jobSpot('pharmacy',4.4,-4.6,{title:'Serve Customers',pay:32,energy:6,hunger:3});
+ addBox(World.interiors.pharmacy,4.4,0.3,-5.8,1.8,1.1,0.1,0x4b9a68,0.6);
 
  /* ============ INTERIOR METADATA ============ */
  World.interiorMeta={
@@ -2565,7 +2670,7 @@ function makeTree(parent,x,z){
 }
 
 /* ============ TRAFFIC ============ */
-const Traffic={cars:[],size:6};
+const Traffic={cars:[],size:10};
 
 /* mix of real models driving around */
 const TRAFFIC_TYPES=['sedan','hatchback','suv','sedan','pickup','hatchback'];
@@ -2682,7 +2787,10 @@ function spawnKeyNpcs(){
 
 World.update=function(px,pz,dt){
  World.updateChunks(px,pz);
- Traffic.update(dt,new THREE.Vector3(px,0,pz));
+ if(!World.testMode){
+  Traffic.update(dt,new THREE.Vector3(px,0,pz));
+  World.updateCheckpoint(px,pz,dt);
+ }
  CityAssets.update(dt);
 };
 
@@ -2799,9 +2907,9 @@ function buildChunk(cx,cz){
  }
 
  if(!center&&hash(cx*3,cz*5)>0.55){
-  s=sidewalkSpot('x',originX,originZ+(hash(cx,cz)-0.5)*20,1);
+  s={z:originZ+(hash(cx,cz+7)<0.5?-1:1)*(9+hash(cx+3,cz)*8)}; /* keep clear of the intersection */
 
-  const curbX=originX+ROAD_HALF+0.9;
+  const curbX=originX+ROAD_HALF+2.1; /* fully on the sidewalk, not on the asphalt */
 
   /* parked cars along the road: sedans, hatchbacks, SUVs, pickups */
   const parkedPool=['sedan','hatchback','suv','pickup'];
@@ -2830,6 +2938,7 @@ function buildChunk(cx,cz){
 World.landmarkCollidableCount=0;
 
 World.updateChunks=function(px,pz){
+ if(World.testMode)return;
  const ccx=Math.round(px/World.CHUNK);
  const ccz=Math.round(pz/World.CHUNK);
  CityAssets.onCenter(ccx,ccz);

@@ -166,6 +166,9 @@ Persistence.serialize=function(){
   weaponsReserve:
    Weapons.reserve,
 
+  weaponsAmmo:
+   Weapons.ammo,
+
 
   /*
    * Family / child state.
@@ -671,13 +674,23 @@ Persistence.apply=function(data){
 
 
  if(
-  Array.isArray(
-   data.weaponsReserve
-  )
+  data.weaponsReserve&&
+  typeof data.weaponsReserve==='object'&&
+  !Array.isArray(data.weaponsReserve)
  ){
 
   Weapons.reserve=
    data.weaponsReserve;
+ }
+
+ if(
+  data.weaponsAmmo&&
+  typeof data.weaponsAmmo==='object'&&
+  !Array.isArray(data.weaponsAmmo)
+ ){
+
+  Weapons.ammo=
+   data.weaponsAmmo;
  }
 
 

@@ -3,6 +3,61 @@
 if(!document.exitPointerLock) document.exitPointerLock=function(){};
 if(!Element.prototype.requestPointerLock) Element.prototype.requestPointerLock=function(){};
 
+
+/* ============ Runtime UI injection ============
+ * Makes the newer HUD pieces (speedometer, YouTube radio, driving-test HUD, map menu
+ * buttons + missions list, weapon buttons, hidden mission box) appear even when an older
+ * index.html / style.css is still deployed. Every piece is only added if it is missing. */
+(function(){
+ const CSS="/* HUD mission box removed: missions live in the map menu */\n#missionBox{display:none!important}\n#mapBar{display:flex;gap:6px;margin:6px 0 10px}\n#mapBar button{flex:1;padding:8px 6px;font-size:12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;cursor:pointer}\n#mapBar button.on{background:var(--accent,#e7c65a);color:#111}\n#mapMissions{font-size:13px;color:var(--dim,#aaa);line-height:1.5;margin-bottom:10px;max-height:34vh;overflow:auto}\n#mapMissions .mi{background:rgba(255,255,255,.06);border-radius:10px;padding:10px 12px;margin-bottom:6px}\n#mapMissions .mi b{display:block;color:var(--accent,#e7c65a);margin-bottom:3px}\n#mapMissions .mi.done{opacity:.55}\n#fullMap.detail .card{width:min(96vw,900px)!important}\n#pSettings{z-index:60!important}\n\n#speedo{position:fixed;bottom:18px;right:16px;z-index:6;padding:8px 14px;border-radius:12px;background:rgba(0,0,0,.6);color:#fff;font:bold 20px/1 monospace;border:1px solid rgba(255,255,255,.15)}\n#radioBtn{position:fixed;bottom:62px;right:16px;z-index:7;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.6);font-size:22px;cursor:pointer}\n#radioPanel{position:fixed;bottom:112px;right:12px;z-index:8;width:min(300px,86vw);padding:10px;border-radius:12px;background:rgba(10,14,20,.92);color:#fff;font-size:12px}\n#radioPanel input{width:100%;box-sizing:border-box;margin:8px 0;padding:8px;border-radius:8px;border:1px solid #444;background:#111;color:#fff}\n.radioRow{display:flex;gap:4px}\n.radioRow button{flex:1;padding:6px 2px;border-radius:6px;border:0;cursor:pointer;font-size:11px}\n#radioStatus{margin-top:6px;color:#9ab}\n#speedo{bottom:auto;right:auto;top:10px;left:50%;transform:translateX(-50%)}\n#radioBtn{bottom:auto;right:auto;top:120px;left:12px}\n#radioPanel{bottom:auto;right:auto;top:170px;left:12px}\n\n#testHUD{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:9;text-align:center;padding:8px 14px;border-radius:12px;background:rgba(0,0,0,.65);color:#fff;font-size:13px;max-width:92vw}\n#testMsg{color:#ffd23a;margin-top:4px;min-height:16px}\n#testCancel{margin-top:6px;padding:6px 14px;border:0;border-radius:8px;background:#e74c3c;color:#fff;cursor:pointer}\n\n#touchReload,#touchHolster{position:absolute;bottom:250px;width:50px;height:50px;border-radius:50%;background:var(--glass-bg);backdrop-filter:blur(12px);border:1.5px solid var(--border);pointer-events:auto;display:none;font-size:18px;box-shadow:0 6px 20px rgba(0,0,0,.65)}\n#touchReload{right:98px}\n#touchHolster{right:26px}\n#touchReload.show,#touchHolster.show{display:flex;align-items:center;justify-content:center}\n#weaponHud{align-items:center;gap:4px;flex-wrap:wrap;justify-content:center;max-width:94vw}\n.whBtn{margin-left:6px;padding:4px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:11px;cursor:pointer}\n";
+ const FRAG_TEST="<div id=\"testHUD\" style=\"display:none\">\n <div id=\"testInfo\"></div>\n <div id=\"testMsg\"></div>\n <button id=\"testCancel\">Cancel Test</button>\n</div>\n";
+ const FRAG_SPEEDO="<div id=\"speedo\" style=\"display:none\">0 km/h</div>\n<button id=\"radioBtn\" style=\"display:none\">\ud83d\udcfb</button>\n<div id=\"radioPanel\" style=\"display:none\">\n <b>\ud83d\udcfb Radio (YouTube)</b>\n <input id=\"radioUrl\" type=\"text\" placeholder=\"Paste YouTube link...\" autocomplete=\"off\">\n <div class=\"radioRow\">\n  <button id=\"radioPlay\">\u25b6 Load</button>\n  <button id=\"radioPause\">\u23f8 Pause</button>\n  <button id=\"radioStop\">\u23f9 Stop</button>\n  <button id=\"radioClose\">\u2716</button>\n </div>\n <div id=\"radioStatus\">Radio off</div>\n <div id=\"radioPlayer\"></div>\n</div>\n";
+ const MAPBAR=" <div id=\"mapBar\">\n  <button id=\"mapBtnSet\">\u2699 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a</button>\n  <button id=\"mapBtnView\">\ud83d\uddfa \u0627\u0644\u062e\u0631\u064a\u0637\u0629</button>\n  <button id=\"mapBtnMis\" class=\"on\">\ud83d\udccb \u0627\u0644\u0645\u0647\u0645\u0627\u062a</button>\n </div>\n <div id=\"mapMissions\"></div>\n";
+
+ function inject(){
+  if(!document.getElementById('elhayInjectedCss')){
+   const st=document.createElement('style');
+   st.id='elhayInjectedCss';
+   st.textContent=CSS;
+   document.head.appendChild(st);
+  }
+
+  if(!document.getElementById('speedo')){
+   const box=document.createElement('div');
+   box.innerHTML=FRAG_TEST+FRAG_SPEEDO;
+   while(box.firstChild)document.body.appendChild(box.firstChild);
+  }else if(!document.getElementById('testHUD')){
+   const box=document.createElement('div');
+   box.innerHTML=FRAG_TEST;
+   while(box.firstChild)document.body.appendChild(box.firstChild);
+  }
+
+  /* map menu: Settings / Map View / Missions */
+  const card=document.querySelector('#fullMap .card');
+  if(card&&!document.getElementById('mapBar')){
+   card.id=card.id||'fullMapCard';
+   const h2=card.querySelector('h2');
+   const box=document.createElement('div');
+   box.innerHTML=MAPBAR;
+   const anchor=h2?h2.nextSibling:card.firstChild;
+   while(box.firstChild)card.insertBefore(box.firstChild,anchor);
+  }
+
+  /* weapon bar buttons */
+  const wh=document.getElementById('weaponHud');
+  if(wh&&!document.getElementById('whFire')){
+   if(!document.getElementById('whMsg'))wh.insertAdjacentHTML('beforeend','<span id="whMsg" style="margin-left:8px;color:#ffd23a"></span>');
+   wh.insertAdjacentHTML('beforeend','<button id="whFire" class="whBtn">🔥 Fire</button><button id="whReload" class="whBtn">🔃 Reload</button><button id="whHolster" class="whBtn">🫳 Holster</button>');
+  }
+  const tw=document.getElementById('touchWeapon');
+  if(tw&&!document.getElementById('touchReload')){
+   tw.insertAdjacentHTML('afterend','<button id="touchReload">🔃</button><button id="touchHolster">🫳</button>');
+  }
+ }
+ inject();
+ document.addEventListener('DOMContentLoaded',inject);
+})();
+
 /* ============ UI: i18n, Modern Settings, Glassmorphic Menus Wiring ============ */
 const GOOGLE_CLIENT_ID="", SUPABASE_URL="", SUPABASE_ANON_KEY="";
 const LEGAL_DOCS={tos:"PLACEHOLDER Terms of Service.",priv:"PLACEHOLDER Privacy Policy.",sup:"PLACEHOLDER support@example.com"};

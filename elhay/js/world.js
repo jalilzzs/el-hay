@@ -2608,15 +2608,26 @@ CityAssets._onReady=function(){
  CityAssets._upgradeLandmarks();
  CityAssets._buildJobPlaces();
  CityAssets._initRoads();
- CityAssets.pending.forEach(p=>{
-  if(World.chunks&&World.chunks.get(p.cx+','+p.cz)===p.group)CityAssets._lots(p.group,p.cx,p.cz,p.bMesh,p.center);
- });
+ /* the heavy per-chunk work is spread over several frames so the game (and the intro
+    cutscene) never freezes while the city models are applied */
+ const lots=CityAssets.pending.slice();
  CityAssets.pending.length=0;
- World.collidables.length=World.landmarkCollidableCount;
- for(const g of World.chunks.values())World.collidables.push(...g.userData.boxes);
- CityAssets.npcQueue.forEach(g=>CityAssets._dress(g));
+ const npcs=CityAssets.npcQueue.slice();
  CityAssets.npcQueue.length=0;
- console.info('[city] ready: '+Object.keys(CityAssets.tpl).length+' models, '+CityAssets.fillers.length+' filler buildings, '+(CityAssets.charList||[]).length+' characters');
+ const step=function(){
+  let n=0;
+  while(lots.length&&n<2){
+   const p=lots.shift();
+   if(World.chunks&&World.chunks.get(p.cx+','+p.cz)===p.group)CityAssets._lots(p.group,p.cx,p.cz,p.bMesh,p.center);
+   n++;
+  }
+  while(!lots.length&&npcs.length&&n<2){CityAssets._dress(npcs.shift());n++;}
+  World.collidables.length=World.landmarkCollidableCount;
+  for(const g of World.chunks.values())World.collidables.push(...g.userData.boxes);
+  if(lots.length||npcs.length)requestAnimationFrame(step);
+  else console.info('[city] ready: '+Object.keys(CityAssets.tpl).length+' models, '+CityAssets.fillers.length+' filler buildings, '+(CityAssets.charList||[]).length+' characters');
+ };
+ requestAnimationFrame(step);
 };
 
 /* ============ STREET FURNITURE ============ */
@@ -2938,7 +2949,7 @@ function buildChunk(cx,cz){
 World.landmarkCollidableCount=0;
 
 World.updateChunks=function(px,pz){
- if(World.testMode)return;
+ if(World.testMode||World.cutsceneLock)return;
  const ccx=Math.round(px/World.CHUNK);
  const ccz=Math.round(pz/World.CHUNK);
  CityAssets.onCenter(ccx,ccz);

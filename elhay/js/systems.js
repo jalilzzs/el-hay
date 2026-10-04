@@ -1179,7 +1179,7 @@ Vehicles.testDrive=function(catalogId){
  Player.mode='drive';
 
  if(!IS_TOUCH){
-  Player.controls.unlock();
+  try{Player.controls.unlock();}catch(e){}
   UI.dom.crosshair.style.display='none';
  }
 
@@ -1514,7 +1514,7 @@ DrivingTest.begin=function(){
  carVel.steer=0;
 
  if(!IS_TOUCH){
-  Player.controls.unlock();
+  try{Player.controls.unlock();}catch(e){}
   UI.dom.crosshair.style.display='none';
  }
 

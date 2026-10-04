@@ -1,3 +1,8 @@
+/* iOS Safari has no Pointer Lock API: PointerLockControls.unlock() would throw
+   "exitPointerLock is not a function" (this froze the intro cutscene). */
+if(!document.exitPointerLock) document.exitPointerLock=function(){};
+if(!Element.prototype.requestPointerLock) Element.prototype.requestPointerLock=function(){};
+
 /* ============ UI: i18n, Modern Settings, Glassmorphic Menus Wiring ============ */
 const GOOGLE_CLIENT_ID="", SUPABASE_URL="", SUPABASE_ANON_KEY="";
 const LEGAL_DOCS={tos:"PLACEHOLDER Terms of Service.",priv:"PLACEHOLDER Privacy Policy.",sup:"PLACEHOLDER support@example.com"};

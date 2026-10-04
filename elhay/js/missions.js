@@ -223,7 +223,7 @@ MissionSystem.render=function(){
   return;
  }
 
- box.style.display='block';
+ box.style.display='none'; /* missions are shown in the map menu */
 
  box.innerHTML=
   '<b>'+

@@ -113,17 +113,31 @@ async function playBeat(camera, b) {
 
 let finishFn = null;
 
+function csDoSkip(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  csSkipped = true;
+  if (finishFn) finishFn();
+}
+
 const csSkipBtn = getEl('csSkip');
 if (csSkipBtn) {
-  csSkipBtn.addEventListener('click', () => {
-    csSkipped = true;
-    if (finishFn) finishFn();
-  });
+  /* pointer + touch + click: whichever the device fires first wins */
+  ['pointerdown', 'touchstart', 'click'].forEach(ev =>
+    csSkipBtn.addEventListener(ev, csDoSkip, { passive: false })
+  );
+  csSkipBtn.style.zIndex = '10';
+  csSkipBtn.style.pointerEvents = 'auto';
 }
+
+/* keyboard: Escape / Space / Enter also skip */
+addEventListener('keydown', e => {
+  if (finishFn && (e.code === 'Escape' || e.code === 'Space' || e.code === 'Enter')) csDoSkip(e);
+}, true);
 
 Cutscenes.play = async function(camera, onDone) {
   csSkipped = false;
-  
+  if (window.World) World.cutsceneLock = true;
+
   const csLayer = getEl('csLayer');
   if (csLayer) csLayer.style.display = 'block';
 
@@ -139,6 +153,7 @@ Cutscenes.play = async function(camera, onDone) {
   finishFn = () => { if (done) return; done = true; finish(); };
 
   function finish() {
+    if (window.World) World.cutsceneLock = false;
     if (csLayer) csLayer.style.display = 'none';
     const csSub = getEl('csSub');
     const csCard = getEl('csCard');

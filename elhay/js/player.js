@@ -1264,7 +1264,7 @@ Player.interact = function() {
     carVel.steer = 0;
 
     if (!IS_TOUCH) {
-      Player.controls.unlock();
+      try { Player.controls.unlock(); } catch (e) {}
     }
 
     UI.dom.crosshair.style.display =

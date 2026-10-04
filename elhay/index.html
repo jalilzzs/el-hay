@@ -3,8 +3,33 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>El-Hay | الحي</title>
+
+<title>El Hay | الحي</title>
+
+<!-- Game / Link Preview Metadata -->
+<meta name="description" content="El Hay | الحي is an open-world life simulation game where you explore a living city, complete missions, work different jobs, earn money, drive vehicles, interact with people, and build your own story.">
+<meta name="application-name" content="El Hay | الحي">
+<meta name="apple-mobile-web-app-title" content="El Hay | الحي">
+<meta name="theme-color" content="#0b0d12">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="El Hay | الحي">
+<meta property="og:description" content="An open-world life simulation game with missions, jobs, vehicles, exploration, interactions, and a living city. Build your own story and live your life in El Hay.">
+<meta property="og:image" content="./bg.png">
+<meta property="og:image:alt" content="El Hay | الحي — Open World Game">
+<meta property="og:image:type" content="image/png">
+<meta property="og:site_name" content="El Hay | الحي">
+
+<!-- Twitter / X -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="El Hay | الحي">
+<meta name="twitter:description" content="An open-world life simulation game with missions, jobs, vehicles, exploration, interactions, and a living city.">
+<meta name="twitter:image" content="./bg.png">
+<meta name="twitter:image:alt" content="El Hay | الحي — Open World Game">
+
 <link rel="stylesheet" href="css/style.css"/>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
@@ -33,17 +58,30 @@ body {
   display: block;
 }
 
-/* القائمة الرئيسية بالخلفية المباشرة */
+/* القائمة الرئيسية */
 #menu {
   position: fixed;
-  top: 0; left: 0; width: 100vw; height: 100vh;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+
   display: flex;
   align-items: center;
   justify-content: flex-start;
+
   padding-right: clamp(20px, 5vw, 60px);
   box-sizing: border-box;
-  background: linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.6) 100%), 
-              url('./bg.png') center/cover no-repeat;
+
+  background:
+    linear-gradient(
+      to right,
+      rgba(0,0,0,0.85) 0%,
+      rgba(0,0,0,0.2) 50%,
+      rgba(0,0,0,0.6) 100%
+    ),
+    url('./bg.png') center/cover no-repeat;
+
   z-index: 1000;
   pointer-events: auto;
 }
@@ -52,13 +90,18 @@ body {
 #menuPanel {
   width: min(340px, 85vw);
   padding: 28px 22px;
+
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
   border-radius: 20px;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.8), 
-              0 0 20px rgba(255, 107, 0, 0.15);
+
+  box-shadow:
+    -10px 0 30px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(255, 107, 0, 0.15);
+
   text-align: center;
   backdrop-filter: blur(10px);
+
   animation: menuSlideIn 0.4s ease-out forwards;
 }
 
@@ -66,9 +109,16 @@ body {
   font-size: 36px;
   font-weight: 900;
   margin: 0;
-  background: linear-gradient(135deg, #ffffff 20%, #ff6b00 100%);
+
+  background: linear-gradient(
+    135deg,
+    #ffffff 20%,
+    #ff6b00 100%
+  );
+
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+
   letter-spacing: 2px;
 }
 
@@ -81,31 +131,45 @@ body {
   text-transform: uppercase;
 }
 
-/* الأزرار العصرية */
-.btn-modern, .btn {
+/* الأزرار */
+.btn-modern,
+.btn {
   width: 100%;
   padding: 12px;
   margin-bottom: 10px;
+
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
+
   color: #ffffff;
   font-family: 'Cairo', sans-serif;
   font-size: 15px;
   font-weight: 700;
+
   border-radius: 12px;
   cursor: pointer;
+
   transition: all 0.2s ease;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   gap: 10px;
   box-sizing: border-box;
 }
 
 .btn-modern.primary {
-  background: linear-gradient(135deg, #ff6b00 0%, #c42b00 100%);
+  background: linear-gradient(
+    135deg,
+    #ff6b00 0%,
+    #c42b00 100%
+  );
+
   border: none;
-  box-shadow: 0 4px 18px rgba(255, 107, 0, 0.4);
+
+  box-shadow:
+    0 4px 18px rgba(255, 107, 0, 0.4);
 }
 
 .btn-modern:hover {
@@ -115,8 +179,14 @@ body {
 }
 
 .btn-modern.primary:hover {
-  background: linear-gradient(135deg, #ff7b1a 0%, #db3000 100%);
-  box-shadow: 0 6px 22px rgba(255, 107, 0, 0.6);
+  background: linear-gradient(
+    135deg,
+    #ff7b1a 0%,
+    #db3000 100%
+  );
+
+  box-shadow:
+    0 6px 22px rgba(255, 107, 0, 0.6);
 }
 
 #menuFoot {
@@ -126,21 +196,28 @@ body {
   justify-content: center;
 }
 
-.btn-sm, .btn.sm {
+.btn-sm,
+.btn.sm {
   flex: 1;
   padding: 6px;
+
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
+
   color: #a0aec0;
+
   font-family: 'Cairo', sans-serif;
   font-size: 11px;
+
   border-radius: 8px;
   cursor: pointer;
+
   transition: all 0.2s;
   box-sizing: border-box;
 }
 
-.btn-sm:hover, .btn.sm:hover {
+.btn-sm:hover,
+.btn.sm:hover {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
 }
@@ -149,12 +226,17 @@ body {
 .panel {
   position: fixed;
   inset: 0;
+
   z-index: 2000 !important;
+
   display: none;
   align-items: center;
   justify-content: center;
+
   background: rgba(0, 0, 0, 0.6);
+
   backdrop-filter: blur(8px);
+
   pointer-events: auto;
 }
 
@@ -162,11 +244,7 @@ body {
   display: flex !important;
 }
 
-/* ==========================================
-   إصلاح الـ OVERLAYS وحل مشكل اللمس والشفافية
-   ========================================== */
-
-/* 1. شاشة التحميل والمشاهد السينمائية */
+/* شاشة التحميل */
 #loading {
   position: fixed;
   inset: 0;
@@ -174,11 +252,15 @@ body {
   pointer-events: auto;
 }
 
+/* المشاهد السينمائية */
 #csLayer {
   position: fixed;
   inset: 0;
+
   z-index: 1500;
+
   display: none;
+
   pointer-events: auto;
 }
 
@@ -186,11 +268,13 @@ body {
   display: block !important;
 }
 
-/* 2. واجهة التاتش للهاتف */
+/* واجهة التاتش */
 #touchUI {
   position: fixed;
   inset: 0;
+
   z-index: 500;
+
   pointer-events: none !important;
 }
 
@@ -200,7 +284,7 @@ body {
   pointer-events: auto !important;
 }
 
-/* جميع أزرار التاتش تكون فوق مساحة النظر */
+/* جميع أزرار التاتش */
 #touchUI button {
   pointer-events: auto !important;
   z-index: 700 !important;
@@ -212,19 +296,19 @@ body {
   z-index: 701 !important;
 }
 
-/* driveControls يغطي الشاشة كاملة، لذلك لا يحجز اللمس */
+/* driveControls */
 #touchUI #driveControls {
   pointer-events: none !important;
   z-index: 500;
 }
 
-/* أزرار السيارة فقط عندما تكون ظاهرة */
+/* أزرار السيارة */
 #touchUI #driveControls.show button {
   pointer-events: auto !important;
   z-index: 701 !important;
 }
 
-/* عناصر HUD/UI فوق طبقة التاتش */
+/* عناصر HUD/UI */
 #vitalsBox,
 #cashBox,
 #missionBox,
@@ -239,7 +323,7 @@ body {
   pointer-events: auto !important;
 }
 
-/* الهاتف والحقيبة والميني ماب فوق touchUI */
+/* الهاتف والحقيبة والميني ماب */
 #minimap,
 #invBtn,
 #phoneBtn {
@@ -248,8 +332,15 @@ body {
 }
 
 @keyframes menuSlideIn {
-  from { opacity: 0; transform: translateX(30px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (max-width: 600px) {
@@ -258,208 +349,1162 @@ body {
     padding-right: 0;
   }
 }
+
 /* El-Hay additions */
-/* HUD mission box removed: missions live in the map menu */
-#missionBox{display:none!important}
+
+/* HUD mission box removed */
+#missionBox {
+  display: none !important;
+}
 
 /* map menu bar + missions list */
-#mapBar{display:flex;gap:8px;margin:8px 0 12px}
-#mapBar button{flex:1;padding:10px 6px;font:inherit;font-size:13px;font-weight:700;border-radius:14px;border:1.5px solid var(--border);background:var(--glass-bg);backdrop-filter:blur(10px);color:var(--text);cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.5);transition:transform .15s ease,background .15s ease}
-#mapBar button:active{transform:scale(.95);background:rgba(255,107,0,.4)}
-#mapBar button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-#mapMissions{font-size:13px;color:var(--dim);line-height:1.6;margin-bottom:10px;max-height:34vh;overflow:auto;text-align:start}
-#mapMissions .mi{background:var(--glass-bg);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:6px}
-#mapMissions .mi b{display:block;color:var(--accent);margin-bottom:3px;font-size:14px}
-#mapMissions .mi.done{opacity:.5}
-#fullMap.detail .card{width:min(96vw,900px)!important}
-#pSettings{z-index:60!important}
+#mapBar {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
 
-/* speedometer + radio (only while driving) */
-#speedo{position:fixed;top:max(10px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:6;padding:8px 18px;border-radius:16px;border:1.5px solid var(--border);background:var(--glass-bg);backdrop-filter:blur(10px);color:var(--accent);font:700 20px/1 'Cairo','Segoe UI',system-ui,sans-serif;box-shadow:0 6px 16px rgba(0,0,0,.6);pointer-events:none}
-#radioBtn{position:fixed;bottom:max(22px,env(safe-area-inset-bottom));right:270px;z-index:9;width:46px;height:46px;border-radius:16px;border:1.5px solid var(--border);background:var(--glass-bg);backdrop-filter:blur(10px);font-size:20px;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.6);pointer-events:auto!important}
-#radioBtn:active{transform:scale(.9);background:rgba(255,107,0,.4)}
-#radioPanel{position:fixed;bottom:84px;right:12px;z-index:9;width:min(310px,88vw);padding:12px;border-radius:16px;border:1.5px solid var(--border);background:var(--panel);backdrop-filter:blur(12px);color:var(--text);font-size:13px;pointer-events:auto!important}
-#radioPanel b{color:var(--accent)}
-#radioPanel input{width:100%;margin:8px 0;padding:9px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,.4);color:#fff;font:inherit;-webkit-user-select:text;user-select:text}
-.radioRow{display:flex;gap:6px}
-.radioRow button{flex:1;padding:8px 2px;border-radius:10px;border:1px solid var(--border);background:var(--glass-bg);color:#fff;font:inherit;font-size:12px;cursor:pointer}
-#radioStatus{margin-top:6px;color:var(--dim)}
+#mapBar button {
+  flex: 1;
+  padding: 10px 6px;
+
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+
+  background: var(--glass-bg);
+
+  backdrop-filter: blur(10px);
+
+  color: var(--text);
+
+  cursor: pointer;
+
+  box-shadow: 0 4px 12px rgba(0,0,0,.5);
+
+  transition:
+    transform .15s ease,
+    background .15s ease;
+}
+
+#mapBar button:active {
+  transform: scale(.95);
+  background: rgba(255,107,0,.4);
+}
+
+#mapBar button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+#mapMissions {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.6;
+
+  margin-bottom: 10px;
+
+  max-height: 34vh;
+  overflow: auto;
+
+  text-align: start;
+}
+
+#mapMissions .mi {
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+
+  border-radius: 12px;
+
+  padding: 10px 14px;
+  margin-bottom: 6px;
+}
+
+#mapMissions .mi b {
+  display: block;
+
+  color: var(--accent);
+
+  margin-bottom: 3px;
+
+  font-size: 14px;
+}
+
+#mapMissions .mi.done {
+  opacity: .5;
+}
+
+#fullMap.detail .card {
+  width: min(96vw,900px) !important;
+}
+
+#pSettings {
+  z-index: 60 !important;
+}
+
+/* speedometer + radio */
+#speedo {
+  position: fixed;
+
+  top: max(10px,env(safe-area-inset-top));
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 6;
+
+  padding: 8px 18px;
+
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+
+  background: var(--glass-bg);
+
+  backdrop-filter: blur(10px);
+
+  color: var(--accent);
+
+  font: 700 20px/1 'Cairo','Segoe UI',system-ui,sans-serif;
+
+  box-shadow: 0 6px 16px rgba(0,0,0,.6);
+
+  pointer-events: none;
+}
+
+#radioBtn {
+  position: fixed;
+
+  bottom: max(22px,env(safe-area-inset-bottom));
+  right: 270px;
+
+  z-index: 9;
+
+  width: 46px;
+  height: 46px;
+
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+
+  background: var(--glass-bg);
+
+  backdrop-filter: blur(10px);
+
+  font-size: 20px;
+
+  cursor: pointer;
+
+  box-shadow: 0 6px 16px rgba(0,0,0,.6);
+
+  pointer-events: auto !important;
+}
+
+#radioBtn:active {
+  transform: scale(.9);
+  background: rgba(255,107,0,.4);
+}
+
+#radioPanel {
+  position: fixed;
+
+  bottom: 84px;
+  right: 12px;
+
+  z-index: 9;
+
+  width: min(310px,88vw);
+
+  padding: 12px;
+
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+
+  background: var(--panel);
+
+  backdrop-filter: blur(12px);
+
+  color: var(--text);
+
+  font-size: 13px;
+
+  pointer-events: auto !important;
+}
+
+#radioPanel b {
+  color: var(--accent);
+}
+
+#radioPanel input {
+  width: 100%;
+
+  margin: 8px 0;
+
+  padding: 9px;
+
+  border-radius: 10px;
+
+  border: 1px solid var(--border);
+
+  background: rgba(0,0,0,.4);
+
+  color: #fff;
+
+  font: inherit;
+
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.radioRow {
+  display: flex;
+  gap: 6px;
+}
+
+.radioRow button {
+  flex: 1;
+
+  padding: 8px 2px;
+
+  border-radius: 10px;
+
+  border: 1px solid var(--border);
+
+  background: var(--glass-bg);
+
+  color: #fff;
+
+  font: inherit;
+  font-size: 12px;
+
+  cursor: pointer;
+}
+
+#radioStatus {
+  margin-top: 6px;
+  color: var(--dim);
+}
 
 /* driving test HUD */
-#testHUD{position:fixed;top:max(56px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9;text-align:center;padding:10px 16px;border-radius:16px;border:1.5px solid var(--border);background:var(--glass-bg);backdrop-filter:blur(10px);color:#fff;font-size:13px;max-width:92vw;pointer-events:auto!important}
-#testMsg{color:var(--accent);margin-top:4px;min-height:16px}
-#testCancel{margin-top:8px;padding:8px 16px;border:0;border-radius:12px;background:#c0392b;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+#testHUD {
+  position: fixed;
+
+  top: max(56px,env(safe-area-inset-top));
+  left: 50%;
+
+  transform: translateX(-50%);
+
+  z-index: 9;
+
+  text-align: center;
+
+  padding: 10px 16px;
+
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+
+  background: var(--glass-bg);
+
+  backdrop-filter: blur(10px);
+
+  color: #fff;
+
+  font-size: 13px;
+
+  max-width: 92vw;
+
+  pointer-events: auto !important;
+}
+
+#testMsg {
+  color: var(--accent);
+  margin-top: 4px;
+  min-height: 16px;
+}
+
+#testCancel {
+  margin-top: 8px;
+
+  padding: 8px 16px;
+
+  border: 0;
+
+  border-radius: 12px;
+
+  background: #c0392b;
+
+  color: #fff;
+
+  font: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+}
 
 /* weapon bar + extra touch combat buttons */
-.whBtn{display:none;margin-left:6px;padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--glass-bg);color:#fff;font:inherit;font-size:11px;cursor:pointer}
-#weaponHud{align-items:center;gap:4px;flex-wrap:wrap;justify-content:center;max-width:94vw}
-#touchReload,#touchHolster{position:absolute;bottom:250px;width:50px;height:50px;border-radius:50%;background:var(--glass-bg);backdrop-filter:blur(12px);border:1.5px solid var(--border);pointer-events:auto;display:none;font-size:18px;box-shadow:0 6px 20px rgba(0,0,0,.65)}
-#touchReload{right:98px}
-#touchHolster{right:26px}
-#touchReload.show,#touchHolster.show{display:flex;align-items:center;justify-content:center}
+.whBtn {
+  display: none;
+
+  margin-left: 6px;
+
+  padding: 4px 10px;
+
+  border-radius: 10px;
+
+  border: 1px solid var(--border);
+
+  background: var(--glass-bg);
+
+  color: #fff;
+
+  font: inherit;
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+#weaponHud {
+  align-items: center;
+  gap: 4px;
+
+  flex-wrap: wrap;
+
+  justify-content: center;
+
+  max-width: 94vw;
+}
+
+#touchReload,
+#touchHolster {
+  position: absolute;
+
+  bottom: 250px;
+
+  width: 50px;
+  height: 50px;
+
+  border-radius: 50%;
+
+  background: var(--glass-bg);
+
+  backdrop-filter: blur(12px);
+
+  border: 1.5px solid var(--border);
+
+  pointer-events: auto;
+
+  display: none;
+
+  font-size: 18px;
+
+  box-shadow: 0 6px 20px rgba(0,0,0,.65);
+}
+
+#touchReload {
+  right: 98px;
+}
+
+#touchHolster {
+  right: 26px;
+}
+
+#touchReload.show,
+#touchHolster.show {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==========================================
+   LEGAL / PRIVACY / SUPPORT
+   ========================================== */
+
+#pLegal .card {
+  width: min(680px,92vw);
+  max-height: 82vh;
+  overflow: auto;
+  text-align: start;
+  direction: ltr;
+}
+
+#pLegal h3 {
+  color: var(--accent);
+  margin-top: 0;
+}
+
+#pLegal h4 {
+  color: #fff;
+  margin-top: 20px;
+  margin-bottom: 6px;
+}
+
+#pLegal p {
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+#pLegal strong {
+  color: #fff;
+}
+
+#supportContent {
+  text-align: center;
+}
+
+#supportContent .supportIcon {
+  font-size: 42px;
+  margin-bottom: 8px;
+}
+
+#supportContent h3 {
+  color: #fff;
+  margin: 4px 0 8px;
+}
+
 </style>
 </head>
+
 <body>
+
 <canvas id="c"></canvas>
+
 <div id="crosshair"></div>
 <div id="hud"></div>
 <div id="prompt"></div>
-<div id="loading"><div id="lbTrack"><div id="lbFill"></div></div><div id="lbLabel">جاري التحميل...</div></div>
 
-<!-- الواجهة الرئيسية -->
-<div id="menu">
-  <div id="menuPanel">
-    <h1 id="mTitle">الـحـي</h1>
-    <div class="sub" id="mSub">OPEN WORLD GAME</div>
+<div id="loading">
+  <div id="lbTrack">
+    <div id="lbFill"></div>
+  </div>
 
-    <select id="selMode" style="display:none;">
-      <option value="offline" selected>Offline (Single-Player)</option>
-    </select>
-
-    <button class="btn btn-modern primary" id="bNew">
-      <span>🎮</span> بدء لعبة جديدة
-    </button>
-    <button class="btn btn-modern" id="bCont">
-      <span>💾</span> استمرار اللعب
-    </button>
-    <button class="btn btn-modern" id="bSet">
-      <span>⚙️</span> الإعدادات
-    </button>
-
-    <div id="menuFoot">
-      <button class="btn btn-sm sm" id="bSup">الدعم</button>
-      <button class="btn btn-sm sm" id="bPriv">الخصوصية</button>
-      <button class="btn btn-sm sm" id="bTerm">الشروط</button>
-    </div>
+  <div id="lbLabel">
+    جاري التحميل...
   </div>
 </div>
 
-<!-- نافذة الإعدادات -->
-<div class="panel" id="pSettings"><div class="card">
-<h2 id="sTitle">الإعدادات</h2>
-<div class="row"><span id="lLang">اللغة</span><select id="selLang"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option><option value="zh">中文</option></select></div>
-<div class="row"><span id="lQual">الجودة</span><select id="selQual"><option value="low">Low</option><option value="med" selected>Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></div>
-<div class="row"><span id="lFps">حد FPS</span><select id="selFps"><option value="30">30</option><option value="60" selected>60</option><option value="120">120</option><option value="0">Unlimited</option></select></div>
-<div class="row"><span id="lShow">عرض FPS</span><input type="checkbox" id="chkFps"></div>
-<div class="row"><span id="lCtrl">التحكم</span><select id="selCtrl"><option value="wasd">WASD</option><option value="arrows">Arrows</option></select></div>
-<button class="close" id="sClose">إغلاق</button>
-</div></div>
+<!-- ==========================================
+     MAIN MENU
+     ========================================== -->
 
-<div class="panel" id="pLegal"><div class="card"><h2 id="lgTitle">—</h2><p id="lgBody" style="color:var(--dim);font-size:13px;line-height:1.6">—</p><button class="close" id="lgClose">إغلاق</button></div></div>
+<div id="menu">
+
+  <div id="menuPanel">
+
+    <h1 id="mTitle">El Hay | الحي</h1>
+
+    <div class="sub" id="mSub">
+      OPEN WORLD LIFE SIMULATION
+    </div>
+
+    <select id="selMode" style="display:none;">
+      <option value="offline" selected>
+        Offline (Single-Player)
+      </option>
+    </select>
+
+    <button class="btn btn-modern primary" id="bNew">
+      <span>🎮</span>
+      بدء لعبة جديدة
+    </button>
+
+    <button class="btn btn-modern" id="bCont">
+      <span>💾</span>
+      استمرار اللعب
+    </button>
+
+    <button class="btn btn-modern" id="bSet">
+      <span>⚙️</span>
+      الإعدادات
+    </button>
+
+    <div id="menuFoot">
+
+      <button class="btn btn-sm sm" id="bSup">
+        الدعم
+      </button>
+
+      <button class="btn btn-sm sm" id="bPriv">
+        الخصوصية
+      </button>
+
+      <button class="btn btn-sm sm" id="bTerm">
+        الشروط
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ==========================================
+     SETTINGS
+     ========================================== -->
+
+<div class="panel" id="pSettings">
+
+  <div class="card">
+
+    <h2 id="sTitle">
+      الإعدادات
+    </h2>
+
+    <div class="row">
+      <span id="lLang">اللغة</span>
+
+      <select id="selLang">
+        <option value="ar">العربية</option>
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <span id="lQual">الجودة</span>
+
+      <select id="selQual">
+        <option value="low">Low</option>
+        <option value="med" selected>Medium</option>
+        <option value="high">High</option>
+        <option value="ultra">Ultra</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <span id="lFps">حد FPS</span>
+
+      <select id="selFps">
+        <option value="30">30</option>
+        <option value="60" selected>60</option>
+        <option value="120">120</option>
+        <option value="0">Unlimited</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <span id="lShow">عرض FPS</span>
+      <input type="checkbox" id="chkFps">
+    </div>
+
+    <div class="row">
+      <span id="lCtrl">التحكم</span>
+
+      <select id="selCtrl">
+        <option value="wasd">WASD</option>
+        <option value="arrows">Arrows</option>
+      </select>
+    </div>
+
+    <button class="close" id="sClose">
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ==========================================
+     PRIVACY / SUPPORT / TERMS
+     ========================================== -->
+
+<div class="panel" id="pLegal">
+
+  <div class="card">
+
+    <h2 id="lgTitle">
+      Privacy Policy
+    </h2>
+
+    <!-- PRIVACY POLICY -->
+
+    <div id="privacyContent">
+
+      <h3>
+        Privacy Policy — El Hay | الحي
+      </h3>
+
+      <p>
+        <strong>Last updated:</strong>
+        October 4, 2026
+      </p>
+
+      <p>
+        El Hay | الحي is an open-world life simulation game focused on
+        exploration, missions, jobs, vehicles, interactions, and building
+        your own story in a living city.
+        We respect your privacy and aim to collect only the information
+        necessary for the game to function.
+      </p>
+
+      <h4>
+        1. Information We Collect
+      </h4>
+
+      <p>
+        The game is designed primarily as a single-player experience.
+        Depending on the features available in a particular version,
+        the game may store gameplay data such as progress, settings,
+        saved games, money, inventory, missions, and other in-game state.
+      </p>
+
+      <h4>
+        2. Personal Information
+      </h4>
+
+      <p>
+        We do not intentionally request sensitive personal information
+        such as passwords, private messages, financial information,
+        or precise location data through the game.
+        If a future feature requires personal information, it will be
+        explained clearly before collection.
+      </p>
+
+      <h4>
+        3. Local Storage and Saved Data
+      </h4>
+
+      <p>
+        Some gameplay information may be stored locally on your device
+        or browser so that your settings and progress can be restored.
+        Clearing browser or game storage may remove locally saved progress.
+      </p>
+
+      <h4>
+        4. Third-Party Services
+      </h4>
+
+      <p>
+        The game may use third-party services or content-delivery providers
+        for technical purposes, such as loading game libraries, fonts,
+        assets, or other required resources.
+        Those services may process technical information according to
+        their own privacy policies.
+      </p>
+
+      <h4>
+        5. Cookies and Similar Technologies
+      </h4>
+
+      <p>
+        El Hay may use browser storage or similar technologies for gameplay
+        preferences, saves, and basic functionality.
+        We do not use these technologies to intentionally collect
+        sensitive personal information.
+      </p>
+
+      <h4>
+        6. Children and Minors
+      </h4>
+
+      <p>
+        El Hay is a general-audience game.
+        We do not knowingly request or collect sensitive personal
+        information from children.
+        If you believe that personal information was submitted
+        unintentionally, please contact the development team through
+        the available support channel when support becomes available.
+      </p>
+
+      <h4>
+        7. Data Security
+      </h4>
+
+      <p>
+        Reasonable measures are used to protect game data and the services
+        associated with the project.
+        However, no online service or digital storage system can be
+        guaranteed to be completely secure.
+      </p>
+
+      <h4>
+        8. Changes to This Policy
+      </h4>
+
+      <p>
+        This Privacy Policy may be updated when new features or services
+        are introduced.
+        The latest version will be made available through the game
+        or its official project page.
+      </p>
+
+      <h4>
+        9. Contact and Support
+      </h4>
+
+      <p>
+        The support system is currently under development and will be
+        available in a future version.
+        Until then, the support section will display
+        <strong>Coming Soon</strong>.
+      </p>
+
+      <p>
+        By using El Hay | الحي, you acknowledge this Privacy Policy
+        and agree to use the game responsibly.
+      </p>
+
+    </div>
+
+    <!-- SUPPORT -->
+
+    <div id="supportContent" style="display:none;text-align:center;">
+
+      <div class="supportIcon">
+        🛠️
+      </div>
+
+      <h3>
+        Coming Soon
+      </h3>
+
+      <p>
+        The El Hay support center is currently under development.
+        Support tools, bug reporting, and contact options will be
+        available in a future update.
+      </p>
+
+    </div>
+
+    <!-- TERMS -->
+
+    <div id="termsContent" style="display:none;">
+
+      <h3>
+        Terms of Use
+      </h3>
+
+      <p>
+        El Hay | الحي is provided as a game project for entertainment
+        purposes.
+        Do not attempt to misuse, disrupt, reverse-engineer, or interfere
+        with the online services or infrastructure associated with
+        the project.
+      </p>
+
+      <p>
+        Game content, features, balance, missions, vehicles, and services
+        may change as the project develops.
+        Continued use of the game means you accept the latest applicable
+        version of these terms.
+      </p>
+
+      <p>
+        You agree to use the game responsibly and not to use the project
+        for illegal or harmful activities.
+      </p>
+
+    </div>
+
+    <button class="close" id="lgClose">
+      Close
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ==========================================
+     HUD
+     ========================================== -->
 
 <div id="vitalsBox">
- <div class="vbar health"><i id="vHealth"></i></div>
- <div class="vbar energy"><i id="vEnergy"></i></div>
- <div class="vbar hunger"><i id="vHunger"></i></div>
- <div class="vbar thirst"><i id="vThirst"></i></div>
- <div class="vbar hygiene"><i id="vHygiene"></i></div>
+
+  <div class="vbar health">
+    <i id="vHealth"></i>
+  </div>
+
+  <div class="vbar energy">
+    <i id="vEnergy"></i>
+  </div>
+
+  <div class="vbar hunger">
+    <i id="vHunger"></i>
+  </div>
+
+  <div class="vbar thirst">
+    <i id="vThirst"></i>
+  </div>
+
+  <div class="vbar hygiene">
+    <i id="vHygiene"></i>
+  </div>
+
 </div>
-<div id="cashBox">$0</div>
+
+<div id="cashBox">
+  $0
+</div>
+
 <div id="missionBox"></div>
+
+<!-- Driving Test -->
+
 <div id="testHUD" style="display:none">
- <div id="testInfo"></div>
- <div id="testMsg"></div>
- <button id="testCancel">Cancel Test</button>
+
+  <div id="testInfo"></div>
+
+  <div id="testMsg"></div>
+
+  <button id="testCancel">
+    Cancel Test
+  </button>
+
 </div>
-<div id="speedo" style="display:none">0 km/h</div>
-<button id="radioBtn" style="display:none">📻</button>
+
+<!-- Speedometer -->
+
+<div id="speedo" style="display:none">
+  0 km/h
+</div>
+
+<!-- Radio -->
+
+<button id="radioBtn" style="display:none">
+  📻
+</button>
+
 <div id="radioPanel" style="display:none">
- <b>📻 Radio (YouTube)</b>
- <input id="radioUrl" type="text" placeholder="Paste YouTube link..." autocomplete="off">
- <div class="radioRow">
-  <button id="radioPlay">▶ Load</button>
-  <button id="radioPause">⏸ Pause</button>
-  <button id="radioStop">⏹ Stop</button>
-  <button id="radioClose">✖</button>
- </div>
- <div id="radioStatus">Radio off</div>
- <div id="radioPlayer"></div>
+
+  <b>
+    📻 Radio (YouTube)
+  </b>
+
+  <input
+    id="radioUrl"
+    type="text"
+    placeholder="Paste YouTube link..."
+    autocomplete="off"
+  >
+
+  <div class="radioRow">
+
+    <button id="radioPlay">
+      ▶ Load
+    </button>
+
+    <button id="radioPause">
+      ⏸ Pause
+    </button>
+
+    <button id="radioStop">
+      ⏹ Stop
+    </button>
+
+    <button id="radioClose">
+      ✖
+    </button>
+
+  </div>
+
+  <div id="radioStatus">
+    Radio off
+  </div>
+
+  <div id="radioPlayer"></div>
+
 </div>
-<div id="minimap"><canvas id="mmCanvas" width="130" height="130"></canvas></div>
 
-<div class="panel" id="fullMap"><div class="card" id="fullMapCard" style="width:min(600px,92vw)">
- <h2>Map</h2>
- <div id="mapBar">
-  <button id="mapBtnSet">⚙ الإعدادات</button>
-  <button id="mapBtnView">🗺 الخريطة</button>
-  <button id="mapBtnMis" class="on">📋 المهمات</button>
- </div>
- <div id="mapMissions"></div>
- <canvas id="fullMapCanvas" width="560" height="560" style="width:100%;border-radius:8px;display:block"></canvas>
- <button class="close" id="fullMapClose">إغلاق</button>
-</div></div>
+<!-- Minimap -->
 
-<button id="invBtn">🎒</button>
+<div id="minimap">
 
-<div class="panel" id="pShop"><div class="card">
- <h2 id="shopTitle">—</h2>
- <div id="shopList"></div>
- <button class="close" id="shopClose">إغلاق</button>
-</div></div>
+  <canvas
+    id="mmCanvas"
+    width="130"
+    height="130"
+  ></canvas>
 
-<div class="panel" id="pPolice"><div class="card" id="pPoliceCard">
- <h2 id="polTitle">Police Checkpoint</h2>
- <p id="polBody" style="color:var(--dim);font-size:13px"></p>
- <div class="policeBtns">
-  <button id="polComply">Surrender</button>
-  <button id="polPay">Bribe ($100)</button>
-  <button id="polFlee">Escape</button>
- </div>
-</div></div>
+</div>
 
-<div id="csLayer"><div class="lb" id="lbTop"></div><div class="lb" id="lbBot"></div><div id="csSub"></div><div id="csCard"></div><button id="csSkip">تخطي</button></div>
+<!-- ==========================================
+     FULL MAP
+     ========================================== -->
 
-<button id="phoneBtn">📱</button>
+<div class="panel" id="fullMap">
 
-<div class="panel" id="pPhone"><div class="card" id="phoneCard">
- <div id="phoneTabs">
-  <button class="ptab" data-tab="contacts">Contacts</button>
-  <button class="ptab" data-tab="camera">Camera</button>
-  <button class="ptab" data-tab="video">Video</button>
-  <button class="ptab" data-tab="delivery">Delivery</button>
-  <button class="ptab" data-tab="realestate">Market</button>
-  <button class="ptab" data-tab="weapons">Weapons</button>
- </div>
- <div id="phoneBody"></div>
- <button class="close" id="phoneClose">إغلاق</button>
-</div></div>
+  <div
+    class="card"
+    id="fullMapCard"
+    style="width:min(600px,92vw)"
+  >
 
-<div id="wantedBox">🚨 WANTED</div>
+    <h2>
+      Map
+    </h2>
+
+    <div id="mapBar">
+
+      <button id="mapBtnSet">
+        ⚙ الإعدادات
+      </button>
+
+      <button id="mapBtnView">
+        🗺 الخريطة
+      </button>
+
+      <button id="mapBtnMis" class="on">
+        📋 المهمات
+      </button>
+
+    </div>
+
+    <div id="mapMissions"></div>
+
+    <canvas
+      id="fullMapCanvas"
+      width="560"
+      height="560"
+      style="width:100%;border-radius:8px;display:block"
+    ></canvas>
+
+    <button class="close" id="fullMapClose">
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- Inventory -->
+
+<button id="invBtn">
+  🎒
+</button>
+
+<!-- Shop -->
+
+<div class="panel" id="pShop">
+
+  <div class="card">
+
+    <h2 id="shopTitle">
+      —
+    </h2>
+
+    <div id="shopList"></div>
+
+    <button class="close" id="shopClose">
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- Police -->
+
+<div class="panel" id="pPolice">
+
+  <div class="card" id="pPoliceCard">
+
+    <h2 id="polTitle">
+      Police Checkpoint
+    </h2>
+
+    <p
+      id="polBody"
+      style="color:var(--dim);font-size:13px"
+    ></p>
+
+    <div class="policeBtns">
+
+      <button id="polComply">
+        Surrender
+      </button>
+
+      <button id="polPay">
+        Bribe ($100)
+      </button>
+
+      <button id="polFlee">
+        Escape
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Cutscene -->
+
+<div id="csLayer">
+
+  <div class="lb" id="lbTop"></div>
+  <div class="lb" id="lbBot"></div>
+
+  <div id="csSub"></div>
+  <div id="csCard"></div>
+
+  <button id="csSkip">
+    تخطي
+  </button>
+
+</div>
+
+<!-- Phone -->
+
+<button id="phoneBtn">
+  📱
+</button>
+
+<div class="panel" id="pPhone">
+
+  <div class="card" id="phoneCard">
+
+    <div id="phoneTabs">
+
+      <button class="ptab" data-tab="contacts">
+        Contacts
+      </button>
+
+      <button class="ptab" data-tab="camera">
+        Camera
+      </button>
+
+      <button class="ptab" data-tab="video">
+        Video
+      </button>
+
+      <button class="ptab" data-tab="delivery">
+        Delivery
+      </button>
+
+      <button class="ptab" data-tab="realestate">
+        Market
+      </button>
+
+      <button class="ptab" data-tab="weapons">
+        Weapons
+      </button>
+
+    </div>
+
+    <div id="phoneBody"></div>
+
+    <button class="close" id="phoneClose">
+      إغلاق
+    </button>
+
+  </div>
+
+</div>
+
+<!-- Wanted -->
+
+<div id="wantedBox">
+  🚨 WANTED
+</div>
+
+<!-- Weapon HUD -->
 
 <div id="weaponHud">
- <span id="whName">Fists</span><span id="whAmmo"></span>
- <span id="whMsg" style="margin-left:8px;color:#ffd23a"></span>
- <button id="whFire" class="whBtn">🔥 Fire</button>
- <button id="whReload" class="whBtn">🔃 Reload</button>
- <button id="whHolster" class="whBtn">🫳 Holster</button>
+
+  <span id="whName">
+    Fists
+  </span>
+
+  <span id="whAmmo"></span>
+
+  <span
+    id="whMsg"
+    style="margin-left:8px;color:#ffd23a"
+  ></span>
+
+  <button id="whFire" class="whBtn">
+    🔥 Fire
+  </button>
+
+  <button id="whReload" class="whBtn">
+    🔃 Reload
+  </button>
+
+  <button id="whHolster" class="whBtn">
+    🫳 Holster
+  </button>
+
 </div>
 
 <div id="reticle"></div>
 
-<!-- MOBILE TOUCH UI -->
+<!-- ==========================================
+     MOBILE TOUCH UI
+     ========================================== -->
+
 <div id="touchUI">
+
   <div id="lookArea"></div>
-  <div id="joyBase"><div id="joyStick"></div></div>
-  <button id="touchInteract">E</button>
-  <button id="touchSprint">🏃</button>
-  <button id="touchFire">🔥</button>
-  <button id="touchWeapon">🔄</button>
-  <button id="touchReload">🔃</button>
-  <button id="touchHolster">🫳</button>
+
+  <div id="joyBase">
+    <div id="joyStick"></div>
+  </div>
+
+  <button id="touchInteract">
+    E
+  </button>
+
+  <button id="touchSprint">
+    🏃
+  </button>
+
+  <button id="touchFire">
+    🔥
+  </button>
+
+  <button id="touchWeapon">
+    🔄
+  </button>
+
+  <button id="touchReload">
+    🔃
+  </button>
+
+  <button id="touchHolster">
+    🫳
+  </button>
 
   <div id="driveControls">
-    <button id="btnGas">▲</button>
-    <button id="btnBrake">▼</button>
-    <button id="btnLeft">◀</button>
-    <button id="btnRight">▶</button>
+
+    <button id="btnGas">
+      ▲
+    </button>
+
+    <button id="btnBrake">
+      ▼
+    </button>
+
+    <button id="btnLeft">
+      ◀
+    </button>
+
+    <button id="btnRight">
+      ▶
+    </button>
+
   </div>
+
 </div>
 
+<!-- ==========================================
+     THREE.JS
+     ========================================== -->
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
 
 <!-- OBJ vehicle loader -->
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+
+<!-- ==========================================
+     GAME SCRIPTS
+     ========================================== -->
 
 <script src="js/ui.js"></script>
 <script src="js/audio.js"></script>
@@ -473,6 +1518,176 @@ body {
 <script src="js/phone.js"></script>
 <script src="js/persistence.js"></script>
 <script src="js/main.js"></script>
+
+<!-- ==========================================
+     EL HAY LEGAL / SUPPORT CONTROLLER
+     ========================================== -->
+
+<script>
+
+(function () {
+
+  function showLegal(type) {
+
+    var panel =
+      document.getElementById('pLegal');
+
+    var title =
+      document.getElementById('lgTitle');
+
+    var privacy =
+      document.getElementById('privacyContent');
+
+    var support =
+      document.getElementById('supportContent');
+
+    var terms =
+      document.getElementById('termsContent');
+
+    if (!panel || !title) {
+      return;
+    }
+
+    if (privacy) {
+      privacy.style.display =
+        type === 'privacy'
+          ? 'block'
+          : 'none';
+    }
+
+    if (support) {
+      support.style.display =
+        type === 'support'
+          ? 'block'
+          : 'none';
+    }
+
+    if (terms) {
+      terms.style.display =
+        type === 'terms'
+          ? 'block'
+          : 'none';
+    }
+
+    if (type === 'privacy') {
+
+      title.textContent =
+        'Privacy Policy';
+
+    } else if (type === 'support') {
+
+      title.textContent =
+        'Support — Coming Soon';
+
+    } else {
+
+      title.textContent =
+        'Terms of Use';
+
+    }
+
+    panel.classList.add('open');
+
+    panel.style.display =
+      'flex';
+
+  }
+
+
+  function closeLegal() {
+
+    var panel =
+      document.getElementById('pLegal');
+
+    if (!panel) {
+      return;
+    }
+
+    panel.classList.remove('open');
+
+    panel.style.display =
+      'none';
+
+  }
+
+
+  /*
+   * Capture phase is used so the buttons continue
+   * to work even if another UI script has handlers
+   * attached to the same buttons.
+   */
+
+  document.addEventListener(
+    'click',
+    function (e) {
+
+      var target =
+        e.target.closest
+          ? e.target.closest(
+              '#bPriv, #bSup, #bTerm, #lgClose'
+            )
+          : null;
+
+      if (!target) {
+        return;
+      }
+
+      e.preventDefault();
+
+      e.stopPropagation();
+
+      e.stopImmediatePropagation();
+
+
+      if (target.id === 'bPriv') {
+
+        showLegal('privacy');
+
+      } else if (target.id === 'bSup') {
+
+        showLegal('support');
+
+      } else if (target.id === 'bTerm') {
+
+        showLegal('terms');
+
+      } else if (target.id === 'lgClose') {
+
+        closeLegal();
+
+      }
+
+    },
+    true
+  );
+
+
+  /*
+   * Close when clicking the dark background.
+   */
+
+  document.addEventListener(
+    'click',
+    function (e) {
+
+      var panel =
+        document.getElementById('pLegal');
+
+      if (
+        panel &&
+        e.target === panel
+      ) {
+
+        closeLegal();
+
+      }
+
+    }
+  );
+
+})();
+
+</script>
 
 </body>
 </html>

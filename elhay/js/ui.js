@@ -260,15 +260,42 @@ UI.openShop=function(id){
  }else if(id==='drivingSchool'){
    if(shopTitleEl) shopTitleEl.textContent='Driving School';
 
+   const held=!!(window.License&&License.has);
+
    shopListEl.appendChild(
      row(
-       'License status: '+(window.License&&License.has?'Held':'None'),
+       'License status: '+(held?'Held':'None'),
+       held?'✔':'—',
+       ()=>{},
+       true
+     )
+   );
+
+   shopListEl.appendChild(
+     row(
+       'Express license — $'+DrivingTest.expressPrice,
+       'Buy',
+       ()=>{
+         if(DrivingTest.expressBuy()){
+           UI.refreshHUD();
+           UI.openShop('drivingSchool');
+         }
+       },
+       held||Economy.cash<DrivingTest.expressPrice
+     )
+   );
+
+   shopListEl.appendChild(
+     row(
+       'Practical test — $'+DrivingTest.price,
        'Start Test',
        ()=>{
-         if(window.DrivingSchool) DrivingSchool.start();
-         d0Close();
+         if(Economy.cash<DrivingTest.price) return;
+         Economy.cash-=DrivingTest.price;
+         UI.refreshHUD();
+         DrivingTest.begin();
        },
-       window.License&&License.has
+       held||Economy.cash<DrivingTest.price
      )
    );
 
@@ -295,27 +322,37 @@ UI.openShop=function(id){
  }else if(id==='gunshop'){
    if(shopTitleEl) shopTitleEl.textContent='Gun Shop';
 
-   [
-     {id:'pistol',price:800,ammoPrice:5},
-     {id:'rifle',price:2500,ammoPrice:8}
-   ].forEach(entry=>{
-     const w=window.ARSENAL
-       ? ARSENAL[entry.id]
-       : {name:entry.id};
+   const licensed=window.Docs&&Docs.has('gunLicense');
 
-     const owned=window.Weapons&&Weapons.owned.includes(entry.id);
+   if(!licensed){
+     shopListEl.appendChild(
+       row(
+         '🔒 A Gun License is required. Buy one at the Police Station (office desk).',
+         'Locked',
+         ()=>{},
+         true
+       )
+     );
+   }
+
+   WEAPON_STOCK.forEach(entry=>{
+     const w=ARSENAL[entry.id];
+     const owned=Weapons.owned.includes(entry.id);
+     const isGun=w.type==='gun';
 
      shopListEl.appendChild(
        row(
-         w.name+(owned?' (Owned)':' — $'+entry.price),
-         owned?'Buy Ammo':'Buy',
+         w.name+(owned?' (Owned)':' — $'+entry.price)+(isGun?'':' [melee]'),
+         owned?(isGun?'Buy Ammo':'Owned'):'Buy',
          ()=>{
+           if(!licensed) return;
+
            if(!owned){
              if(Economy.cash<entry.price) return;
 
              Economy.cash-=entry.price;
-             Weapons.buy(entry.id,20);
-           }else{
+             Weapons.buy(entry.id,isGun?w.maxAmmo*2:0);
+           }else if(isGun){
              const cost=entry.ammoPrice*20;
 
              if(Economy.cash<cost) return;
@@ -325,14 +362,56 @@ UI.openShop=function(id){
            }
 
            UI.refreshHUD();
-
-           if(window.Weapons) Weapons.refreshHUD();
-
+           Weapons.refreshHUD();
            UI.openShop('gunshop');
+         },
+         !licensed||(owned&&!isGun)
+       )
+     );
+   });
+
+ }else if(id==='pharmacy'||id==='supermarket'){
+   if(shopTitleEl) shopTitleEl.textContent=id==='pharmacy'?'Pharmacy':'Supermarket';
+
+   const list=id==='pharmacy'
+     ? ['bandage','painkillers','vitamins','firstaid','water']
+     : ['water','juice','sandwich','soap','coffee'];
+
+   list.forEach(k=>{
+     const it=ITEMS[k];
+     if(!it) return;
+     shopListEl.appendChild(
+       row(
+         it.name+' — $'+it.price,
+         'Buy',
+         ()=>{
+           if(Economy.buy(k)) UI.refreshHUD();
          }
        )
      );
    });
+
+ }else if(id==='policeDesk'){
+   if(shopTitleEl) shopTitleEl.textContent='Police Station — Licensing Desk';
+
+   const has=window.Docs&&Docs.has('gunLicense');
+   const hasID=window.Docs&&Docs.has('idCard');
+   const price=window.GUN_LICENSE_PRICE||1500;
+
+   shopListEl.appendChild(
+     row(
+       'Gun License — $'+price+(hasID?'':'  (ID Card required)'),
+       has?'Owned':'Buy',
+       ()=>{
+         if(has||!hasID||Economy.cash<price) return;
+         Economy.cash-=price;
+         Docs.give('gunLicense');
+         UI.refreshHUD();
+         UI.openShop('policeDesk');
+       },
+       has||!hasID||Economy.cash<price
+     )
+   );
  }
 
  if(UI.dom.pShop){
@@ -365,7 +444,7 @@ UI.openRelationship=function(npcId){
      'Talk',
      'Talk',
      ()=>{
-       Relationships.talk(npcId);
+       Relationships.talkSimple(npcId);
        MissionSystem.notifyTalk(npcId);
        UI.openRelationship(npcId);
      }
@@ -384,7 +463,7 @@ UI.openRelationship=function(npcId){
    )
  );
 
- shopListEl.appendChild(
+ if(npcId!=='sofia') shopListEl.appendChild(
    row(
      'Invite for a date ($20)',
      'Date',
@@ -455,7 +534,7 @@ UI.openInventory=function(){
        UI.openInventory();
      };
 
-     r.appendChild(sellBtn);
+     if(!it.doc) r.appendChild(sellBtn);
      shopListEl.appendChild(r);
    });
  }

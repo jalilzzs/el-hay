@@ -142,6 +142,9 @@ World.init=function(scene,renderer){
  World.interiorMeta={};
  World.activeInterior=null;
  World.currentInteriorMeta=null;
+ World._signs=[];
+ World._ledges=[];
+ World._lmWalls=[];
 
  const groundMat=new THREE.MeshStandardMaterial({map:TEX.grass,roughness:1});
  TEX.grass.repeat.set(200,200);
@@ -245,9 +248,12 @@ World.init=function(scene,renderer){
  World.checkpointOfficer2.mesh.children[0].material.color.set(0x1f3b57);
 
  World.checkpointCruiser=World.makeCar(0,0,0x151515,'police');
- World.checkpointPos=new THREE.Vector3();
-
- World.randomizeCheckpoint();
+ World.checkpointCruiser2=World.makeCar(0,0,0x151515,'police');
+ World.checkpointPos=null;
+ World.cp={state:'init',t:0,hold:0,dir:1,vertical:true,k:0,stop:0};
+ World.checkpointBarrier.visible=false;
+ World.checkpointOfficer.mesh.visible=false;
+ World.checkpointOfficer2.mesh.visible=false;
 
  World.chunks=new Map();
  World.updateChunks(0,0);
@@ -258,29 +264,104 @@ World.init=function(scene,renderer){
  CityAssets.start();
 };
 
-/* ============ CHECKPOINT ============ */
-World.randomizeCheckpoint=function(){
- const vertical=Math.random()<0.5;
- const k=(Math.floor(Math.random()*7)-3)*40;
- const along=(Math.random()<0.5?-1:1)*(60+Math.random()*90);
+/* ============ MOBILE CHECKPOINT ============
+ * Two police cruisers patrol the roads, stop at a random spot, set up a
+ * roadblock for a while, then pack up and move to another place.
+ */
+function cpLane(vertical,k,along,dir){
+ /* lane position + heading of a car driving in direction dir on a road line */
+ if(vertical)return {x:k+(dir>0?-2:2),z:along,rot:dir>0?0:Math.PI};
+ return {x:along,z:k+(dir>0?2:-2),rot:dir>0?Math.PI/2:-Math.PI/2};
+}
 
- let x,z,rotY;
+World.cpSpawn=function(px,pz){
+ const cp=World.cp;
+ cp.vertical=Math.random()<0.5;
+ cp.dir=Math.random()<0.5?1:-1;
+ const near=cp.vertical?px:pz;
+ const alongP=cp.vertical?pz:px;
+ cp.k=(Math.round(near/40)+Math.floor(Math.random()*5)-2)*40;
+ const raw=alongP+(Math.random()<0.5?-1:1)*(50+Math.random()*60);
+ cp.stop=Math.floor(raw/40)*40+12+Math.random()*16; /* never inside an intersection */
+ cp.pos=cp.stop-cp.dir*70;
+ cp.state='drive';
+ cp.t=0;
+ World.cpPlaceCars();
+};
 
- if(vertical){x=k;z=along;rotY=0;}
- else{x=along;z=k;rotY=Math.PI/2;}
+World.cpPlaceCars=function(){
+ const cp=World.cp;
+ const a=cpLane(cp.vertical,cp.k,cp.pos,cp.dir);
+ const b=cpLane(cp.vertical,cp.k,cp.pos-cp.dir*8,cp.dir);
+ World.checkpointCruiser.position.set(a.x,0,a.z);
+ World.checkpointCruiser.rotation.y=a.rot;
+ World.checkpointCruiser2.position.set(b.x,0,b.z);
+ World.checkpointCruiser2.rotation.y=b.rot;
+};
 
+World.cpSetup=function(){
+ const cp=World.cp;
+ const x=cp.vertical?cp.k:cp.stop;
+ const z=cp.vertical?cp.stop:cp.k;
+ const v=cp.vertical;
+ const rotY=v?0:Math.PI/2;
+
+ World.checkpointBarrier.visible=true;
  World.checkpointBarrier.position.set(x,0.6,z);
  World.checkpointBarrier.rotation.y=rotY;
 
- World.checkpointOfficer.mesh.position.set(x+(vertical?1.5:0),0,z+(vertical?0:1.5));
- World.checkpointOfficer2.mesh.position.set(x-(vertical?1.5:0),0,z-(vertical?0:1.5));
+ const o1=World.checkpointOfficer.mesh,o2=World.checkpointOfficer2.mesh;
+ o1.visible=o2.visible=true;
+ o1.position.set(x+(v?1.5:0),0,z+(v?0:1.5));
+ o2.position.set(x-(v?1.5:0),0,z-(v?0:1.5));
+ o1.rotation.y=o2.rotation.y=rotY;
 
- World.checkpointOfficer.mesh.rotation.y=
- World.checkpointOfficer2.mesh.rotation.y=rotY;
-
- World.checkpointCruiser.position.set(x+(vertical?3:0),0,z+(vertical?0:3));
+ World.checkpointCruiser.position.set(x+(v?3:0),0,z+(v?0:3));
  World.checkpointCruiser.rotation.y=rotY+Math.PI/2;
- World.checkpointPos.set(x,0,z);
+ World.checkpointCruiser2.position.set(x-(v?3:0),0,z-(v?0:3));
+ World.checkpointCruiser2.rotation.y=rotY-Math.PI/2;
+
+ World.checkpointPos=new THREE.Vector3(x,0,z);
+ cp.state='hold';
+ cp.hold=50+Math.random()*40;
+};
+
+World.cpPack=function(){
+ const cp=World.cp;
+ World.checkpointBarrier.visible=false;
+ World.checkpointOfficer.mesh.visible=false;
+ World.checkpointOfficer2.mesh.visible=false;
+ World.checkpointPos=null;
+ cp.state='leave';
+ cp.pos=cp.stop;
+ cp.t=0;
+ World.cpPlaceCars();
+};
+
+World.updateCheckpoint=function(px,pz,dt){
+ const cp=World.cp;
+ if(!cp)return;
+ if(cp.state==='init'){World.cpSpawn(px,pz);return;}
+
+ if(cp.state==='drive'||cp.state==='leave'){
+  cp.pos+=cp.dir*9*dt;
+  cp.t+=dt;
+  World.cpPlaceCars();
+  if(cp.state==='drive'&&(cp.pos-cp.stop)*cp.dir>=0){World.cpSetup();return;}
+  if(cp.state==='leave'){
+   const A=World.checkpointCruiser.position;
+   const far=Math.hypot(A.x-px,A.z-pz)>170;
+   if(far||cp.t>30)World.cpSpawn(px,pz);
+  }
+ }else if(cp.state==='hold'){
+  cp.hold-=dt;
+  if(cp.hold<=0&&!(typeof Police!=='undefined'&&Police.checkpointActive))World.cpPack();
+ }
+};
+
+World.randomizeCheckpoint=function(){
+ if(World.cp&&World.cp.state==='hold')World.cpPack();
+ if(World.cp)World.cp.state='init';
 };
 
 /* ============ COLLISION ============ */
@@ -334,6 +415,7 @@ function roofLedge(scene,x,y,z,w,d,color){
  );
  m.position.set(x,y,z);
  scene.add(m);
+ if(World._ledges)World._ledges.push(m);
  return m;
 }
 
@@ -361,6 +443,7 @@ function mountSignboard(scene,x,y,z,rotY,w,h,text,bg,fg){
  mesh.position.set(x,y,z);
  mesh.rotation.y=rotY;
  scene.add(mesh);
+ if(World._signs)World._signs.push(mesh);
  return mesh;
 }
 
@@ -384,6 +467,65 @@ const matOffice=new THREE.MeshStandardMaterial({color:0x687989,roughness:0.62,me
 const matMotel=new THREE.MeshStandardMaterial({color:0x9c7659,roughness:0.8});
 const matPharmacy=new THREE.MeshStandardMaterial({color:0xdde8df,roughness:0.65});
 
+/* ============ JOBS ============ */
+const Jobs={
+ last:{},
+ msg(t){
+  if(typeof UI!=='undefined'&&UI.dom&&UI.dom.prompt){
+   UI.dom.prompt.textContent=t;
+   UI.dom.prompt.style.display='block';
+   clearTimeout(Jobs._t);
+   Jobs._t=setTimeout(()=>{if(UI.dom.prompt)UI.dom.prompt.style.display='none';},2200);
+  }
+ },
+ work(id,o){
+  const now=performance.now();
+  if(Jobs.last[id]&&now-Jobs.last[id]<5000){Jobs.msg('⏳ Take a short break first...');return;}
+  if(o.license&&typeof License!=='undefined'&&!License.has){Jobs.msg('🚫 You need a driving license for this job.');return;}
+  if(typeof Vitals!=='undefined'){
+   if(Vitals.energy<12){Jobs.msg('😴 Too tired to work. Get some sleep.');return;}
+   if(Vitals.hunger<8){Jobs.msg('🍔 Too hungry to work. Eat something.');return;}
+   Vitals.energy=Math.max(0,Vitals.energy-(o.energy||8));
+   Vitals.hunger=Math.max(0,Vitals.hunger-(o.hunger||4));
+  }
+  Jobs.last[id]=now;
+  const room=id.split(':')[0];
+  const mult=Jobs.employed===room?1.25:(Jobs.employed?0.7:0.6);
+  const pay=Math.round(o.pay*mult*(0.9+Math.random()*0.3));
+  if(typeof Economy!=='undefined')Economy.cash+=pay;
+  Jobs.msg('💼 '+o.title+' — you earned $'+pay);
+ }
+};
+
+Jobs.employed=null;
+Jobs.list=[
+ {id:'factory',name:'Factory',desc:'Assembly line shifts',pay:48},
+ {id:'warehouse',name:'Warehouse',desc:'Load and move crates',pay:42},
+ {id:'postOffice',name:'Post Office',desc:'Sort mail',pay:36},
+ {id:'constructionSite',name:'Construction Site',desc:'Heavy work, best pay on foot',pay:62},
+ {id:'taxiDepot',name:'Taxi Depot',desc:'Taxi shifts (license needed)',pay:72},
+ {id:'hospital',name:'Hospital',desc:'Nurse shifts',pay:58},
+ {id:'office',name:'Office',desc:'Desk work',pay:52},
+ {id:'mechanic',name:'Mechanic Workshop',desc:'Repair cars',pay:56},
+ {id:'restaurant',name:'Restaurant',desc:'Wait tables',pay:30},
+ {id:'supermarket',name:'Supermarket',desc:'Work the till',pay:30},
+ {id:'pharmacy',name:'Pharmacy',desc:'Serve customers',pay:32}
+];
+Jobs.apply=function(id){Jobs.employed=id;Jobs.msg('✅ You now work at: '+(Jobs.list.find(j=>j.id===id)||{}).name);};
+Jobs.quit=function(){Jobs.employed=null;Jobs.msg('You quit your job.');};
+Jobs.teleport=function(id){
+ if(World.activeInterior){Jobs.msg('Leave the building first.');return false;}
+ if(typeof Player!=='undefined'&&Player.mode==='drive'){Jobs.msg('Get out of the car first.');return false;}
+ const poi=World.pois.find(p=>p.id===id&&!p.dyn);
+ if(!poi||typeof camera==='undefined')return false;
+ camera.position.set(poi.pos.x,camera.position.y,poi.pos.z+1.5);
+ return true;
+};
+
+function jobSpot(room,x,z,o){
+ return registerInteriorObject(room,'job',new THREE.Vector3(x,48.9,z),{radius:2,label:o.title,onUse:()=>Jobs.work(room+':'+o.title,o)});
+}
+
 function buildLandmarks(scene){
 
  World.landmarks.hospital=block(scene,-60,0,-60,14,10,14,matHosp);
@@ -401,7 +543,7 @@ function buildLandmarks(scene){
   [-18,0,50,3,6,20],
   [18,0,50,3,6,20]
  ].forEach(p=>{
-  block(scene,p[0]+12,p[1],p[2],p[3],p[4],p[5],wallMat);
+  World._lmWalls.push(block(scene,p[0]+12,p[1],p[2],p[3],p[4],p[5],wallMat));
  });
 
  World.landmarks.home=block(scene,-70,0,-20,8,7,8,matRes);
@@ -863,6 +1005,7 @@ function buildInteriors(scene){
  const policeTV=addTV(police,3.8,3.2,Math.PI);
  registerTV('police',3.8,3.2,Math.PI,policeTV);
  addBox(police,0,-1.0,5.1,3.0,2.0,0.15,0x333333);
+ registerInteriorObject('police','licenseDesk',new THREE.Vector3(2,48.9,-1.9),{radius:2.2,label:'Licensing Desk (Gun License)',onUse:()=>{Jobs.msg('👮 Officer: "Licensing desk — how can I help?"');UI.openShop('policeDesk');}});
 
  /* ---------- PRISON ---------- */
  makeInterior(scene,'prison',0x2c2c2c,0x1f1f1f,0x555555);
@@ -1121,6 +1264,63 @@ function buildInteriors(scene){
  registerSeat('pharmacy','chair',-3,4.7,0);
  registerInteriorObject('pharmacy','counter',new THREE.Vector3(0,48.6,-4.5),{radius:1.8,label:'Pharmacy Counter'});
 
+ /* ============ NEW WORK PLACES ============ */
+ function wallBoard(room,x,color){addBox(room,x,0.3,-5.8,1.8,1.1,0.1,color,0.6);}
+
+ makeInterior(scene,'factory',0x4a4f55,0x33363a,0xe08a1f);
+ const factory=World.interiors.factory;
+ addBox(factory,0,-2.2,-1,10,0.35,1.2,0x1d1f21,0.5);
+ for(let i=-4;i<=4;i+=2){addBox(factory,i,-1.95,-1,0.7,0.5,0.7,0xc98b2b);}
+ addBox(factory,-4.5,-1.4,3,1.6,2.2,1.6,0x6a7077);
+ addBox(factory,4.5,-1.4,3,1.6,2.2,1.6,0x6a7077);
+ wallBoard(factory,0,0xe08a1f);
+ jobSpot('factory',0,-3,{title:'Assembly Line Shift',pay:48,energy:12,hunger:5});
+
+ makeInterior(scene,'warehouse',0x59534a,0x45413a,0x8a6a2f);
+ const warehouse=World.interiors.warehouse;
+ for(let i=0;i<6;i++){addBox(warehouse,-4.5+(i%3)*1.4,-1.9+Math.floor(i/3)*1.0,-4,1.2,0.95,1.2,0x9b7a46);}
+ for(let i=0;i<4;i++){addBox(warehouse,3.5+(i%2)*1.4,-1.9+Math.floor(i/2)*1.0,-3.8,1.2,0.95,1.2,0xb08a52);}
+ addBox(warehouse,0,-2.25,1,5,0.2,2.2,0x3b3a37);
+ wallBoard(warehouse,0,0x8a6a2f);
+ jobSpot('warehouse',0,-4.6,{title:'Load Crates',pay:42,energy:12,hunger:5});
+
+ makeInterior(scene,'postOffice',0xd8d2c0,0xb8b09a,0xb52b2b);
+ const postOffice=World.interiors.postOffice;
+ addBox(postOffice,0,-1.6,-3.4,7,1.0,0.8,0x6b4a2e);
+ for(let i=-3;i<=3;i+=2){addBox(postOffice,i,-0.6,-5.5,1.4,1.6,0.6,0x2e5a8a);}
+ addPlant(postOffice,4.8,3);
+ wallBoard(postOffice,-4,0xb52b2b);
+ jobSpot('postOffice',0,-2.6,{title:'Sort Mail',pay:36,energy:6,hunger:3});
+
+ makeInterior(scene,'constructionSite',0x777168,0x5a564f,0xf0b400);
+ const construction=World.interiors.constructionSite;
+ addBox(construction,-3.5,-2.0,-3,2.4,0.5,2.4,0xa89b82);
+ addBox(construction,3.5,-1.8,-3,0.9,1.0,3.2,0xf0b400);
+ for(let i=0;i<3;i++){addBox(construction,-1.5+i*1.4,-2.2,3.2,1.2,0.3,0.5,0x8c6a3a);}
+ wallBoard(construction,0,0xf0b400);
+ jobSpot('constructionSite',0,-4.2,{title:'Construction Shift',pay:62,energy:16,hunger:7});
+
+ makeInterior(scene,'taxiDepot',0x3b4a3c,0x2f332f,0xf2c500);
+ const taxiDepot=World.interiors.taxiDepot;
+ addDesk(taxiDepot,-3,-3.2);
+ addChair(taxiDepot,-3,-2.3,0);
+ addBox(taxiDepot,3.5,-2.1,-3.5,2.4,0.7,1.2,0xf2c500);
+ wallBoard(taxiDepot,3,0xf2c500);
+ jobSpot('taxiDepot',3.5,-3.5,{title:'Taxi Shift (license)',pay:72,energy:10,hunger:6,license:true});
+
+ /* work stations inside existing places */
+ jobSpot('hospital',4.4,-4.6,{title:'Nurse Shift',pay:58,energy:12,hunger:5});
+ addBox(World.interiors.hospital,4.4,0.3,-5.8,1.8,1.1,0.1,0x2f8f6a,0.6);
+ jobSpot('restaurant',4.4,-4.6,{title:'Wait Tables',pay:30,energy:8,hunger:2});
+ addBox(World.interiors.restaurant,4.4,0.3,-5.8,1.8,1.1,0.1,0xb53b2d,0.6);
+ jobSpot('office',-4.4,-4.6,{title:'Desk Work',pay:52,energy:7,hunger:4});
+ addBox(World.interiors.office,-4.4,0.3,-5.8,1.8,1.1,0.1,0x2e506f,0.6);
+ jobSpot('mechanic',-1,-3.9,{title:'Repair Cars',pay:56,energy:13,hunger:5});
+ jobSpot('supermarket',4.4,-4.6,{title:'Work the Till',pay:30,energy:6,hunger:3});
+ addBox(World.interiors.supermarket,4.4,0.3,-5.8,1.8,1.1,0.1,0xd4b52c,0.6);
+ jobSpot('pharmacy',4.4,-4.6,{title:'Serve Customers',pay:32,energy:6,hunger:3});
+ addBox(World.interiors.pharmacy,4.4,0.3,-5.8,1.8,1.1,0.1,0x4b9a68,0.6);
+
  /* ============ INTERIOR METADATA ============ */
  World.interiorMeta={
   hospital:{label:'Hospital',sleep:false,sleepBonus:0,category:'medical'},
@@ -1137,7 +1337,12 @@ function buildInteriors(scene){
   supermarket:{label:'Supermarket',sleep:false,sleepBonus:0,category:'shop'},
   office:{label:'Office',sleep:false,sleepBonus:0,category:'business'},
   motel:{label:'Motel',sleep:false,sleepBonus:0,category:'hotel'},
-  pharmacy:{label:'Pharmacy',sleep:false,sleepBonus:0,category:'medical'}
+  pharmacy:{label:'Pharmacy',sleep:false,sleepBonus:0,category:'medical'},
+  factory:{label:'Factory',sleep:false,sleepBonus:0,category:'work'},
+  warehouse:{label:'Warehouse',sleep:false,sleepBonus:0,category:'work'},
+  postOffice:{label:'Post Office',sleep:false,sleepBonus:0,category:'work'},
+  constructionSite:{label:'Construction Site',sleep:false,sleepBonus:0,category:'work'},
+  taxiDepot:{label:'Taxi Depot',sleep:false,sleepBonus:0,category:'work'}
  };
 
  World.safehouseBedLocal={
@@ -1618,42 +1823,131 @@ function buildBillboardLandmarks(scene){
 }
 
 /* =====================================================================
- * CITY ASSETS  (GLB files in  elhay/city/glb, glb2 ... glb6)
+ * CITY ASSETS  (GLB files in  elhay/city/glb ... glb6, colour table in city/textures/colormap.png)
  *
- * Buildings, roads, characters and trees are generated from your GLB
- * files. Cars are NOT touched (they still use the OBJ system above).
- * Nothing here needs GLTFLoader: a small GLB reader is built in.
+ *  - roads, buildings, characters (animated) and props come from your GLB files
+ *  - every enterable place is a real building, and is copied across the map
+ *  - cars are NOT touched (they still use the OBJ system above)
+ *  - no GLTFLoader needed: a small GLB reader (with skinning + animation) is built in
  *
- * How it finds your files (in this order):
- *   1) city/manifest.json   (optional:  ["glb/building-a.glb", ...])
- *   2) a 6-hour cache in the browser
- *   3) GitHub tree API using CITY_GH below (repo must be public)
- * If nothing is found, the old procedural city is used, so the game never breaks.
- * Files are classified by NAME (see cityClassify). Open the browser console
- * (F12) and look for  "[city]"  lines to see what was found.
+ * Files are found through  city/manifest.json  (optional), a 6-hour browser cache,
+ * or the GitHub tree API (CITY_GH below, repo must be public).
+ * If anything is missing the old procedural city is used, so the game never breaks.
+ * Open the browser console (F12) and look for "[city]" lines to see what happened.
  * ===================================================================== */
 const CITY_BASE='/city/';
 const CITY_GH={owner:'jalilzzs',repo:'el-hay',branch:'main',root:'elhay/'};
-const CITY_LIMITS={buildings:24,characters:8,trees:4};
-const CITY_ROAD_ROT=0;          /* if road tiles look turned 90 degrees, change to Math.PI/2 */
-const CITY_ROAD_TILE=8;         /* road width in meters (= ROAD_HALF*2) */
-const CITY_CACHE_KEY='elhay_city_files_v1';
-const CITY_REV=parseInt(THREE.REVISION,10)||150;
+const CITY_ROAD_TILE=8;                 /* road width in meters (= ROAD_HALF*2) */
+const CITY_ROAD_ROT=Math.PI/2;          /* road tiles run along X by default; this turns them to run along Z */
+const CITY_CACHE_KEY='elhay_city_files_v2';
+const CITY_MAX_CHARS=10;
+const CITY_LOT_MAX=11;                  /* biggest footprint (m) of a building in a map lot */
+
+/* direction the door looks, in the model's own space (default is -Z) */
+const CITY_FRONT={'building-r':[1,0],'building-n':[-1,0],'building-skyscraper-e':[-1,0]};
+
+/* ordinary buildings that fill the city */
+const CITY_FILLERS=['building-a','building-b','building-c','building-d','building-e','building-f','building-g','building-h','building-i','building-j','building-k','building-l','building-m','building-o','building-p','building-q','building-t','building-skyscraper-a','building-skyscraper-b','building-skyscraper-c','building-skyscraper-d'];
+
+/* enterable places that already exist: which real building they become.
+ * size = longest side in metres, face = way the door looks (x,z) */
+const CITY_LANDMARKS={
+ hospital:     {model:'building-n',size:17,face:[0,1], sign:['HOSPITAL','#f2f6fa','#c0392b']},
+ police:       {model:'building-k',size:14,face:[0,1], sign:['مركز الشرطة','#1f3b57','#ffffff']},
+ prison:       {model:'building-q',size:20,face:[0,-1],sign:['السجن','#1c1c1c','#e0e0e0'],prison:true},
+ home:         {model:'building-h',size:8.5,face:[0,1]},
+ store:        {model:'building-p',size:10,face:[0,1], sign:['STORE','#b23a2e','#ffffff'],alias:'retail'},
+ cafe:         {model:'building-a',size:8,face:[0,1],   sign:['CAFÉ','#7a5230','#fff1dc']},
+ dealership:   {model:'building-s',size:15,face:[0,-1],sign:['DEALERSHIP','#3d5a6c','#ffffff']},
+ drivingSchool:{model:'building-e',size:11,face:[0,-1],sign:['DRIVING SCHOOL','#b8a06a','#2b2b2b']},
+ cityHall:     {model:'building-m',size:8,face:[0,-1],  sign:['CITY HALL','#e3d9c0','#2b2b2b']},
+ bank:         {model:'building-l',size:11,face:[0,-1], sign:['البنك','#f2f0e6','#1f3b57']},
+ gunshop:      {model:'building-c',size:8,face:[0,1],   sign:['GUN SHOP','#3a3a3a','#ffffff']},
+ studio:       {model:'building-f',size:9,face:[0,-1]},
+ flat2:        {model:'building-g',size:9,face:[0,1]},
+ villa:        {model:'building-j',size:14,face:[0,-1]},
+ restaurant:   {model:'building-d',size:9,face:[0,-1],  sign:['RESTAURANT','#7b1e16','#fff1dc']},
+ mechanic:     {model:'building-r',size:15,face:[0,-1], sign:['AUTO SERVICE','#26343c','#f4d35e']},
+ supermarket:  {model:'building-t',size:13,face:[0,-1], sign:['SUPERMARKET','#8a7418','#fff8cf']},
+ office:       {model:'building-skyscraper-a',size:9,face:[0,-1],sign:['OFFICE','#687989','#ffffff']},
+ motel:        {model:'building-i',size:12,face:[0,-1], sign:['MOTEL','#704c38','#ffffff']},
+ pharmacy:     {model:'building-b',size:8.5,face:[0,-1],sign:['PHARMACY','#eaf4ed','#217346']}
+};
+
+/* NEW enterable places where you can work (placed on the map at start) */
+const CITY_JOBPLACES={
+ factory:         {name:'Factory',          model:'building-o',size:14,face:[0,1], pos:[-20,-13],color:'#6d7480',sign:['FACTORY','#4a4f58','#f4d35e'],props:['construction-barrier']},
+ warehouse:       {name:'Warehouse',        model:'building-s',size:16,face:[0,1], pos:[20,-53], color:'#8a7d68',sign:['WAREHOUSE','#5a4a30','#fff1dc']},
+ constructionSite:{name:'Construction Site',model:'building-skyscraper-e',size:9,face:[-1,0],pos:[94,-20],color:'#e1a92b',sign:['CONSTRUCTION','#e1a92b','#1c1c1c'],props:['construction-cone','construction-barrier','construction-cone']},
+ postOffice:      {name:'Post Office',      model:'building-c',size:10,face:[-1,0],pos:[94,60],  color:'#c0392b',sign:['POST OFFICE','#c0392b','#ffffff']},
+ taxiDepot:       {name:'Taxi Depot',       model:'building-d',size:10,face:[1,0], pos:[-94,20], color:'#f4d35e',sign:['TAXI DEPOT','#f4d35e','#1c1c1c']}
+};
+
+const CITY_NAMES={hospital:'Hospital',police:'Police Station',prison:'Prison',home:'Home',store:'Store',cafe:'Café',dealership:'Dealership',drivingSchool:'Driving School',cityHall:'City Hall',bank:'Bank',gunshop:'Gun Shop',restaurant:'Restaurant',mechanic:'Mechanic Workshop',supermarket:'Supermarket',office:'Office',motel:'Motel',pharmacy:'Pharmacy'};
+const CITY_SHOPTYPES={store:1,cafe:1,dealership:1,drivingSchool:1,cityHall:1};
+
+/* places that are repeated across the map (id, how often) */
+const CITY_SERVICES=[
+ ['hospital',2],['police',2],['bank',2],['restaurant',4],['supermarket',3],['store',3],['cafe',3],['pharmacy',3],
+ ['mechanic',2],['office',3],['motel',2],['gunshop',1],['dealership',1],['drivingSchool',1],
+ ['factory',2],['warehouse',2],['postOffice',2],['taxiDepot',1],['constructionSite',1]
+];
+const CITY_SERVICE_TOTAL=CITY_SERVICES.reduce((a,s)=>a+s[1],0);
 
 const CityAssets={
  ready:false,started:false,
- buildings:[],characters:[],trees:[],
- roadStraight:null,roadCross:null,
- pending:[],npcs:[],
- _rs:null,_rc:null,_center:null,_texCache:{}
+ files:{},tpl:{},fillers:[],chars:[],
+ pending:[],npcQueue:[],npcs:[],
+ _rs:null,_rc:null,_center:null,_kt:{},_plain:{},_sharedMat:{},_signMat:{}
 };
 
-/* ---------- tiny GLB reader (static meshes, materials, embedded or external textures) ---------- */
-function citySRGB(tx){
- if(tx.colorSpace!==undefined&&THREE.SRGBColorSpace!==undefined)tx.colorSpace=THREE.SRGBColorSpace;
- else if(THREE.sRGBEncoding!==undefined)tx.encoding=THREE.sRGBEncoding;
-}
+/* ---------- colour table (one per kit; falls back to grey, never black) ---------- */
+CityAssets.kitTex=function(kit){
+ if(CityAssets._kt[kit])return CityAssets._kt[kit];
+ const tx=new THREE.Texture();
+ tx.flipY=false;
+ tx.encoding=THREE.sRGBEncoding;
+ tx.generateMipmaps=false;
+ tx.minFilter=THREE.LinearFilter;
+ tx.magFilter=THREE.LinearFilter;
+ /* glb5 is the car kit and has its own colormap; every other kit uses city/textures/colormap.png */
+ const urls=kit==='glb5'?[CITY_BASE+'glb5/colormap.png',CITY_BASE+'textures/colormap.png']:[CITY_BASE+'textures/colormap.png'];
+ (function tryLoad(i){
+  if(i>=urls.length){
+   console.warn('[city] colormap not found, tried: '+urls.join(' , '));
+   const cv=document.createElement('canvas');cv.width=cv.height=2;
+   const g=cv.getContext('2d');g.fillStyle='#b8b4aa';g.fillRect(0,0,2,2);
+   tx.image=cv;tx.needsUpdate=true;return;
+  }
+  const img=new Image();
+  img.onload=()=>{tx.image=img;tx.needsUpdate=true;};
+  img.onerror=()=>tryLoad(i+1);
+  img.src=urls[i];
+ })(0);
+ CityAssets._kt[kit]=tx;
+ return tx;
+};
 
+CityAssets.sharedMat=function(kit,skinned){
+ const key=kit+(skinned?'|s':'');
+ if(CityAssets._sharedMat[key])return CityAssets._sharedMat[key];
+ const m=new THREE.MeshStandardMaterial({map:CityAssets.kitTex(kit),roughness:0.9,metalness:0});
+ if(skinned)m.skinning=true;
+ CityAssets._sharedMat[key]=m;
+ return m;
+};
+
+CityAssets.plainMat=function(c,unlit,skinned){
+ const key=[c[0].toFixed(3),c[1].toFixed(3),c[2].toFixed(3),unlit?1:0,skinned?1:0].join('|');
+ if(CityAssets._plain[key])return CityAssets._plain[key];
+ const col=new THREE.Color(c[0],c[1],c[2]);
+ const m=unlit?new THREE.MeshBasicMaterial({color:col}):new THREE.MeshStandardMaterial({color:col,roughness:0.85,metalness:0});
+ if(skinned)m.skinning=true;
+ CityAssets._plain[key]=m;
+ return m;
+};
+
+/* ---------- GLB reader: meshes, node tree, skins and animations ---------- */
 function cityAcc(j,bin,idx){
  const a=j.accessors[idx];
  const nc={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[a.type];
@@ -1681,7 +1975,8 @@ function cityAcc(j,bin,idx){
  return {data:out,nc};
 }
 
-function cityParseGLB(buf){
+function cityParseGLB(buf,rel){
+ const kit=rel.split('/')[0];
  const dv=new DataView(buf);
  if(dv.getUint32(0,true)!==0x46546C67)throw new Error('not a GLB file');
  let off=12,j=null,bin=null;
@@ -1694,74 +1989,19 @@ function cityParseGLB(buf){
  if(!j)throw new Error('GLB has no JSON chunk');
  if(!bin)throw new Error('GLB uses an external .bin (unsupported)');
 
- const texCache={},matCache={},meshCache={};
+ const jointSet=new Set();
+ (j.skins||[]).forEach(s=>s.joints.forEach(n=>jointSet.add(n)));
+ const meshCache={},matCache={},ibmCache={};
 
- function getTex(ti){
-  if(texCache[ti]!==undefined)return texCache[ti];
-  const t=j.textures[ti],im=j.images[t.source];
-  let urls=[],blob=false;
-  if(im.bufferView!==undefined){
-   const bv=j.bufferViews[im.bufferView];
-   urls=[URL.createObjectURL(new Blob([new Uint8Array(bin,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/png'}))];
-   blob=true;
-  }else if(im.uri){
-   if(im.uri.indexOf('data:')===0)urls=[im.uri];
-   else{
-    /* your GLBs ask for "Textures/colormap.png": look in city/textures/ first, then next to the models (city/glb5/) */
-    const nm=decodeURIComponent(im.uri.split('/').pop());
-    urls=[CITY_BASE+'textures/'+nm,CITY_BASE+'glb5/'+nm,CITY_BASE+nm];
-   }
-   if(CityAssets._texCache[urls[0]]){texCache[ti]=CityAssets._texCache[urls[0]];return texCache[ti];}
-  }
-  if(!urls.length){texCache[ti]=null;return null;}
-  const tx=new THREE.Texture();
-  tx.flipY=false;
-  citySRGB(tx);
-  const sm=t.sampler!==undefined&&j.samplers?j.samplers[t.sampler]:null;
-  const wrap=w=>w===33071?THREE.ClampToEdgeWrapping:(w===33648?THREE.MirroredRepeatWrapping:THREE.RepeatWrapping);
-  tx.wrapS=wrap(sm&&sm.wrapS);
-  tx.wrapT=wrap(sm&&sm.wrapT);
-  tx.generateMipmaps=false;           /* stops colour bleeding on palette textures */
-  tx.minFilter=THREE.LinearFilter;
-  (function tryLoad(i){
-   if(i>=urls.length){
-    /* nothing found: grey instead of black so models stay visible */
-    console.warn('[city] texture not found, tried: '+urls.join(' , '));
-    const cv=document.createElement('canvas');cv.width=cv.height=2;
-    const g=cv.getContext('2d');g.fillStyle='#b8b4aa';g.fillRect(0,0,2,2);
-    tx.image=cv;tx.needsUpdate=true;
-    return;
-   }
-   const img=new Image();
-   img.onload=()=>{tx.image=img;tx.needsUpdate=true;if(blob)URL.revokeObjectURL(urls[0]);};
-   img.onerror=()=>tryLoad(i+1);
-   img.src=urls[i];
-  })(0);
-  if(!blob)CityAssets._texCache[urls[0]]=tx;
-  texCache[ti]=tx;
-  return tx;
- }
-
- function getMat(mi,vc){
-  const key=mi+'|'+vc;
+ function getMat(mi,skinned){
+  const key=mi+'|'+skinned;
   if(matCache[key])return matCache[key];
   const m=(mi!==undefined&&j.materials&&j.materials[mi])||{};
   const p=m.pbrMetallicRoughness||{};
-  const c=p.baseColorFactor||[1,1,1,1];
   const unlit=!!(m.extensions&&m.extensions.KHR_materials_unlit);
-  const mat=unlit?new THREE.MeshBasicMaterial({color:new THREE.Color(c[0],c[1],c[2])}):new THREE.MeshStandardMaterial({
-   color:new THREE.Color(c[0],c[1],c[2]),
-   roughness:p.roughnessFactor!==undefined?Math.max(p.roughnessFactor,0.5):0.85,
-   metalness:p.metallicFactor!==undefined?Math.min(p.metallicFactor,0.3):0
-  });
-  if(p.baseColorTexture){const tx=getTex(p.baseColorTexture.index);if(tx)mat.map=tx;}
-  if(!unlit&&m.emissiveFactor&&(m.emissiveFactor[0]+m.emissiveFactor[1]+m.emissiveFactor[2])>0){
-   mat.emissive=new THREE.Color(m.emissiveFactor[0],m.emissiveFactor[1],m.emissiveFactor[2]);
-  }
-  if(m.doubleSided)mat.side=THREE.DoubleSide;
-  if(m.alphaMode==='BLEND'){mat.transparent=true;mat.opacity=c[3];}
-  else if(m.alphaMode==='MASK'){mat.alphaTest=m.alphaCutoff!==undefined?m.alphaCutoff:0.5;}
-  if(vc)mat.vertexColors=(THREE.VertexColors!==undefined&&CITY_REV<127)?THREE.VertexColors:true;
+  let mat;
+  if(p.baseColorTexture)mat=CityAssets.sharedMat(kit,skinned);
+  else mat=CityAssets.plainMat(p.baseColorFactor||[0.8,0.8,0.8,1],unlit,skinned);
   matCache[key]=mat;
   return mat;
  }
@@ -1773,18 +2013,12 @@ function cityParseGLB(buf){
    if(p.mode!==undefined&&p.mode!==4)return;
    const A=p.attributes,g=new THREE.BufferGeometry();
    const setAttr=(g.setAttribute||g.addAttribute).bind(g);
-   const pos=cityAcc(j,bin,A.POSITION);
-   setAttr('position',new THREE.BufferAttribute(pos.data,3));
+   setAttr('position',new THREE.BufferAttribute(cityAcc(j,bin,A.POSITION).data,3));
    if(A.NORMAL!==undefined)setAttr('normal',new THREE.BufferAttribute(cityAcc(j,bin,A.NORMAL).data,3));
    if(A.TEXCOORD_0!==undefined)setAttr('uv',new THREE.BufferAttribute(cityAcc(j,bin,A.TEXCOORD_0).data,2));
-   let hasColor=false;
-   if(A.COLOR_0!==undefined){
-    const col=cityAcc(j,bin,A.COLOR_0);
-    let d=col.data;
-    if(col.nc===4){const f=new Float32Array(d.length/4*3);for(let i=0;i<d.length/4;i++){f[i*3]=d[i*4];f[i*3+1]=d[i*4+1];f[i*3+2]=d[i*4+2];}d=f;}
-    if(!(d instanceof Float32Array))d=Float32Array.from(d);
-    setAttr('color',new THREE.BufferAttribute(d,3));
-    hasColor=true;
+   if(A.JOINTS_0!==undefined&&A.WEIGHTS_0!==undefined){
+    setAttr('skinIndex',new THREE.Uint16BufferAttribute(Uint16Array.from(cityAcc(j,bin,A.JOINTS_0).data),4));
+    setAttr('skinWeight',new THREE.Float32BufferAttribute(Float32Array.from(cityAcc(j,bin,A.WEIGHTS_0).data),4));
    }
    if(p.indices!==undefined){
     let ia=cityAcc(j,bin,p.indices).data;
@@ -1792,57 +2026,121 @@ function cityParseGLB(buf){
     g.setIndex(new THREE.BufferAttribute(ia,1));
    }
    if(A.NORMAL===undefined)g.computeVertexNormals();
-   parts.push({geo:g,mat:getMat(p.material,hasColor)});
+   parts.push({geo:g,mi:p.material});
   });
   meshCache[mi]=parts;
   return parts;
  }
 
- function buildNode(ni){
-  const n=j.nodes[ni],o=new THREE.Group();
-  if(n.matrix){new THREE.Matrix4().fromArray(n.matrix).decompose(o.position,o.quaternion,o.scale);}
-  else{
-   if(n.translation)o.position.fromArray(n.translation);
-   if(n.rotation)o.quaternion.fromArray(n.rotation);
-   if(n.scale)o.scale.fromArray(n.scale);
-  }
-  if(n.mesh!==undefined)getMesh(n.mesh).forEach(p=>o.add(new THREE.Mesh(p.geo,p.mat)));
-  (n.children||[]).forEach(c=>o.add(buildNode(c)));
-  return o;
+ function skinIBM(si){
+  if(ibmCache[si])return ibmCache[si];
+  const sk=j.skins[si];
+  const arr=cityAcc(j,bin,sk.inverseBindMatrices).data;
+  ibmCache[si]=sk.joints.map((n,k)=>new THREE.Matrix4().fromArray(arr,k*16));
+  return ibmCache[si];
  }
 
- const root=new THREE.Group();
- const sc=j.scenes[j.scene||0];
- sc.nodes.forEach(n=>root.add(buildNode(n)));
- return root;
+ /* a fresh node tree every call (geometry and materials are shared) */
+ function make(){
+  const objs={},skinnedList=[];
+  function build(ni){
+   const n=j.nodes[ni];
+   const o=jointSet.has(ni)?new THREE.Bone():new THREE.Group();
+   o.name=n.name||('node'+ni);
+   if(n.matrix){new THREE.Matrix4().fromArray(n.matrix).decompose(o.position,o.quaternion,o.scale);}
+   else{
+    if(n.translation)o.position.fromArray(n.translation);
+    if(n.rotation)o.quaternion.fromArray(n.rotation);
+    if(n.scale)o.scale.fromArray(n.scale);
+   }
+   objs[ni]=o;
+   if(n.mesh!==undefined){
+    const sk=n.skin!==undefined;
+    getMesh(n.mesh).forEach(p=>{
+     const mat=getMat(p.mi,sk);
+     const m=sk?new THREE.SkinnedMesh(p.geo,mat):new THREE.Mesh(p.geo,mat);
+     if(sk){m.frustumCulled=false;skinnedList.push({m,skin:n.skin});}
+     o.add(m);
+    });
+   }
+   (n.children||[]).forEach(c=>o.add(build(c)));
+   return o;
+  }
+  const root=new THREE.Group();
+  j.scenes[j.scene||0].nodes.forEach(n=>root.add(build(n)));
+  root.updateMatrixWorld(true);
+  skinnedList.forEach(s=>{
+   const joints=j.skins[s.skin].joints.map(i=>objs[i]);
+   s.m.bind(new THREE.Skeleton(joints,skinIBM(s.skin).map(m=>m.clone())),s.m.matrixWorld);
+  });
+  return root;
+ }
+
+ /* animation clips we use */
+ const clips=[];
+ const want={idle:1,walk:1,sprint:1};
+ (j.animations||[]).forEach(a=>{
+  if(!want[a.name])return;
+  const tracks=[];
+  a.channels.forEach(ch=>{
+   const s=a.samplers[ch.sampler];
+   const nn=j.nodes[ch.target.node].name;
+   const times=Array.from(cityAcc(j,bin,s.input).data);
+   const vals=Array.from(cityAcc(j,bin,s.output).data);
+   const path=ch.target.path;
+   if(path==='rotation')tracks.push(new THREE.QuaternionKeyframeTrack(nn+'.quaternion',times,vals));
+   else if(path==='translation')tracks.push(new THREE.VectorKeyframeTrack(nn+'.position',times,vals));
+   else if(path==='scale')tracks.push(new THREE.VectorKeyframeTrack(nn+'.scale',times,vals));
+  });
+  clips.push(new THREE.AnimationClip(a.name,-1,tracks));
+ });
+
+ return {make,clips,hasSkin:jointSet.size>0};
 }
 
-/* template = parsed model + measured size; instances are cheap clones (shared geometry/materials) */
-function cityTemplate(root){
+function cityTemplate(def){
+ const root=def.make();
  root.updateMatrixWorld(true);
  const bb=new THREE.Box3().setFromObject(root);
  const sz=bb.getSize(new THREE.Vector3());
- return {root,w:sz.x,h:sz.y,d:sz.z,cx:(bb.min.x+bb.max.x)/2,cz:(bb.min.z+bb.max.z)/2,minY:bb.min.y};
+ return {def,root,w:sz.x,h:sz.y,d:sz.z,cx:(bb.min.x+bb.max.x)/2,cz:(bb.min.z+bb.max.z)/2,minY:bb.min.y};
 }
 
-function cityInstance(t,s,shadows){
+/* a standing copy of a static model (shares geometry and materials) */
+function cityInstance(t,s,cast){
  const g=new THREE.Group();
  const inner=t.root.clone();
  inner.position.set(-t.cx,-t.minY,-t.cz);
  g.add(inner);
  g.scale.setScalar(s);
- if(shadows)inner.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
+ inner.traverse(o=>{if(o.isMesh){o.castShadow=!!cast;o.receiveShadow=true;}});
  return g;
 }
+
+/* angle of a direction (x,z) measured from +Z towards +X */
+function cityAng(v){return Math.atan2(v[0],v[1]);}
+
+/* size, orientation and footprint of a model placed facing f */
+CityAssets.fit=function(name,size,f){
+ const t=CityAssets.tpl[name];
+ if(!t)return null;
+ const s=size/Math.max(t.w,t.d);
+ const front=CITY_FRONT[name]||[0,-1];
+ const r=cityAng(f)-cityAng(front);
+ const w=t.w*s,d=t.d*s;
+ const c=Math.abs(Math.cos(r)),sn=Math.abs(Math.sin(r));
+ const ex=(c*w+sn*d)/2,ez=(sn*w+c*d)/2;
+ return {t,s,r,w,d,h:t.h*s,ex,ez,frontHalf:Math.abs(f[0])*ex+Math.abs(f[1])*ez};
+};
 
 CityAssets.loadModel=function(rel){
  return fetch(CITY_BASE+rel).then(r=>{
   if(!r.ok)throw new Error('HTTP '+r.status);
   return r.arrayBuffer();
- }).then(b=>cityTemplate(cityParseGLB(b)));
+ }).then(b=>cityTemplate(cityParseGLB(b,rel)));
 };
 
-/* ---------- finding + classifying files ---------- */
+/* ---------- finding files ---------- */
 CityAssets.discover=function(){
  return fetch(CITY_BASE+'manifest.json')
   .then(r=>{if(!r.ok)throw 0;return r.json();})
@@ -1865,99 +2163,303 @@ CityAssets.discover=function(){
   });
 };
 
-function cityClassify(files){
- const c={buildings:[],characters:[],trees:[],straight:[],cross:[]};
- files.forEach(f=>{
-  const b=f.split('/').pop().toLowerCase();
-  if(/^road-straight\.glb$/.test(b))c.straight.unshift(f);
-  else if(/^road.*straight/.test(b)&&!/(half|arrow|light|crossing|path)/.test(b))c.straight.push(f);
-  else if(/^road-crossroad\.glb$/.test(b))c.cross.unshift(f);
-  else if(/^road.*(crossroad|intersection)/.test(b)&&!/(path|light|half)/.test(b))c.cross.push(f);
-  else if(/^(character|char-|people|person|npc|citizen|human|male|female)/.test(b))c.characters.push(f);
-  else if(/^(tree|palm|pine)/.test(b))c.trees.push(f);
-  else if(/^(building|skyscraper|house|apartment|shop|store|office|tower|large-building)/.test(b)&&!/(chimney|detail|low-detail|door|window)/.test(b))c.buildings.push(f);
- });
- return c;
-}
-
-function cityPick(list,n){
- const a=list.slice();
- for(let i=a.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));[a[i],a[k]]=[a[k],a[i]];}
- return a.slice(0,n);
-}
-
 CityAssets.start=function(){
  if(CityAssets.started)return;
  CityAssets.started=true;
  CityAssets.discover().then(files=>{
-  const c=cityClassify(files);
-  console.info('[city] '+files.length+' glb files found: '+c.buildings.length+' buildings, '+c.characters.length+' characters, '+c.trees.length+' trees, road straight='+(c.straight[0]||'none')+', crossroad='+(c.cross[0]||'none'));
-  const safe=rel=>CityAssets.loadModel(rel).catch(e=>{console.warn('[city] failed '+rel+': '+e.message);return null;});
-  const many=(list,n)=>Promise.all(cityPick(list,n).map(safe)).then(a=>a.filter(t=>t&&t.w>0&&t.h>0));
-  return Promise.all([
-   many(c.buildings,CITY_LIMITS.buildings),
-   many(c.characters,CITY_LIMITS.characters),
-   many(c.trees,CITY_LIMITS.trees),
-   c.straight.length?safe(c.straight[0]):null,
-   c.cross.length?safe(c.cross[0]):null
-  ]);
- }).then(r=>{
-  CityAssets.buildings=r[0];CityAssets.characters=r[1];CityAssets.trees=r[2];
-  CityAssets.roadStraight=r[3];CityAssets.roadCross=r[4];
+  files.forEach(rel=>{
+   const n=rel.split('/').pop().replace(/\.glb$/i,'');
+   if(!CityAssets.files[n])CityAssets.files[n]=rel;
+  });
+  const need={'road-straight':1,'road-crossroad':1,'construction-cone':1,'construction-barrier':1};
+  CITY_FILLERS.forEach(n=>need[n]=1);
+  Object.keys(CITY_LANDMARKS).forEach(k=>need[CITY_LANDMARKS[k].model]=1);
+  Object.keys(CITY_JOBPLACES).forEach(k=>need[CITY_JOBPLACES[k].model]=1);
+  const charNames=Object.keys(CityAssets.files).filter(n=>/^character-(male|female)-[a-z]$/.test(n)).slice(0,CITY_MAX_CHARS);
+  charNames.forEach(n=>need[n]=1);
+  const names=Object.keys(need).filter(n=>CityAssets.files[n]);
+  console.info('[city] '+files.length+' glb files found, loading '+names.length+' models ('+charNames.length+' characters)');
+  return Promise.all(names.map(n=>CityAssets.loadModel(CityAssets.files[n]).then(t=>{CityAssets.tpl[n]=t;}).catch(e=>console.warn('[city] failed '+n+': '+e.message)))).then(()=>{
+   CityAssets.fillers=CITY_FILLERS.filter(n=>CityAssets.tpl[n]);
+   CityAssets.charList=charNames.filter(n=>CityAssets.tpl[n]);
+  });
+ }).then(()=>{
   CityAssets.ready=true;
   CityAssets._onReady();
  }).catch(e=>console.warn('[city] disabled, using procedural city: '+e.message));
 };
 
-CityAssets._onReady=function(){
- CityAssets._initRoads();
- let upgraded=false;
- CityAssets.pending.forEach(p=>{
-  if(World.chunks&&World.chunks.get(p.cx+','+p.cz)===p.group){
-   if(CityAssets._lots(p.group,p.cx,p.cz,p.bMesh))upgraded=true;
-  }
- });
- CityAssets.pending.length=0;
- if(upgraded){
-  World.collidables.length=World.landmarkCollidableCount;
-  for(const g of World.chunks.values())World.collidables.push(...g.userData.boxes);
+/* ---------- world helpers ---------- */
+function cityBoxMatch(b,x,z,w,d){
+ return Math.abs((b.min.x+b.max.x)/2-x)<0.02&&Math.abs((b.min.z+b.max.z)/2-z)<0.02&&Math.abs((b.max.x-b.min.x)-w)<0.02&&Math.abs((b.max.z-b.min.z)-d)<0.02;
+}
+World.addStaticBox=function(box){
+ World.collidables.splice(World.landmarkCollidableCount,0,box);
+ World.landmarkCollidableCount++;
+};
+World.removeStaticBox=function(box){
+ const i=World.collidables.indexOf(box);
+ if(i<0)return;
+ World.collidables.splice(i,1);
+ if(i<World.landmarkCollidableCount)World.landmarkCollidableCount--;
+};
+CityAssets.removeCubeBox=function(mesh){
+ const p=mesh.geometry&&mesh.geometry.parameters;
+ if(!p)return;
+ for(let i=0;i<World.landmarkCollidableCount;i++){
+  const b=World.collidables[i];
+  if(cityBoxMatch(b,mesh.position.x,mesh.position.z,p.width,p.depth)){World.removeStaticBox(b);return;}
  }
- CityAssets.npcs.forEach(g=>CityAssets._dress(g));
- CityAssets.npcs.length=0;
+};
+CityAssets.hideDecorNear=function(x0,z0,x1,z1){
+ [World._ledges,World._signs].forEach(list=>(list||[]).forEach(m=>{
+  if(m.position.x>=x0&&m.position.x<=x1&&m.position.z>=z0&&m.position.z<=z1)m.visible=false;
+ }));
 };
 
-/* ---------- buildings: 4 lots per chunk, each lot sits between roads and faces one ---------- */
-CityAssets.decorateChunk=function(group,cx,cz,bMesh){
- if(!CityAssets.ready){CityAssets.pending.push({group,cx,cz,bMesh});return;}
- CityAssets._lots(group,cx,cz,bMesh);
+CityAssets.addPOI=function(poi){
+ World.pois.push(poi);
+ if(poi.type==='shop')World.shops.push(poi);else World.entrances.push(poi);
+};
+CityAssets.removePOI=function(poi){
+ [World.pois,World.entrances,World.shops].forEach(a=>{const i=a.indexOf(poi);if(i>=0)a.splice(i,1);});
+};
+CityAssets.dropChunk=function(g){
+ (g.userData.pois||[]).forEach(p=>CityAssets.removePOI(p));
+ g.userData.pois=[];
 };
 
-CityAssets._lots=function(group,cx,cz,bMesh){
- const pool=CityAssets.buildings;
- if(!pool.length)return false;
- bMesh.visible=false;
+CityAssets.signMat=function(text,bg,fg){
+ const k=text+'|'+bg+'|'+fg;
+ if(!CityAssets._signMat[k])CityAssets._signMat[k]=new THREE.MeshBasicMaterial({map:signboardTex(text,bg,fg)});
+ return CityAssets._signMat[k];
+};
+CityAssets.sign=function(parent,P,f,b,sign){
+ if(!sign)return null;
+ const w=Math.min(Math.max(b.w,b.d)*0.55,5),h=w*0.26;
+ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),CityAssets.signMat(sign[0],sign[1],sign[2]));
+ const y=Math.min(Math.max(b.h*0.55,3.4),7);
+ m.position.set(P.x-f[0]*1.08,y,P.z-f[1]*1.08);
+ m.rotation.y=cityAng(f);
+ parent.add(m);
+ return m;
+};
+
+/* ---------- upgrading the existing cube landmarks ---------- */
+CityAssets._upgradeLandmarks=function(){
+ Object.keys(CITY_LANDMARKS).forEach(id=>{
+  const spec=CITY_LANDMARKS[id];
+  const poi=World.pois.find(p=>p.id===id&&!p.dyn);
+  const b=CityAssets.fit(spec.model,spec.size,spec.face);
+  if(!poi||!b)return;
+  const key=spec.alias||id;
+  const old=World.landmarks[key];
+  const f=spec.face;
+  const cx=poi.pos.x-f[0]*(b.frontHalf+1.2),cz=poi.pos.z-f[1]*(b.frontHalf+1.2);
+  if(old&&old.geometry){
+   old.visible=false;
+   CityAssets.removeCubeBox(old);
+   const p=old.geometry.parameters;
+   CityAssets.hideDecorNear(old.position.x-p.width/2-1,old.position.z-p.depth/2-1,old.position.x+p.width/2+1,old.position.z+p.depth/2+1);
+  }
+  const g=cityInstance(b.t,b.s,true);
+  g.rotation.y=b.r;
+  g.position.set(cx,0,cz);
+  World.scene.add(g);
+  World.landmarks[key]=g;
+  World.addStaticBox({min:new THREE.Vector3(cx-b.ex,0,cz-b.ez),max:new THREE.Vector3(cx+b.ex,b.h,cz+b.ez)});
+  CityAssets.sign(World.scene,poi.pos,f,b,spec.sign);
+  if(spec.prison)CityAssets._prisonYard(cx,cz,b,f);
+ });
+};
+
+/* walls + watch towers around the prison */
+CityAssets._prisonYard=function(cx,cz,b,f){
+ /* the two old stray wall blocks were meant for the prison yard: remove them */
+ (World._lmWalls||[]).forEach(m=>{m.visible=false;CityAssets.removeCubeBox(m);});
+ const wallMat=new THREE.MeshStandardMaterial({color:0x8d8a82,roughness:1});
+ const roofMat=new THREE.MeshStandardMaterial({color:0x4a4842,roughness:0.9});
+ const m=4.5,x0=cx-b.ex-m,x1=cx+b.ex+m,z0=cz-b.ez-m,z1=cz+b.ez+m,H=3,T=0.7;
+ const wall=(ax,az,bx,bz)=>{
+  const w=Math.abs(bx-ax)+T,d=Math.abs(bz-az)+T;
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,H,d),wallMat);
+  mesh.position.set((ax+bx)/2,H/2,(az+bz)/2);
+  mesh.castShadow=mesh.receiveShadow=true;
+  World.scene.add(mesh);
+  World.addStaticBox({min:new THREE.Vector3((ax+bx)/2-w/2,0,(az+bz)/2-d/2),max:new THREE.Vector3((ax+bx)/2+w/2,H,(az+bz)/2+d/2)});
+ };
+ /* the side the door looks at keeps a gap in the middle */
+ const gap=4;
+ if(f[1]!==0){
+  const gz=f[1]>0?z1:z0,oz=f[1]>0?z0:z1;
+  wall(x0,oz,x1,oz);
+  wall(x0,gz,cx-gap,gz);wall(cx+gap,gz,x1,gz);
+  wall(x0,z0,x0,z1);wall(x1,z0,x1,z1);
+ }else{
+  const gx=f[0]>0?x1:x0,ox=f[0]>0?x0:x1;
+  wall(ox,z0,ox,z1);
+  wall(gx,z0,gx,cz-gap);wall(gx,cz+gap,gx,z1);
+  wall(x0,z0,x1,z0);wall(x0,z1,x1,z1);
+ }
+ [[x0,z0],[x1,z0],[x0,z1],[x1,z1]].forEach(c=>{
+  const tw=new THREE.Mesh(new THREE.BoxGeometry(2.2,7,2.2),wallMat);
+  tw.position.set(c[0],3.5,c[1]);tw.castShadow=tw.receiveShadow=true;World.scene.add(tw);
+  const rf=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.6,3.2),roofMat);
+  rf.position.set(c[0],7.3,c[1]);World.scene.add(rf);
+  World.addStaticBox({min:new THREE.Vector3(c[0]-1.1,0,c[1]-1.1),max:new THREE.Vector3(c[0]+1.1,7,c[1]+1.1)});
+ });
+};
+
+/* ---------- new job places placed at start ---------- */
+CityAssets._buildJobPlaces=function(){
+ Object.keys(CITY_JOBPLACES).forEach(id=>{
+  const spec=CITY_JOBPLACES[id];
+  const b=CityAssets.fit(spec.model,spec.size,spec.face);
+  if(!b)return;
+  const f=spec.face,P=new THREE.Vector3(spec.pos[0],1,spec.pos[1]);
+  const cx=P.x-f[0]*(b.frontHalf+1.2),cz=P.z-f[1]*(b.frontHalf+1.2);
+  const g=cityInstance(b.t,b.s,true);
+  g.rotation.y=b.r;g.position.set(cx,0,cz);
+  World.scene.add(g);
+  World.landmarks[id]=g;
+  World.addStaticBox({min:new THREE.Vector3(cx-b.ex,0,cz-b.ez),max:new THREE.Vector3(cx+b.ex,b.h,cz+b.ez)});
+  CityAssets.sign(World.scene,P,f,b,spec.sign);
+  /* props on the pavement in front */
+  const side=[-f[1],f[0]];
+  (spec.props||[]).forEach((pn,i)=>{
+   const pb=CityAssets.fit(pn,pn==='construction-cone'?1.1:2.6,[0,1]);
+   if(!pb)return;
+   const k=(i%2?1:-1)*(3+Math.floor(i/2)*1.6);
+   const pg=cityInstance(pb.t,pb.s,false);
+   pg.position.set(P.x+side[0]*k+f[0]*0.4,0,P.z+side[1]*k+f[1]*0.4);
+   pg.rotation.y=cityAng(f);
+   World.scene.add(pg);
+  });
+  CityAssets.addPOI({id,name:spec.name,type:'interior',pos:P,color:spec.color,job:true});
+ });
+};
+
+/* ---------- map lots: filler buildings + copies of the enterable places, merged per chunk ---------- */
+function cityMerge(items,castShadow){
+ const groups=new Map();
+ items.forEach(it=>{if(!groups.has(it.mat))groups.set(it.mat,[]);groups.get(it.mat).push(it);});
+ const out=[];
+ groups.forEach((list,mat)=>{
+  let nv=0,ni=0;
+  list.forEach(it=>{const a=it.geo.attributes.position.count;nv+=a;ni+=it.geo.index?it.geo.index.count:a;});
+  const pos=new Float32Array(nv*3),nor=new Float32Array(nv*3),uv=new Float32Array(nv*2),idx=new Uint32Array(ni);
+  let vo=0,io=0;
+  const v=new THREE.Vector3(),nm=new THREE.Matrix3();
+  list.forEach(it=>{
+   const gp=it.geo.attributes.position,gn=it.geo.attributes.normal,gu=it.geo.attributes.uv;
+   nm.getNormalMatrix(it.m);
+   for(let i=0;i<gp.count;i++){
+    v.fromBufferAttribute(gp,i).applyMatrix4(it.m);
+    pos[(vo+i)*3]=v.x;pos[(vo+i)*3+1]=v.y;pos[(vo+i)*3+2]=v.z;
+    if(gn){v.fromBufferAttribute(gn,i).applyMatrix3(nm).normalize();nor[(vo+i)*3]=v.x;nor[(vo+i)*3+1]=v.y;nor[(vo+i)*3+2]=v.z;}
+    if(gu){uv[(vo+i)*2]=gu.getX(i);uv[(vo+i)*2+1]=gu.getY(i);}
+   }
+   if(it.geo.index){for(let i=0;i<it.geo.index.count;i++)idx[io+i]=it.geo.index.getX(i)+vo;io+=it.geo.index.count;}
+   else{for(let i=0;i<gp.count;i++)idx[io+i]=vo+i;io+=gp.count;}
+   vo+=gp.count;
+  });
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  g.setIndex(new THREE.BufferAttribute(idx,1));
+  g.computeBoundingSphere();
+  const m=new THREE.Mesh(g,mat);
+  m.castShadow=!!castShadow;m.receiveShadow=true;
+  out.push(m);
+ });
+ return out;
+}
+
+CityAssets._keepClear=function(x0,z0,x1,z1){
+ /* fixed landmarks */
+ for(let i=0;i<World.landmarkCollidableCount;i++){
+  const b=World.collidables[i];
+  if(x0<b.max.x+1.5&&x1>b.min.x-1.5&&z0<b.max.z+1.5&&z1>b.min.z-1.5)return true;
+ }
+ /* doors, spawns and start cars */
+ const pts=[];
+ World.pois.forEach(p=>{if(!p.dyn)pts.push([p.pos.x,p.pos.z]);});
+ [[-68,-18],[50,-50],[58,-52]].forEach(p=>pts.push(p));
+ for(let i=0;i<5;i++)pts.push([-40+i*20,10]);
+ if(typeof NPC_DEFS!=='undefined')NPC_DEFS.forEach(n=>{if(n.spawn)pts.push([n.spawn.x,n.spawn.z]);});
+ for(const p of pts)if(p[0]>x0-2.5&&p[0]<x1+2.5&&p[1]>z0-2.5&&p[1]<z1+2.5)return true;
+ return false;
+};
+
+CityAssets.decorateChunk=function(group,cx,cz,bMesh,center){
+ if(!CityAssets.ready){CityAssets.pending.push({group,cx,cz,bMesh,center});return;}
+ CityAssets._lots(group,cx,cz,bMesh,center);
+};
+
+CityAssets._lots=function(group,cx,cz,bMesh,center){
+ if(!CityAssets.fillers.length)return false;
+ if(group.userData.lotMeshes)return true;
+ if(bMesh)bMesh.visible=false;
  const boxes=group.userData.boxes;
  boxes.length=0;
+ group.userData.pois=[];
  const ox=cx*World.CHUNK,oz=cz*World.CHUNK;
+ const items=[],meshes=[];
+ const mM=new THREE.Matrix4(),tM=new THREE.Matrix4(),rM=new THREE.Matrix4(),sM=new THREE.Matrix4(),oM=new THREE.Matrix4();
+
  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach((q,i)=>{
-  const h=hash(cx*29+i*7,cz*31+i*3);
-  const t=pool[Math.floor(h*pool.length)%pool.length];
-  const foot=9+((h*97)%1)*2;            /* 9..11 m footprint inside a 13 m lot */
-  const s=foot/Math.max(t.w,t.d);
+  const h=hash(cx*29+i*7,cz*31+i*3),h2=hash(cx*53+i*11,cz*17+i*5),h3=hash(cx*97+i*13,cz*43+i*9);
   const px=ox+q[0]*13.5,pz=oz+q[1]*13.5;
-  const alongX=((h*13)%1)<0.5;          /* face the road on the x side or on the z side */
-  const inst=cityInstance(t,s,true);
-  inst.position.set(px,0,pz);
-  inst.rotation.y=alongX?Math.atan2(-q[0],0):Math.atan2(0,-q[1]);
-  group.add(inst);
-  const w=t.w*s/2,d=t.d*s/2;
-  const ex=alongX?d:w,ez=alongX?w:d;
-  boxes.push({min:new THREE.Vector3(px-ex,0,pz-ez),max:new THREE.Vector3(px+ex,t.h*s,pz+ez)});
+  const alongX=((h*13)%1)<0.5;
+  const f=alongX?[-q[0],0]:[0,-q[1]];
+
+  /* what stands here: a service (hospital, bank, work...) or an ordinary building */
+  let svc=null;
+  if(h2<0.42){
+   let r=h3*CITY_SERVICE_TOTAL;
+   for(const s of CITY_SERVICES){r-=s[1];if(r<=0){svc=s[0];break;}}
+  }
+  let spec=null,name,size;
+  if(svc){
+   spec=CITY_LANDMARKS[svc]||CITY_JOBPLACES[svc];
+   if(!spec||!CityAssets.tpl[spec.model])svc=null;
+  }
+  if(svc){name=spec.model;size=Math.min(spec.size,CITY_LOT_MAX);}
+  else{
+   name=CityAssets.fillers[Math.floor(h*CityAssets.fillers.length)%CityAssets.fillers.length];
+   size=Math.min(CITY_LOT_MAX,8.5+((h*97)%1)*2.5);
+  }
+  const b=CityAssets.fit(name,size,f);
+  if(!b)return;
+  if(center&&CityAssets._keepClear(px-b.ex,pz-b.ez,px+b.ex,pz+b.ez))return;
+
+  /* merge this building into the chunk mesh */
+  tM.makeTranslation(px,0,pz);rM.makeRotationY(b.r);sM.makeScale(b.s,b.s,b.s);
+  oM.makeTranslation(-b.t.cx,-b.t.minY,-b.t.cz);
+  b.t.root.updateMatrixWorld(true);
+  b.t.root.traverse(o=>{
+   if(!o.isMesh)return;
+   mM.copy(tM).multiply(rM).multiply(sM).multiply(oM).multiply(o.matrixWorld);
+   items.push({geo:o.geometry,mat:o.material,m:mM.clone()});
+  });
+  boxes.push({min:new THREE.Vector3(px-b.ex,0,pz-b.ez),max:new THREE.Vector3(px+b.ex,b.h,pz+b.ez)});
+
+  if(svc){
+   const P=new THREE.Vector3(px+f[0]*(b.frontHalf+1.2),1,pz+f[1]*(b.frontHalf+1.2));
+   const poi={id:svc,name:CITY_NAMES[svc]||spec.name||svc,type:CITY_SHOPTYPES[svc]?'shop':'interior',pos:P,color:spec.color||'#888',dyn:true};
+   CityAssets.addPOI(poi);
+   group.userData.pois.push(poi);
+   const sg=CityAssets.sign(group,P,f,b,spec.sign);
+   if(sg)meshes.push(sg);
+  }
  });
+ cityMerge(items,false).forEach(m=>{group.add(m);meshes.push(m);});
+ group.userData.lotMeshes=meshes;
  return true;
 };
 
-/* ---------- roads: instanced tiles along the grid lines, replacing the flat road planes ---------- */
+/* ---------- roads: instanced tiles along the grid lines ---------- */
 CityAssets._makeSet=function(t,cap){
  const parts=[];
  t.root.updateMatrixWorld(true);
@@ -1975,8 +2477,17 @@ CityAssets._makeSet=function(t,cap){
  return {parts,base,meshes,n:0,cap};
 };
 
+CityAssets._blocked=function(x,z){
+ for(let i=0;i<World.landmarkCollidableCount;i++){
+  const b=World.collidables[i];
+  if(x>b.min.x-2&&x<b.max.x+2&&z>b.min.z-2&&z<b.max.z+2&&(b.max.y===undefined||b.max.y>2.5))return true;
+ }
+ return false;
+};
+
 CityAssets._put=function(set,x,z,rot){
  if(set.n>=set.cap)return;
+ if(CityAssets._blocked(x,z))return;
  const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),rot);
  const inst=new THREE.Matrix4().compose(new THREE.Vector3(x,0.03,z),q,new THREE.Vector3(1,1,1));
  const m=new THREE.Matrix4();
@@ -1988,9 +2499,10 @@ CityAssets._put=function(set,x,z,rot){
 };
 
 CityAssets._initRoads=function(){
- if(!CityAssets.roadStraight)return;
- CityAssets._rs=CityAssets._makeSet(CityAssets.roadStraight,1500);
- if(CityAssets.roadCross)CityAssets._rc=CityAssets._makeSet(CityAssets.roadCross,200);
+ const t=CityAssets.tpl['road-straight'];
+ if(!t)return;
+ CityAssets._rs=CityAssets._makeSet(t,1500);
+ if(CityAssets.tpl['road-crossroad'])CityAssets._rc=CityAssets._makeSet(CityAssets.tpl['road-crossroad'],200);
  (World._roadMeshes||[]).forEach(m=>{m.visible=false;});
  if(CityAssets._center)CityAssets._updateRoads(CityAssets._center[0],CityAssets._center[1]);
 };
@@ -2012,18 +2524,18 @@ CityAssets._updateRoads=function(ccx,ccz){
  const lineMax=4;
  for(let k=-lineMax;k<=lineMax;k++){
   const line=k*L;
-  if(line>=x0-T&&line<=x1+T){            /* road running along z at x=line */
+  if(line>=x0-T&&line<=x1+T){            /* road running along Z at x=line */
    for(let z=Math.ceil(z0/T)*T;z<=z1;z+=T){
-    const onCross=Math.abs(z%L)<0.01&&Math.abs(z)<=lineMax*L;
+    const onCross=Math.abs(((z%L)+L)%L)<0.01&&Math.abs(z)<=lineMax*L;
     if(onCross){if(rc)CityAssets._put(rc,line,z,0);else CityAssets._put(rs,line,z,CITY_ROAD_ROT);}
     else CityAssets._put(rs,line,z,CITY_ROAD_ROT);
    }
   }
-  if(line>=z0-T&&line<=z1+T){            /* road running along x at z=line */
+  if(line>=z0-T&&line<=z1+T){            /* road running along X at z=line */
    for(let x=Math.ceil(x0/T)*T;x<=x1;x+=T){
-    const onCross=Math.abs(x%L)<0.01&&Math.abs(x)<=lineMax*L;
+    const onCross=Math.abs(((x%L)+L)%L)<0.01&&Math.abs(x)<=lineMax*L;
     if(onCross)continue;                  /* crossing already placed above */
-    CityAssets._put(rs,x,line,CITY_ROAD_ROT+Math.PI/2);
+    CityAssets._put(rs,x,line,0);
    }
   }
  }
@@ -2033,29 +2545,78 @@ CityAssets._updateRoads=function(ccx,ccz){
  });
 };
 
-/* ---------- characters ---------- */
+/* ---------- characters (skinned, animated: idle / walk / sprint) ---------- */
 CityAssets.dressNPC=function(g){
- if(!CityAssets.ready){CityAssets.npcs.push(g);return;}
+ if(!CityAssets.ready){CityAssets.npcQueue.push(g);return;}
  CityAssets._dress(g);
 };
 
 CityAssets._dress=function(g){
- const pool=CityAssets.characters;
- if(!pool.length)return;
- const t=pool[Math.floor(Math.random()*pool.length)];
- const inst=cityInstance(t,1.65/t.h,true);
- g.children.forEach(c=>{c.visible=false;});   /* procedural body stays (hidden) so other code keeps working */
- g.add(inst);
+ const list=CityAssets.charList||[];
+ if(!list.length)return;
+ const t=CityAssets.tpl[list[Math.floor(Math.random()*list.length)]];
+ const root=t.def.make();
+ const holder=new THREE.Group();
+ root.position.set(-t.cx,-t.minY,-t.cz);
+ holder.add(root);
+ holder.scale.setScalar(1.65/t.h);
+ const mixer=new THREE.AnimationMixer(root);
+ const actions={};
+ t.def.clips.forEach(c=>{actions[c.name]=mixer.clipAction(c);});
+ g.children.forEach(c=>{c.visible=false;});     /* the old box body stays (hidden) so other code keeps working */
+ g.add(holder);
+ holder.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
+ const e={g,holder,mixer,actions,cur:null,lx:g.position.x,lz:g.position.z,tinted:false};
+ CityAssets._play(e,'idle');
+ CityAssets.npcs.push(e);
+};
+
+CityAssets._play=function(e,name){
+ const a=e.actions[name];
+ if(!a||e.cur===name)return;
+ const old=e.cur&&e.actions[e.cur];
+ a.reset().setEffectiveWeight(1).fadeIn(0.2).play();
+ if(old)old.fadeOut(0.2);
+ e.cur=name;
+};
+
+CityAssets.update=function(dt){
+ if(!CityAssets.npcs.length||dt<=0)return;
+ dt=Math.min(dt,0.1);
+ for(const e of CityAssets.npcs){
+  const g=e.g;
+  if(!g.visible){e.lx=g.position.x;e.lz=g.position.z;continue;}
+  const dx=g.position.x-e.lx,dz=g.position.z-e.lz;
+  e.lx=g.position.x;e.lz=g.position.z;
+  const sp=Math.sqrt(dx*dx+dz*dz)/dt;
+  /* a big jump = teleport/respawn, not walking */
+  const state=sp>30?'idle':sp>3.2?'sprint':sp>0.12?'walk':'idle';
+  CityAssets._play(e,state);
+  e.mixer.update(dt*(state==='walk'?Math.min(Math.max(sp/1.2,0.6),1.6):1));
+  /* police officers keep their blue uniform look */
+  if(!e.tinted&&g.children[0]&&g.children[0].material&&g.children[0].material.color.getHex()===0x1f3b57){
+   e.tinted=true;
+   e.holder.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.color.setHex(0x7c98d8);}});
+  }
+ }
 };
 
 /* ---------- trees ---------- */
-CityAssets.addTree=function(parent,x,z){
- if(!CityAssets.ready||!CityAssets.trees.length)return false;
- const t=CityAssets.trees[Math.floor(Math.random()*CityAssets.trees.length)];
- const inst=cityInstance(t,(3.5+Math.random()*1.5)/t.h,true);
- inst.position.set(x,0,z);
- parent.add(inst);
- return true;
+CityAssets.addTree=function(parent,x,z){return false;};
+
+CityAssets._onReady=function(){
+ CityAssets._upgradeLandmarks();
+ CityAssets._buildJobPlaces();
+ CityAssets._initRoads();
+ CityAssets.pending.forEach(p=>{
+  if(World.chunks&&World.chunks.get(p.cx+','+p.cz)===p.group)CityAssets._lots(p.group,p.cx,p.cz,p.bMesh,p.center);
+ });
+ CityAssets.pending.length=0;
+ World.collidables.length=World.landmarkCollidableCount;
+ for(const g of World.chunks.values())World.collidables.push(...g.userData.boxes);
+ CityAssets.npcQueue.forEach(g=>CityAssets._dress(g));
+ CityAssets.npcQueue.length=0;
+ console.info('[city] ready: '+Object.keys(CityAssets.tpl).length+' models, '+CityAssets.fillers.length+' filler buildings, '+(CityAssets.charList||[]).length+' characters');
 };
 
 /* ============ STREET FURNITURE ============ */
@@ -2109,7 +2670,7 @@ function makeTree(parent,x,z){
 }
 
 /* ============ TRAFFIC ============ */
-const Traffic={cars:[],size:6};
+const Traffic={cars:[],size:10};
 
 /* mix of real models driving around */
 const TRAFFIC_TYPES=['sedan','hatchback','suv','sedan','pickup','hatchback'];
@@ -2226,7 +2787,11 @@ function spawnKeyNpcs(){
 
 World.update=function(px,pz,dt){
  World.updateChunks(px,pz);
- Traffic.update(dt,new THREE.Vector3(px,0,pz));
+ if(!World.testMode){
+  Traffic.update(dt,new THREE.Vector3(px,0,pz));
+  World.updateCheckpoint(px,pz,dt);
+ }
+ CityAssets.update(dt);
 };
 
 /* ============ CHUNK STREAMING ============ */
@@ -2265,6 +2830,7 @@ function clampAwayFromRoad(v){
 function buildChunk(cx,cz){
  const group=new THREE.Group();
  group.userData.boxes=[];
+ const center=Math.abs(cx)<=2&&Math.abs(cz)<=2;
 
  const count=6;
 
@@ -2280,7 +2846,7 @@ function buildChunk(cx,cz){
  const originX=cx*World.CHUNK;
  const originZ=cz*World.CHUNK;
 
- for(let i=0;i<count;i++){
+ for(let i=0;i<(center?0:count);i++){
   const h=hash(cx*13+i,cz*7+i);
 
   const w=4+h*4;
@@ -2328,7 +2894,9 @@ function buildChunk(cx,cz){
 
  group.add(bMesh,lampPoles,lampHeads);
 
- let s=sidewalkSpot('x',originX,originZ+8,1);
+ let s;
+ if(!center){
+ s=sidewalkSpot('x',originX,originZ+8,1);
  makeTree(group,s.x,s.z);
 
  s=sidewalkSpot('z',originZ,originX-8,-1);
@@ -2336,11 +2904,12 @@ function buildChunk(cx,cz){
 
  s=sidewalkSpot('x',originX,originZ-8,-1);
  makeTrafficSign(group,s.x,s.z);
+ }
 
- if(hash(cx*3,cz*5)>0.55){
-  s=sidewalkSpot('x',originX,originZ+(hash(cx,cz)-0.5)*20,1);
+ if(!center&&hash(cx*3,cz*5)>0.55){
+  s={z:originZ+(hash(cx,cz+7)<0.5?-1:1)*(9+hash(cx+3,cz)*8)}; /* keep clear of the intersection */
 
-  const curbX=originX+ROAD_HALF+0.9;
+  const curbX=originX+ROAD_HALF+2.1; /* fully on the sidewalk, not on the asphalt */
 
   /* parked cars along the road: sedans, hatchbacks, SUVs, pickups */
   const parkedPool=['sedan','hatchback','suv','pickup'];
@@ -2356,12 +2925,12 @@ function buildChunk(cx,cz){
   group.add(pc);
  }
 
- if(hash(cx*17,cz*19)>0.7){
+ if(!center&&hash(cx*17,cz*19)>0.7){
   s=sidewalkSpot('x',originX,originZ+(hash(cx,cz)-0.5)*20,1);
   makeBillboard(group,s.x,3,s.z,s.faceRotY,'ad_generic.jpg','SIDEWALK AD');
  }
 
- CityAssets.decorateChunk(group,cx,cz,bMesh);
+ CityAssets.decorateChunk(group,cx,cz,bMesh,center);
 
  return group;
 }
@@ -2369,6 +2938,7 @@ function buildChunk(cx,cz){
 World.landmarkCollidableCount=0;
 
 World.updateChunks=function(px,pz){
+ if(World.testMode)return;
  const ccx=Math.round(px/World.CHUNK);
  const ccz=Math.round(pz/World.CHUNK);
  CityAssets.onCenter(ccx,ccz);
@@ -2380,8 +2950,6 @@ World.updateChunks=function(px,pz){
   for(let dz=-World.RADIUS;dz<=World.RADIUS;dz++){
    const cx=ccx+dx;
    const cz=ccz+dz;
-
-   if(Math.abs(cx)<=2&&Math.abs(cz)<=2)continue;
 
    const key=chunkKey(cx,cz);
    wanted.add(key);
@@ -2397,6 +2965,7 @@ World.updateChunks=function(px,pz){
 
  for(const [key,g] of World.chunks){
   if(!wanted.has(key)){
+   CityAssets.dropChunk(g);
    World.scene.remove(g);
    World.chunks.delete(key);
    changed=true;

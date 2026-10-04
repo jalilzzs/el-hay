@@ -329,6 +329,11 @@ Phone.renderHome = function() {
           <span class="app-name">Estate&Auto</span>
         </div>
 
+        <div class="app-icon" onclick="Phone.openApp('jobs')">
+          <div class="app-box" style="background:#16a085">💼</div>
+          <span class="app-name">Jobs</span>
+        </div>
+
         <div class="app-icon" onclick="Phone.openApp('weapons')">
           <div class="app-box" style="background:#34495e">🔫</div>
           <span class="app-name">DarkNet</span>
@@ -427,6 +432,7 @@ Phone.openApp = function(appId) {
   else if (appId === 'delivery') Phone.renderDelivery(body);
   else if (appId === 'realestate') Phone.renderMarket(body);
   else if (appId === 'weapons') Phone.renderWeaponShop(body);
+  else if (appId === 'jobs') Phone.renderJobs(body);
 };
 
 
@@ -672,10 +678,10 @@ Phone.renderContactActions = function(npcId) {
       label: '📞 Call',
       action: () => Phone.callContact(npcId)
     },
-    {
+    ...(npcId === 'sofia' ? [] : [{
       label: '📅 Date',
       action: () => Phone.requestDate(npcId)
-    },
+    }]),
     {
       label: '🌹 Flowers',
       action: () => Phone.sendFlowers(npcId)
@@ -1019,6 +1025,11 @@ Phone.requestDate = function(npcId) {
   const npc = Phone.getNPC(npcId);
   if (!npc) return;
 
+  if (npcId === 'sofia') {
+    Phone.showContactMessage(npc.name + ': Let\'s just chat, I am not into dates.');
+    return;
+  }
+
   const state = Phone.ensureRelationship(npcId);
 
   const remaining = Phone.getCooldown(
@@ -1323,6 +1334,10 @@ Phone.toggleFollow = function(npcId) {
 
 Phone.tryMakeNPCFollow = function(npcId) {
   try {
+    if (Relationships.follow) {
+      Relationships.follow(npcId);
+      return;
+    }
     if (typeof NPCPool !== 'undefined') {
       if (typeof NPCPool.followPlayer === 'function') {
         NPCPool.followPlayer(npcId);
@@ -1352,6 +1367,10 @@ Phone.tryMakeNPCFollow = function(npcId) {
 
 Phone.tryStopNPCFollow = function(npcId) {
   try {
+    if (Relationships.stopFollow) {
+      Relationships.stopFollow(npcId);
+      return;
+    }
     if (typeof NPCPool !== 'undefined') {
       if (typeof NPCPool.stopFollowing === 'function') {
         NPCPool.stopFollowing(npcId);
@@ -1584,14 +1603,13 @@ Phone.checkMarriageAnswer = function(npcId) {
   else if (affinity >= 85) acceptanceChance = 0.85;
   else if (affinity >= 80) acceptanceChance = 0.70;
 
-  const accepted = Math.random() < acceptanceChance;
+  /* affinity >= MARRIAGE_REQUIRED was checked when proposing: always accepted */
+  const accepted = affinity >= RELATIONSHIP_CONFIG.MARRIAGE_REQUIRED;
 
   state.proposalPending = false;
 
   if (accepted) {
-    state.married = true;
-    state.relationship = 'married';
-    state.following = true;
+    Relationships.marry(npcId);
 
     Phone.showMarriageAccepted(npcId);
 
@@ -2018,65 +2036,49 @@ Phone.renderMarket = function(body) {
 
 Phone.renderWeaponShop = function(body) {
   body.innerHTML =
-    '<h3 style="color:var(--accent);margin-top:0">Black Market</h3>';
+    '<h3 style="color:var(--accent);margin-top:0">Black Market</h3>' +
+    '<div style="color:var(--dim);font-size:11px;margin-bottom:8px">No questions asked — prices +' +
+    Math.round((DARKNET_MARKUP - 1) * 100) + '%</div>';
 
-  [
-    {
-      id: 'pistol',
-      price: 800,
-      ammoPrice: 5
-    },
-    {
-      id: 'rifle',
-      price: 2500,
-      ammoPrice: 8
-    }
-  ].forEach(entry => {
+  const licensed = Docs.has('gunLicense');
+
+  if (DARKNET_NEEDS_LICENSE && !licensed) {
+    body.insertAdjacentHTML('beforeend',
+      '<p style="color:#e74c3c">🔒 A Gun License is required.</p>');
+    return;
+  }
+
+  WEAPON_STOCK.forEach(entry => {
 
     const w = ARSENAL[entry.id];
 
     if (!w) return;
 
-    const row = document.createElement('div');
+    const price = Math.round(entry.price * DARKNET_MARKUP);
+    const isGun = w.type === 'gun';
+    const owned = Weapons.owned.includes(entry.id);
 
+    const row = document.createElement('div');
     row.className = 'shopItem';
 
-    const owned =
-      Weapons.owned.includes(entry.id);
-
     row.innerHTML =
-      '<span>' +
-      w.name +
-      (owned
-        ? ' (Owned)'
-        : ' — $' + entry.price) +
-      '</span>';
+      '<span>' + w.name + (owned ? ' (Owned)' : ' — $' + price) + '</span>';
 
     const btn = document.createElement('button');
 
-    btn.textContent =
-      owned
-        ? 'Buy Ammo'
-        : 'Buy';
+    btn.textContent = owned ? (isGun ? 'Buy Ammo' : 'Owned') : 'Buy';
+    btn.disabled = owned && !isGun;
 
     btn.onclick = () => {
 
       if (!owned) {
-        if (Economy.cash < entry.price) return;
-
-        Economy.cash -= entry.price;
-
-        Weapons.buy(entry.id, 20);
-
-      } else {
-
-        const cost =
-          entry.ammoPrice * 20;
-
+        if (Economy.cash < price) return;
+        Economy.cash -= price;
+        Weapons.buy(entry.id, isGun ? w.maxAmmo * 2 : 0);
+      } else if (isGun) {
+        const cost = Math.round(entry.ammoPrice * 20 * DARKNET_MARKUP);
         if (Economy.cash < cost) return;
-
         Economy.cash -= cost;
-
         Weapons.buy(entry.id, 20);
       }
 
@@ -2231,3 +2233,43 @@ if (!window.__ELHAY_PHONE_TICK__) {
     }
   }, 1000);
 }
+
+
+/* =========================================================
+   JOBS APP
+   ========================================================= */
+
+Phone.renderJobs = function(body) {
+  body.innerHTML = '';
+  const cur = Jobs.list.find(j => j.id === Jobs.employed);
+
+  const st = document.createElement('div');
+  st.style.cssText = 'padding:10px;border-radius:12px;background:rgba(255,255,255,0.07);margin-bottom:12px';
+  st.innerHTML = '<b style="color:var(--accent)">Status</b><br>' +
+    (cur ? 'Employed at <b>' + cur.name + '</b> (' + cur.desc + ')' : 'Unemployed');
+  if (cur) {
+    const q = document.createElement('button');
+    q.textContent = 'Cancel Job';
+    q.style.cssText = 'margin-top:8px;padding:6px 12px;border-radius:8px;border:0;background:#e74c3c;color:#fff;cursor:pointer';
+    q.onclick = function() { Jobs.quit(); Phone.renderJobs(body); };
+    st.appendChild(q);
+  }
+  body.appendChild(st);
+
+  Jobs.list.forEach(j => {
+    const row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:8px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07)';
+    row.innerHTML = '<b>' + j.name + '</b> <span style="color:var(--dim)">~$' + j.pay + '/shift</span><br><span style="color:var(--dim);font-size:11px">' + j.desc + '</span><br>';
+    const go = document.createElement('button');
+    go.textContent = '📍 Teleport';
+    go.style.cssText = 'margin:6px 6px 0 0;padding:5px 10px;border-radius:8px;border:0;background:#3498db;color:#fff;cursor:pointer';
+    go.onclick = function() { if (Jobs.teleport(j.id)) Phone.close(); };
+    const ap = document.createElement('button');
+    ap.textContent = Jobs.employed === j.id ? '✔ Employed' : 'Take Job';
+    ap.style.cssText = 'margin-top:6px;padding:5px 10px;border-radius:8px;border:0;background:#2ecc71;color:#111;cursor:pointer';
+    ap.onclick = function() { Jobs.apply(j.id); Phone.renderJobs(body); };
+    row.appendChild(go);
+    row.appendChild(ap);
+    body.appendChild(row);
+  });
+};

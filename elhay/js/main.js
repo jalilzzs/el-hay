@@ -1,5 +1,17 @@
 /* ============ Main: bootstrap, render loop, module wiring ============ */
 
+/* top-level const globals are not window properties: expose the ones the UI code
+   reads as window.X (shops, inventory, licenses...) */
+(function(){
+ const names=['World','Player','Economy','Vehicles','Vitals','Relationships','License','DEALERSHIP','Docs','ITEMS','NPC_DEFS','Weapons','ARSENAL','Prison','Police','DrivingTest','Jobs','IS_TOUCH'];
+ names.forEach(function(n){
+  try{
+   const v=(0,eval)(n);
+   if(v!==undefined&&!(n in window))window[n]=v;
+  }catch(e){}
+ });
+})();
+
 const canvas=$('c');
 
 const renderer=new THREE.WebGLRenderer({

@@ -55,6 +55,12 @@ Vitals.useToilet=function(){
 };
 
 Vitals.applyItem=function(effect){
+ if(effect.health)
+  Vitals.health=Math.min(100,Vitals.health+effect.health);
+
+ if(effect.energy)
+  Vitals.energy=Math.min(100,Vitals.energy+effect.energy);
+
  if(effect.hunger)
   Vitals.hunger=Math.min(100,Vitals.hunger+effect.hunger);
 
@@ -76,6 +82,10 @@ Vitals.refreshHUD=function(){
 
 /* ---- Economy / Inventory ---- */
 const ITEMS={
+ idCard:{id:'idCard',name:'ID Card / بطاقة هوية',price:0,doc:true},
+ carPapers:{id:'carPapers',name:'Vehicle Papers / أوراق السيارة',price:0,doc:true},
+ driveLicense:{id:'driveLicense',name:'Driving License / رخصة السياقة',price:0,doc:true},
+ gunLicense:{id:'gunLicense',name:'Gun License / رخصة السلاح',price:0,doc:true},
  water:{
   id:'water',
   name:'Water Bottle',
@@ -111,6 +121,11 @@ const ITEMS={
   effect:{}
  },
 
+ bandage:{id:'bandage',name:'Bandage',price:30,effect:{health:25}},
+ painkillers:{id:'painkillers',name:'Painkillers',price:25,effect:{health:15}},
+ vitamins:{id:'vitamins',name:'Vitamins',price:40,effect:{energy:25}},
+ firstaid:{id:'firstaid',name:'First Aid Kit',price:120,effect:{health:60}},
+ juice:{id:'juice',name:'Orange Juice',price:25,effect:{thirst:30,energy:5}},
  gift:{
   id:'gift',
   name:'Gift',
@@ -120,8 +135,8 @@ const ITEMS={
 };
 
 const Economy={
- cash:500,
- inventory:[]
+ cash:5000,
+ inventory:[{id:'idCard',qty:1},{id:'carPapers',qty:1}]
 };
 
 Economy.buy=function(itemId){
@@ -156,6 +171,11 @@ Economy.useItem=function(itemId){
  if(!item)
   return false;
 
+ if(item.doc){
+  Docs.show(itemId);
+  return true;
+ }
+
  Vitals.applyItem(item.effect||{});
 
  line.qty--;
@@ -176,7 +196,7 @@ Economy.sellItem=function(itemId){
 
  const item=ITEMS[itemId];
 
- if(!item)
+ if(!item||item.doc)
   return false;
 
  Economy.cash+=Math.round(item.price*0.5);
@@ -690,6 +710,9 @@ Relationships.gift=function(id,itemId){
 /* ---- Date ---- */
 
 Relationships.canDate=function(id){
+ if(id==='sofia')
+  return false;
+
  const s=Relationships.get(id);
 
  if(!Relationships.getDef(id))
@@ -712,6 +735,9 @@ Relationships.canDate=function(id){
 
 
 Relationships.dateAtCafe=function(id){
+ if(id==='sofia')
+  return false;
+
  if(!Relationships.canDate(id))
   return false;
 
@@ -818,7 +844,7 @@ Relationships.propose=function(id){
 
  Relationships.pendingProposal={
   npcId:id,
-  timer:25,
+  timer:8,
   startedAt:Date.now()
  };
 
@@ -848,41 +874,57 @@ Relationships.resolveProposal=function(){
  if(!def)
   return false;
 
- /*
-  * High affinity strongly improves acceptance,
-  * but 80% is not an automatic yes.
-  */
- let chance=0.35;
-
- if(s.affinity>=90)
-  chance=0.9;
- else if(s.affinity>=85)
-  chance=0.7;
- else if(s.affinity>=80)
-  chance=0.5;
-
- if(Math.random()<chance){
-  Player.married=true;
-  Player.spouse=id;
-
-  s.followedByPlayer=false;
-
-  Relationships.notify(
-   def.name+
-   ' accepted your proposal! 💍❤️',
-   4000
-  );
-
+ /* affinity >= 80 is required to propose, so the answer is always yes */
+ if(s.affinity>=80){
+  Relationships.marry(id);
   return true;
  }
 
  Relationships.notify(
   def.name+
-  ' needs more time. She said no for now.',
+  ' needs more time.',
   4000
  );
 
  return false;
+};
+
+/* single place where a marriage is created (used by the phone and the shop UI) */
+Relationships.marry=function(id){
+ const def=Relationships.getDef(id);
+ if(!def||Player.married)
+  return false;
+
+ const s=Relationships.get(id);
+
+ Player.married=true;
+ Player.spouse=id;
+
+ s.married=true;
+ s.relationship='married';
+ s.following=true;
+ s.followedByPlayer=true;
+
+ /* hide the static duplicate of this NPC */
+ if(World.keyNpcs&&World.keyNpcs[id])
+  World.keyNpcs[id].mesh.visible=false;
+
+ Relationships.notify(
+  def.name+
+  ' accepted your proposal! 💍❤️ She will live in your home.',
+  4000
+ );
+
+ return true;
+};
+
+/* the house the spouse lives in: best owned property, otherwise the home */
+Relationships.residence=function(){
+ const props=Player.properties||[];
+ for(const id of ['villa','flat2','studio'])
+  if(props.includes(id))
+   return id;
+ return 'home';
 };
 
 
@@ -1076,6 +1118,8 @@ Vehicles.buy=function(catalogId){
   price:c.price
  });
 
+ Docs.give('carPapers');
+
  return true;
 };
 
@@ -1255,6 +1299,488 @@ DrivingSchool.checkProgress=function(carPos){
 };
 
 
+/* ---- Practical driving test (isolated track) ---- */
+
+const DrivingTest={
+ active:false,
+ B:{x:3000,z:3000},
+ price:300,
+ expressPrice:1500,
+ built:null,
+ faults:0,
+ gate:0,
+ prev:null,
+ msgT:0,
+ overT:0,
+ cooldown:0
+};
+
+DrivingTest.tex=function(text,bg,fg){
+ const c=document.createElement('canvas');
+ c.width=256;
+ c.height=128;
+ const g=c.getContext('2d');
+ g.fillStyle=bg;
+ g.fillRect(0,0,256,128);
+ g.strokeStyle=fg;
+ g.lineWidth=8;
+ g.strokeRect(6,6,244,116);
+ g.fillStyle=fg;
+ g.font='bold 56px sans-serif';
+ g.textAlign='center';
+ g.textBaseline='middle';
+ g.fillText(text,128,66);
+ const t=new THREE.CanvasTexture(c);
+ return t;
+};
+
+DrivingTest.ped=function(color){
+ const g=new THREE.Group();
+ const body=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.26,1.0,8),new THREE.MeshStandardMaterial({color}));
+ body.position.y=0.95;
+ const head=new THREE.Mesh(new THREE.SphereGeometry(0.17,8,8),new THREE.MeshStandardMaterial({color:0xd9a77a}));
+ head.position.y=1.65;
+ const legs=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.16,0.5,8),new THREE.MeshStandardMaterial({color:0x2b2f38}));
+ legs.position.y=0.25;
+ g.add(body,head,legs);
+ return g;
+};
+
+DrivingTest.build=function(){
+ if(DrivingTest.built)
+  return DrivingTest.built;
+
+ const B=DrivingTest.B;
+ const root=new THREE.Group();
+ root.position.set(B.x,0,B.z);
+
+ const grass=new THREE.Mesh(
+  new THREE.PlaneGeometry(500,500),
+  new THREE.MeshStandardMaterial({color:0x3d6b35})
+ );
+ grass.rotation.x=-Math.PI/2;
+ grass.position.set(0,-0.02,130);
+ root.add(grass);
+
+ const road=new THREE.Mesh(
+  new THREE.PlaneGeometry(18,290),
+  new THREE.MeshStandardMaterial({color:0x3a3d42})
+ );
+ road.rotation.x=-Math.PI/2;
+ road.position.set(0,0,125);
+ root.add(road);
+
+ /* dashed centre line */
+ const dashMat=new THREE.MeshBasicMaterial({color:0xf2e6a0});
+ for(let z=0;z<=270;z+=6){
+  const d=new THREE.Mesh(new THREE.PlaneGeometry(0.25,2.5),dashMat);
+  d.rotation.x=-Math.PI/2;
+  d.position.set(0,0.02,z);
+  root.add(d);
+ }
+
+ const coneMat=new THREE.MeshStandardMaterial({color:0xff6a00});
+ const coneGeo=new THREE.ConeGeometry(0.35,0.9,10);
+ const cones=[];
+ const addCone=(x,z)=>{
+  const m=new THREE.Mesh(coneGeo,coneMat);
+  m.position.set(x,0.45,z);
+  root.add(m);
+  cones.push({mesh:m,x:B.x+x,z:B.z+z,hit:false});
+ };
+
+ /* section 1: slalom */
+ [28,38,48,58].forEach((z,i)=>addCone(i%2?3:-3,z));
+ /* section 3: narrow corridor */
+ for(let z=150;z<=190;z+=8){
+  addCone(-2.4,z);
+  addCone(2.4,z);
+ }
+ /* section 5: final slalom */
+ [212,222,232].forEach((z,i)=>addCone(i%2?-3:3,z));
+
+ /* speed limit signs */
+ const sign=(z,text,bg,fg)=>{
+  const m=new THREE.Mesh(
+   new THREE.PlaneGeometry(2.4,1.2),
+   new THREE.MeshBasicMaterial({map:DrivingTest.tex(text,bg,fg),side:THREE.DoubleSide})
+  );
+  m.position.set(-8,2.2,z);
+  m.rotation.y=Math.PI;
+  root.add(m);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,2.2,6),new THREE.MeshStandardMaterial({color:0x888888}));
+  pole.position.set(-8,1.1,z);
+  root.add(pole);
+ };
+ sign(66,'LIMIT 30','#ffffff','#c0392b');
+ sign(138,'LIMIT 40','#ffffff','#c0392b');
+ sign(196,'LIMIT 25','#ffffff','#c0392b');
+
+ /* crossing stripes */
+ const stripeMat=new THREE.MeshBasicMaterial({color:0xffffff});
+ [96,244].forEach(z=>{
+  for(let x=-7;x<=7;x+=1.6){
+   const s=new THREE.Mesh(new THREE.PlaneGeometry(0.8,4),stripeMat);
+   s.rotation.x=-Math.PI/2;
+   s.position.set(x,0.025,z);
+   root.add(s);
+  }
+ });
+
+ /* pedestrians that cross the road */
+ const peds=[];
+ [[96,0],[96,0.5],[96,1],[244,0.25],[244,0.75]].forEach((p,i)=>{
+  const m=DrivingTest.ped([0xb5473a,0x3a6ea5,0x6b8e3a,0xd4a017,0x7a4a9a][i%5]);
+  root.add(m);
+  peds.push({mesh:m,z:p[0],phase:p[1]*2,hit:false});
+ });
+
+ /* gates (driven through, in order) */
+ const gateGeo=new THREE.TorusGeometry(2.6,0.18,8,24);
+ const gates=[];
+ [[0,14],[0,72],[0,128],[0,200],[0,262]].forEach((g,i)=>{
+  const m=new THREE.Mesh(gateGeo,new THREE.MeshBasicMaterial({color:0xffd23a}));
+  m.position.set(g[0],2.6,g[1]);
+  root.add(m);
+  gates.push({mesh:m,x:B.x+g[0],z:B.z+g[1]});
+ });
+
+ /* finish banner */
+ const fin=new THREE.Mesh(
+  new THREE.PlaneGeometry(8,2),
+  new THREE.MeshBasicMaterial({map:DrivingTest.tex('FINISH','#1f7a3a','#ffffff'),side:THREE.DoubleSide})
+ );
+ fin.position.set(0,6.2,262);
+ root.add(fin);
+
+ DrivingTest.built={root,cones,peds,gates,
+  zones:[
+   {z0:66,z1:122,limit:30},
+   {z0:138,z1:195,limit:40},
+   {z0:196,z1:262,limit:25}
+  ]};
+
+ World.scene.add(root);
+ return DrivingTest.built;
+};
+
+DrivingTest.say=function(t,sec){
+ const el=$('testMsg');
+ if(el)
+  el.textContent=t;
+ DrivingTest.msgT=sec||3;
+};
+
+DrivingTest.begin=function(){
+ if(DrivingTest.active)
+  return;
+
+ const T=DrivingTest.build();
+ const B=DrivingTest.B;
+
+ DrivingTest.prev={
+  car:World.playerCar,
+  reg:World.playerCarRegistered,
+  mode:Player.mode
+ };
+
+ World.testMode=true;
+ Traffic.cars.forEach(c=>{c.mesh.visible=false;});
+
+ T.root.visible=true;
+ T.cones.forEach(c=>{
+  c.hit=false;
+  c.mesh.rotation.z=0;
+  c.mesh.position.y=0.45;
+ });
+ T.peds.forEach(p=>{p.hit=false;});
+ T.gates.forEach((g,i)=>{
+  g.mesh.material.color.set(i===0?0x3aff6a:0xffd23a);
+ });
+
+ DrivingTest.faults=0;
+ DrivingTest.gate=0;
+ DrivingTest.overT=0;
+ DrivingTest.cooldown=0;
+
+ const car=World.makeCar(B.x,B.z+2,0xf2f2f2,'sedan');
+ car.rotation.y=0;
+ DrivingTest.car=car;
+
+ Vehicles.switchTo(car,true);
+
+ Player.mode='drive';
+ carVel.speed=0;
+ carVel.steer=0;
+
+ if(!IS_TOUCH){
+  Player.controls.unlock();
+  UI.dom.crosshair.style.display='none';
+ }
+
+ setDriveButtonsVisible(true);
+
+ if(typeof Phone!=='undefined'&&Phone.close)
+  Phone.close();
+
+ const shop=$('pShop');
+ if(shop)
+  shop.classList.remove('open');
+
+ DrivingTest.active=true;
+
+ const hud=$('testHUD');
+ if(hud)
+  hud.style.display='block';
+
+ DrivingTest.say('Drive through the gates. Avoid cones and pedestrians. Obey the speed limits.',5);
+ DrivingTest.updateHUD();
+};
+
+DrivingTest.updateHUD=function(){
+ const el=$('testInfo');
+ if(el)
+  el.textContent='Driving Test — gate '+Math.min(DrivingTest.gate+1,5)+'/5 — faults '+DrivingTest.faults+'/3';
+};
+
+DrivingTest.finish=function(success,msg){
+ if(!DrivingTest.active)
+  return;
+
+ DrivingTest.active=false;
+ World.testMode=false;
+
+ const hud=$('testHUD');
+ if(hud)
+  hud.style.display='none';
+
+ if(DrivingTest.built)
+  DrivingTest.built.root.visible=false;
+
+ Traffic.cars.forEach(c=>{c.mesh.visible=true;});
+
+ if(DrivingTest.car){
+  World.scene.remove(DrivingTest.car);
+  DrivingTest.car=null;
+ }
+
+ const pv=DrivingTest.prev||{};
+ if(pv.car)
+  Vehicles.switchTo(pv.car,pv.reg);
+
+ Player.mode='walk';
+ carVel.speed=0;
+ carVel.steer=0;
+
+ const poi=World.pois.find(p=>p.id==='drivingSchool'&&!p.dyn);
+ if(poi)
+  Player.camera.position.set(poi.pos.x,1.7,poi.pos.z+2);
+ else
+  Player.camera.position.set(-40,1.7,37);
+
+ setDriveButtonsVisible(false);
+
+ if(!IS_TOUCH)
+  UI.dom.crosshair.style.display='block';
+
+ Audio.stopEngine();
+ Weapons.refreshHUD();
+
+ if(success){
+  License.has=true;
+  Docs.give('driveLicense');
+ }
+
+ if(typeof Jobs!=='undefined')
+  Jobs.msg(msg);
+ else if(UI.dom&&UI.dom.prompt){
+  UI.dom.prompt.textContent=msg;
+  UI.dom.prompt.style.display='block';
+  setTimeout(()=>{UI.dom.prompt.style.display='none';},3000);
+ }
+
+ UI.refreshHUD();
+};
+
+DrivingTest.fault=function(why){
+ if(DrivingTest.cooldown>0)
+  return;
+ DrivingTest.cooldown=1.2;
+ DrivingTest.faults++;
+ DrivingTest.say('⚠ Fault: '+why+' ('+DrivingTest.faults+'/3)',2.5);
+ DrivingTest.updateHUD();
+ if(DrivingTest.faults>=3)
+  DrivingTest.finish(false,'❌ Test failed: too many faults.');
+};
+
+DrivingTest.update=function(dt){
+ if(!DrivingTest.active)
+  return;
+
+ const T=DrivingTest.built;
+ const B=DrivingTest.B;
+ const car=DrivingTest.car;
+
+ if(Player.mode!=='drive'||World.playerCar!==car){
+  DrivingTest.finish(false,'Test ended: you left the car.');
+  return;
+ }
+
+ DrivingTest.cooldown=Math.max(0,DrivingTest.cooldown-dt);
+
+ if(DrivingTest.msgT>0){
+  DrivingTest.msgT-=dt;
+  if(DrivingTest.msgT<=0){
+   const el=$('testMsg');
+   if(el)
+    el.textContent='';
+  }
+ }
+
+ /* keep the car on the track */
+ const lx=car.position.x-B.x;
+ const lz=car.position.z-B.z;
+ if(Math.abs(lx)>9){
+  car.position.x=B.x+Math.sign(lx)*9;
+  carVel.speed*=0.6;
+ }
+ if(lz<-6){
+  car.position.z=B.z-6;
+  carVel.speed=0;
+ }
+
+ /* pedestrians walk across the road */
+ const t=performance.now()/1000;
+ T.peds.forEach(p=>{
+  const ph=(t*0.35+p.phase)%2;
+  const x=ph<1?-8+ph*16:8-(ph-1)*16;
+  p.mesh.position.set(x,0,p.z+(p.hit?0:0));
+  p.mesh.rotation.y=ph<1?Math.PI/2:-Math.PI/2;
+  if(p.hit)
+   return;
+  const wx=B.x+x,wz=B.z+p.z;
+  if(Math.hypot(car.position.x-wx,car.position.z-wz)<1.6){
+   p.hit=true;
+   DrivingTest.finish(false,'❌ Test failed: you hit a pedestrian!');
+  }
+ });
+
+ if(!DrivingTest.active)
+  return;
+
+ /* cones */
+ T.cones.forEach(c=>{
+  if(c.hit)
+   return;
+  if(Math.hypot(car.position.x-c.x,car.position.z-c.z)<1.4){
+   c.hit=true;
+   c.mesh.rotation.z=1.4;
+   c.mesh.position.y=0.2;
+   DrivingTest.cooldown=0;
+   DrivingTest.fault('hit a cone');
+  }
+ });
+
+ if(!DrivingTest.active)
+  return;
+
+ /* speed limits */
+ const kmh=Math.abs(carVel.speed)*3.6*1.6;
+ let limit=null;
+ T.zones.forEach(z=>{
+  if(lz>=z.z0&&lz<=z.z1)
+   limit=z.limit;
+ });
+ if(limit!==null){
+  if(DrivingTest.msgT<=0)
+   DrivingTest.say('Speed limit '+limit+' km/h',0.6);
+  if(kmh>limit+6){
+   DrivingTest.overT+=dt;
+   if(DrivingTest.overT>1.5){
+    DrivingTest.overT=0;
+    DrivingTest.fault('speeding');
+   }
+  }else
+   DrivingTest.overT=Math.max(0,DrivingTest.overT-dt);
+ }
+
+ if(!DrivingTest.active)
+  return;
+
+ /* gates in order */
+ const g=T.gates[DrivingTest.gate];
+ if(g&&Math.hypot(car.position.x-g.x,car.position.z-g.z)<5){
+  g.mesh.material.color.set(0x888888);
+  DrivingTest.gate++;
+  const n=T.gates[DrivingTest.gate];
+  if(n)
+   n.mesh.material.color.set(0x3aff6a);
+  DrivingTest.updateHUD();
+  if(DrivingTest.gate>=T.gates.length){
+   DrivingTest.finish(true,'✅ Test passed! You got your driving license.');
+  }
+ }
+};
+
+DrivingTest.expressBuy=function(){
+ if(License.has||Economy.cash<DrivingTest.expressPrice)
+  return false;
+ Economy.cash-=DrivingTest.expressPrice;
+ License.has=true;
+ Docs.give('driveLicense');
+ return true;
+};
+
+
+/* ---- Documents: ID card, vehicle papers, licenses ---- */
+
+const Docs={idLost:false};
+
+Docs.has=function(id){
+ return !!Economy.inventory.find(i=>i.id===id);
+};
+
+Docs.give=function(id){
+ if(!Docs.has(id))
+  Economy.inventory.push({id:id,qty:1});
+};
+
+Docs.take=function(id){
+ Economy.inventory=Economy.inventory.filter(i=>i.id!==id);
+};
+
+Docs.sync=function(){
+ if(!Docs.idLost)
+  Docs.give('idCard');
+
+ if(License.has)
+  Docs.give('driveLicense');
+
+ if(Vehicles.owned.some(v=>v.registered))
+  Docs.give('carPapers');
+};
+
+Docs.show=function(id){
+ let old=document.getElementById('docView');
+ if(old)
+  old.remove();
+
+ const car=(World.playerCar&&World.playerCar.userData&&World.playerCar.userData.modelId)||'-';
+ const lines={
+  idCard:['ID CARD','Name: Player','No: EH-'+(100000+Math.floor((typeof hash==='function'?0.37:0.37)*899999)),'City: El-Hay'],
+  carPapers:['VEHICLE PAPERS','Owner: Player','Vehicle: '+car,'Status: registered'],
+  driveLicense:['DRIVING LICENSE','Holder: Player','Class: B','Status: valid'],
+  gunLicense:['GUN LICENSE','Holder: Player','Issued by: El-Hay Police','Status: valid']
+ }[id]||[id];
+
+ const d=document.createElement('div');
+ d.id='docView';
+ d.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:90;background:#f4efe0;color:#222;padding:18px 24px;border-radius:12px;border:3px solid #1f3b57;font:14px monospace;min-width:230px;box-shadow:0 8px 30px rgba(0,0,0,.6)';
+ d.innerHTML='<b style="font-size:16px;color:#1f3b57">'+lines[0]+'</b><br><br>'+lines.slice(1).join('<br>')+'<br><br><button style="padding:6px 14px;border:0;border-radius:6px;background:#1f3b57;color:#fff;cursor:pointer">OK</button>';
+ d.querySelector('button').onclick=function(){d.remove();};
+ document.body.appendChild(d);
+};
+
 /* ---- Police checkpoint ---- */
 
 const Police={
@@ -1310,38 +1836,77 @@ Police.maybeTrigger=function(carPos,dt){
  if(
   carPos.distanceTo(
    World.checkpointPos
-  )<4
+  )<7
  ){
   Police.cooldown=40;
   Police.trigger();
  }
 };
 
+Police.setButtons=function(opts){
+ const c=$('polComply'),p=$('polPay'),f=$('polFlee');
+ [[c,opts.jail,Police.comply],[p,opts.pay,Police.payFine],[f,opts.flee,Police.flee]].forEach(a=>{
+  const el=a[0];
+  if(!el)
+   return;
+  el.style.display=a[1]?'inline-block':'none';
+  if(a[1])
+   el.textContent=a[1];
+  el.onclick=a[2];
+ });
+};
+
 Police.trigger=function(){
+ Docs.sync();
+
  const registered=
   World.playerCarRegistered!==false;
 
- if(License.has&&registered){
+ const hasID=Docs.has('idCard');
+ const hasPapers=registered&&Docs.has('carPapers');
+ const hasLic=License.has;
+
+ if(hasID&&hasPapers&&hasLic){
   Police.showResult('ok');
   return;
  }
 
  Police.checkpointActive=true;
  carVel.speed=0;
+ Police.missing=(!hasID||!hasPapers);
 
  $('polTitle').textContent=
-  'Police Checkpoint';
+  'Police Checkpoint — Documents please';
 
- $('polBody').textContent=
-  (!License.has
-   ?'No driver\'s license on file. '
-   :'')+
-  (!registered
-   ?'Vehicle is unregistered.'
-   :'');
+ const mark=ok=>ok?'✅':'❌';
+
+ $('polBody').innerHTML=
+  mark(hasID)+' ID Card (بطاقة هوية)<br>'+
+  mark(hasPapers)+' Vehicle Papers<br>'+
+  mark(hasLic)+' Driving License<br><br>'+
+  (Police.missing
+   ?'Missing documents. What do you do?'
+   :'No driving license: traffic ticket $'+Police.ticket+'.');
+
+ if(Police.missing){
+  Police.setButtons({
+   jail:'Go to Jail (سجن)',
+   pay:'Pay Bribe $'+Police.bribe+' (رشوة)',
+   flee:'Flee (تهرب)'
+  });
+ }else{
+  Police.setButtons({
+   jail:null,
+   pay:'Pay Ticket $'+Police.ticket+' (بروسي)',
+   flee:'Flee (تهرب)'
+  });
+ }
 
  $('pPolice').classList.add('open');
 };
+
+Police.bribe=300;
+Police.ticket=150;
 
 Police.showResult=function(kind){
  $('polTitle').textContent=
@@ -1352,6 +1917,8 @@ Police.showResult=function(kind){
    ?'Papers in order. You may go.'
    :'';
 
+ Police.setButtons({jail:null,pay:null,flee:null});
+
  $('pPolice').classList.add('open');
 
  setTimeout(
@@ -1360,46 +1927,28 @@ Police.showResult=function(kind){
  );
 };
 
+/* jail */
 Police.comply=function(){
- let fine=0;
-
- let impound=
-  !(World.playerCarRegistered!==false);
-
- let jail=false;
-
- if(!License.has)
-  fine+=50;
-
- if(fine>0){
-  if(Economy.cash>=fine)
-   Economy.cash-=fine;
-  else
-   jail=true;
- }
-
  Police.checkpointActive=false;
 
  $('pPolice').classList.remove('open');
 
- if(impound)
-  Player.mode='walk';
+ Police.addWanted(1);
 
- if(jail){
-  Police.addWanted(1);
-
-  Prison.arrest(
-   Player.camera,
-   outsidePos
-  );
- }
+ Prison.arrest(
+  Player.camera,
+  outsidePos
+ );
 
  UI.refreshHUD();
 };
 
+/* bribe (documents missing) or ticket (license only) */
 Police.payFine=function(){
- if(Economy.cash>=100){
-  Economy.cash-=100;
+ const cost=Police.missing?Police.bribe:Police.ticket;
+
+ if(Economy.cash>=cost){
+  Economy.cash-=cost;
 
   Police.checkpointActive=false;
 
@@ -1407,6 +1956,7 @@ Police.payFine=function(){
 
   UI.refreshHUD();
  }else{
+  /* cannot pay -> jail */
   Police.comply();
  }
 };
@@ -1442,6 +1992,10 @@ Prison.arrest=function(
 
  Prison.sentenced=true;
  Prison.timer=30;
+
+ /* ID card is confiscated; re-issued on release */
+ Docs.idLost=true;
+ Docs.take('idCard');
 };
 
 Prison.bail=function(){
@@ -1456,6 +2010,9 @@ Prison.bail=function(){
 
 Prison.release=function(){
  Prison.sentenced=false;
+
+ Docs.idLost=false;
+ Docs.give('idCard');
 
  World.exitInterior(
   Player.camera,

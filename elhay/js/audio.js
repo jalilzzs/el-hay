@@ -14,7 +14,7 @@ Audio.init = function() {
     Audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
     Audio.masterGain = Audio.ctx.createGain();
     // خفض مستوى الصوت العام ليصلح مريحاً وخافتاً (Master Volume)
-    Audio.masterGain.gain.value = 0.25; 
+    Audio.masterGain.gain.value = 0.6; 
     Audio.masterGain.connect(Audio.ctx.destination);
     Audio.ready = true;
   } catch (e) {
@@ -200,3 +200,49 @@ Audio.playClick = function() {
   osc.start(now);
   osc.stop(now + 0.04);
 };
+
+
+/* ============ Unlock audio on the first user gesture ============
+ * Browsers (especially iOS Safari) keep the AudioContext suspended until the
+ * player taps / clicks / presses a key. Nothing called Audio.init() before,
+ * so the game was silent. */
+Audio.unlock = function() {
+  if (!Audio.ctx) Audio.init();
+  if (!Audio.ctx) return;
+
+  const ctx = Audio.ctx;
+
+  const go = function() {
+    /* silent one-sample buffer: required by iOS to really start audio */
+    try {
+      const b = ctx.createBuffer(1, 1, 22050);
+      const s = ctx.createBufferSource();
+      s.buffer = b;
+      s.connect(ctx.destination);
+      s.start(0);
+    } catch (e) {}
+
+    if (!Audio.ambientNode) Audio.startAmbient();
+
+    if (ctx.state === 'running') {
+      ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'keydown']
+        .forEach(function(ev) { removeEventListener(ev, Audio.unlock, true); });
+    }
+  };
+
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(go).catch(go);
+  } else {
+    go();
+  }
+};
+
+['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'keydown']
+  .forEach(function(ev) { addEventListener(ev, Audio.unlock, true); });
+
+/* resume after the tab/app comes back (iOS suspends the context) */
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && Audio.ctx && Audio.ctx.state !== 'running') {
+    Audio.ctx.resume();
+  }
+});

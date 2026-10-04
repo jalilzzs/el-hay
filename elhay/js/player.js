@@ -2053,11 +2053,36 @@ const Radio = {
     if (!b || b._wired) return;
     b._wired = true;
     const pn = $('radioPanel');
-    b.onclick = () => { pn.style.display = pn.style.display === 'block' ? 'none' : 'block'; };
-    $('radioPlay').onclick = () => this.play($('radioUrl').value);
-    $('radioPause').onclick = () => this.toggle();
-    $('radioStop').onclick = () => this.stop();
-    $('radioClose').onclick = () => { pn.style.display = 'none'; };
+
+    /* the touch layer swallows click events on phones, so react to touchstart too
+       (same approach as the inventory button) */
+    const tap = (el, fn) => {
+      if (!el) return;
+      let t = 0;
+      const run = e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const now = Date.now();
+        if (now - t < 350) return;
+        t = now;
+        fn();
+      };
+      el.addEventListener('touchstart', run, { passive: false });
+      el.addEventListener('click', run);
+    };
+
+    tap(b, () => { pn.style.display = pn.style.display === 'block' ? 'none' : 'block'; });
+    tap($('radioPlay'), () => this.play($('radioUrl').value));
+    tap($('radioPause'), () => this.toggle());
+    tap($('radioStop'), () => this.stop());
+    tap($('radioClose'), () => { pn.style.display = 'none'; });
+
+    /* typing / pasting must keep working: stop the touch layer from cancelling it */
+    const inp = $('radioUrl');
+    ['touchstart', 'touchend', 'mousedown'].forEach(ev =>
+      inp.addEventListener(ev, e => e.stopPropagation())
+    );
+    pn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
   }
 };
 

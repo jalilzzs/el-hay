@@ -1775,9 +1775,12 @@ Docs.show=function(id){
 
  const d=document.createElement('div');
  d.id='docView';
- d.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:90;background:#f4efe0;color:#222;padding:18px 24px;border-radius:12px;border:3px solid #1f3b57;font:14px monospace;min-width:230px;box-shadow:0 8px 30px rgba(0,0,0,.6)';
+ d.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:900;background:#f4efe0;color:#222;padding:18px 24px;border-radius:12px;border:3px solid #1f3b57;font:14px monospace;min-width:230px;box-shadow:0 8px 30px rgba(0,0,0,.6)';
  d.innerHTML='<b style="font-size:16px;color:#1f3b57">'+lines[0]+'</b><br><br>'+lines.slice(1).join('<br>')+'<br><br><button style="padding:6px 14px;border:0;border-radius:6px;background:#1f3b57;color:#fff;cursor:pointer">OK</button>';
- d.querySelector('button').onclick=function(){d.remove();};
+ const ok=d.querySelector('button');
+ ok.onclick=function(){d.remove();};
+ ok.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();d.remove();},{passive:false});
+ d.addEventListener('touchstart',function(e){e.stopPropagation();},{passive:true});
  document.body.appendChild(d);
 };
 

@@ -317,10 +317,35 @@ body {
 </div>
 <div id="cashBox">$0</div>
 <div id="missionBox"></div>
+<div id="testHUD" style="display:none">
+ <div id="testInfo"></div>
+ <div id="testMsg"></div>
+ <button id="testCancel">Cancel Test</button>
+</div>
+<div id="speedo" style="display:none">0 km/h</div>
+<button id="radioBtn" style="display:none">📻</button>
+<div id="radioPanel" style="display:none">
+ <b>📻 Radio (YouTube)</b>
+ <input id="radioUrl" type="text" placeholder="Paste YouTube link..." autocomplete="off">
+ <div class="radioRow">
+  <button id="radioPlay">▶ Load</button>
+  <button id="radioPause">⏸ Pause</button>
+  <button id="radioStop">⏹ Stop</button>
+  <button id="radioClose">✖</button>
+ </div>
+ <div id="radioStatus">Radio off</div>
+ <div id="radioPlayer"></div>
+</div>
 <div id="minimap"><canvas id="mmCanvas" width="130" height="130"></canvas></div>
 
-<div class="panel" id="fullMap"><div class="card" style="width:min(600px,92vw)">
+<div class="panel" id="fullMap"><div class="card" id="fullMapCard" style="width:min(600px,92vw)">
  <h2>Map</h2>
+ <div id="mapBar">
+  <button id="mapBtnSet">⚙ الإعدادات</button>
+  <button id="mapBtnView">🗺 الخريطة</button>
+  <button id="mapBtnMis" class="on">📋 المهمات</button>
+ </div>
+ <div id="mapMissions"></div>
  <canvas id="fullMapCanvas" width="560" height="560" style="width:100%;border-radius:8px;display:block"></canvas>
  <button class="close" id="fullMapClose">إغلاق</button>
 </div></div>
@@ -364,6 +389,10 @@ body {
 
 <div id="weaponHud">
  <span id="whName">Fists</span><span id="whAmmo"></span>
+ <span id="whMsg" style="margin-left:8px;color:#ffd23a"></span>
+ <button id="whFire" class="whBtn">🔥 Fire</button>
+ <button id="whReload" class="whBtn">🔃 Reload</button>
+ <button id="whHolster" class="whBtn">🫳 Holster</button>
 </div>
 
 <div id="reticle"></div>
@@ -376,6 +405,8 @@ body {
   <button id="touchSprint">🏃</button>
   <button id="touchFire">🔥</button>
   <button id="touchWeapon">🔄</button>
+  <button id="touchReload">🔃</button>
+  <button id="touchHolster">🫳</button>
 
   <div id="driveControls">
     <button id="btnGas">▲</button>

@@ -477,6 +477,7 @@ function loop(now){
   dt,
   camera.position
  );
+ Crime.update(dt);
 
 
  /* Audio */

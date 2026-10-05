@@ -106,7 +106,7 @@ Weapons.fire=function(camera){
  Weapons._last=now;
  const dir=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
  const isGun=w.type==='gun';
- if(isGun) Audio.gunshot(id);
+ if(isGun){ Audio.gunshot(id); if(typeof Crime!=='undefined') Crime.gunfire(id); }
  const ray=new THREE.Raycaster(camera.position,dir,0,w.range);
  const targets=NPCPool.pool.filter(n=>n.active&&n.mesh.visible&&!n.dead).map(n=>n.mesh);
  const hits=ray.intersectObjects(targets,true).filter(h=>h.object.visible);
@@ -188,8 +188,7 @@ PoliceAI.update=function(dt,playerPos){
  });
  if(caught){
   PoliceAI.clear();
-  Economy.cash=Math.max(0,Economy.cash-150);
-  Prison.arrest(Player.camera,outsidePos);
+  Prison.arrest(Player.camera,outsidePos); /* fine/sentence scale with the crime (see Prison hooks) */
   UI.refreshHUD();
  }
 };
@@ -202,3 +201,234 @@ setTimeout(function wireWh(){
  r.onclick=()=>{ Weapons.reload(); Weapons.refreshHUD(); };
  h.onclick=()=>{ Weapons.holster(); Weapons.refreshHUD(); };
 },500);
+
+
+/* =====================================================================
+ * Justice system: Crime (witnesses -> wanted stars), Police response,
+ * Expulsion (thrown out of buildings / fired from jobs), Prison (sentence,
+ * bail, confiscation). Hooks into NPCPool damage/kill, Weapons.fire,
+ * World.enterInterior, Police.addWanted and Prison.arrest.
+ * ===================================================================== */
+const Crime={
+ record:{kills:0,assaults:0,illegalShots:0},
+ peak:0,coolT:0,
+ _assaultAt:new WeakMap(),_shotAt:0,_cars:new Map(),_wantedInside:0,_stormT:0
+};
+
+Crime.say=function(t,ms){
+ let el=document.getElementById('crimeToast');
+ if(!el){
+  el=document.createElement('div'); el.id='crimeToast';
+  el.style.cssText='position:fixed;top:max(96px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:460;max-width:88vw;text-align:center;padding:9px 16px;border-radius:14px;border:1.5px solid var(--border,rgba(255,107,0,.35));background:var(--glass-bg,rgba(15,20,28,.8));backdrop-filter:blur(10px);color:#fff;font:700 13px/1.4 Cairo,system-ui,sans-serif;pointer-events:none;display:none;box-shadow:0 6px 16px rgba(0,0,0,.6)';
+  document.body.appendChild(el);
+ }
+ el.textContent=t; el.style.display='block';
+ clearTimeout(Crime._toastT); Crime._toastT=setTimeout(()=>{el.style.display='none';},ms||3200);
+};
+
+Crime.hasLicense=function(){ return typeof Docs!=='undefined'&&Docs.has&&Docs.has('gunLicense'); };
+
+/* anyone who could report the crime: other living NPCs nearby, or a police car close by */
+Crime.witnesses=function(pos,ignore,r){
+ r=r||28; let c=0;
+ for(const m of NPCPool.pool){
+  if(m===ignore||!m.active||m.dead||!m.mesh.visible) continue;
+  if(m.mesh.position.distanceTo(pos)<r) c++;
+ }
+ if(PoliceAI.active) for(const car of PoliceAI.cars) if(car.visible&&car.position.distanceTo(pos)<r*1.6) c+=2;
+ return c;
+};
+
+Crime.assault=function(n){
+ const now=performance.now();
+ if(Crime._assaultAt.get(n)&&now-Crime._assaultAt.get(n)<20000) return;
+ Crime._assaultAt.set(n,now);
+ Crime.record.assaults++;
+ if(Crime.witnesses(n.mesh.position,n)>0&&Police.wanted<1){
+  Police.addWanted(1); Crime.say('🚨 Witnesses reported the assault');
+ }
+};
+
+Crime.kill=function(n){
+ Crime.record.kills++;
+ const w=Crime.witnesses(n.mesh.position,n);
+ if(w>0){
+  Police.addWanted(n.relationshipId?3:2);
+  Crime.say('🚨 Murder reported — police are coming');
+ } else if(Math.random()<0.4){
+  Police.addWanted(1); Crime.say('🚨 Someone found the body');
+ }
+};
+
+Crime.gunfire=function(id){
+ if(World.activeInterior){
+  if(Expulsion.isPublic(World.activeInterior)) Expulsion.expel('firing',World.activeInterior);
+  return;
+ }
+ if(Crime.hasLicense()) return;
+ Crime.record.illegalShots++;
+ const now=performance.now();
+ if(now-Crime._shotAt>15000&&Crime.witnesses(Player.camera.position,null,34)>0){
+  Crime._shotAt=now;
+  Police.addWanted(1); Crime.say('🚨 Unlicensed gunfire — someone called the police');
+ }
+};
+
+/* wanted level bookkeeping */
+(function(){
+ const orig=Police.addWanted;
+ Police.addWanted=function(n){
+  orig(n);
+  if(n>0){ Crime.coolT=0; Crime.peak=Math.max(Crime.peak,Police.wanted); }
+ };
+})();
+
+Crime.update=function(dt){
+ if(Prison.sentenced){ Crime.coolT=0; return; }
+ Expulsion.update(dt);
+ if(Police.wanted<=0) return;
+ const ppos=Player.camera.position;
+ const inside=!!World.activeInterior;
+
+ /* police cars: gunfire at 3+ stars */
+ let nearest=1e9;
+ if(PoliceAI.active){
+  for(const car of PoliceAI.cars){
+   if(!car.visible) continue;
+   const d=Math.hypot(car.position.x-(inside?NPCPool.outPos.x:ppos.x),car.position.z-(inside?NPCPool.outPos.z:ppos.z));
+   nearest=Math.min(nearest,d);
+   if(Police.wanted>=3&&!inside&&d<26){
+    let t=(Crime._cars.get(car)||1.2)-dt;
+    if(t<=0){
+     t=1.4+Math.random()*0.8;
+     Audio.gunshot('pistol');
+     if(Math.random()<0.3){ Vitals.health=Math.max(0,Vitals.health-(5+Math.random()*5)); NPCPool.hurtFlash(); }
+    }
+    Crime._cars.set(car,t);
+   }
+  }
+ }
+
+ /* cooling off: stay away from police (hiding inside helps) */
+ if(nearest>45||inside) Crime.coolT+=dt*(inside?2:1);
+ else Crime.coolT=Math.max(0,Crime.coolT-dt);
+ if(Crime.coolT>=40){
+  Crime.coolT=0;
+  Police.addWanted(-1);
+  if(Police.wanted<=0){
+   Crime.peak=0; PoliceAI.clear();
+   Crime.say('✅ The police lost track of you');
+  } else Crime.say('Wanted level dropped to '+Police.wanted+'★');
+ }
+
+ /* hiding indoors at 3+ stars: officers eventually storm the building */
+ if(inside&&Police.wanted>=3&&World.activeInterior!=='prison'){
+  Crime._stormT+=dt;
+  if(Crime._stormT>25){
+   Crime._stormT=0;
+   Crime.say('👮 Police stormed the building!');
+   World.exitInterior(Player.camera,outsidePos);
+   Prison.arrest(Player.camera,outsidePos);
+  }
+ } else Crime._stormT=0;
+};
+
+/* ---------------- Expulsion ---------------- */
+const Expulsion={bans:{},_inT:0};
+
+Expulsion.isOwn=function(name){ return !!(Player.properties&&Player.properties.includes(name)); };
+Expulsion.isPublic=function(name){
+ return !(name==='prison'||/^police|cell/i.test(name||'')||Expulsion.isOwn(name)||name==='home');
+};
+Expulsion.armed=function(){
+ const id=Weapons.id(), w=ARSENAL[id];
+ return !!(w&&w.type==='gun');
+};
+Expulsion.remaining=function(name){
+ const u=Expulsion.bans[name]; if(!u) return 0;
+ const r=(u-performance.now())/1000; if(r<=0){ delete Expulsion.bans[name]; return 0; }
+ return r;
+};
+Expulsion.expel=function(reason,name){
+ if(!World.activeInterior||!Expulsion.isPublic(name||World.activeInterior)) return;
+ const place=name||World.activeInterior;
+ World.exitInterior(Player.camera,outsidePos);
+ const secs=reason==='firing'?180:90;
+ Expulsion.bans[place]=performance.now()+secs*1000;
+ const why={firing:'Gunfire inside!',wanted:'Wanted criminals are not welcome.',armed:'Weapons are not allowed.'}[reason]||'You are not welcome.';
+ Crime.say('🚫 Security threw you out. '+why+' Banned '+secs+'s');
+ if(reason==='firing') Police.addWanted(1);
+ if(typeof Jobs!=='undefined'&&Jobs.employed&&reason!=='armed'){
+  Jobs.quit(); Crime.say('🚫 Thrown out and fired from your job.',3800);
+ }
+};
+/* entering: block if banned / armed / wanted */
+Expulsion.blocks=function(name){
+ if(!Expulsion.isPublic(name)) return false;
+ const r=Expulsion.remaining(name);
+ if(r>0){ Crime.say('🚫 Banned from here for '+Math.ceil(r)+'s more'); return true; }
+ if(Expulsion.armed()){ Crime.say('🚫 Security: no weapons inside — holster it first (H)'); return true; }
+ if(Police.wanted>=2){ Crime.say('🚫 Doors locked — the police are looking for you'); return true; }
+ return false;
+};
+Expulsion.update=function(dt){
+ const n=World.activeInterior;
+ if(n&&Expulsion.isPublic(n)){
+  if(Police.wanted>=2) Expulsion._inT+=dt; else Expulsion._inT=0;
+  if(Expulsion._inT>6){ Expulsion._inT=0; Expulsion.expel('wanted',n); }
+ } else Expulsion._inT=0;
+};
+
+/* wrap interior entry */
+(function(){
+ const enter=World.enterInterior;
+ World.enterInterior=function(name,camera,out){
+  if(!World.activeInterior&&Expulsion.blocks(name)) return;
+  return enter.call(World,name,camera,out);
+ };
+})();
+
+/* ---------------- Prison hooks ---------------- */
+(function(){
+ const arrest=Prison.arrest, release=Prison.release;
+ Prison.arrest=function(camera,out){
+  const stars=Math.max(Police.wanted,Crime.peak,1);
+  const rec=Crime.record;
+  /* sentence, fine, bail scale with the crimes */
+  const sentence=Math.min(150,25+stars*15+rec.kills*25+rec.assaults*3);
+  const bail=300+stars*200+rec.kills*250;
+  const fine=Math.min(Economy.cash,stars*100);
+  Economy.cash-=fine;
+  arrest(camera,out);
+  Prison.timer=sentence; Prison.bailCost=bail;
+  Prison._sentenceInfo={stars,sentence,bail,fine};
+  /* confiscate illegal weapons */
+  const lic=Crime.hasLicense();
+  const all=rec.kills>0;
+  const lost=[];
+  Weapons.owned=Weapons.owned.filter(id=>{
+   const w=ARSENAL[id];
+   if(!w||id==='fists') return true;
+   const take= all || (w.type==='gun'&&(!lic||stars>=4));
+   if(take){ lost.push(w.name); delete Weapons.ammo[id]; delete Weapons.reserve[id]; }
+   return !take;
+  });
+  Weapons.current=0; Weapons.reloading=false;
+  /* lose the job */
+  let msg='🚔 Arrested ('+stars+'★): '+sentence+'s in prison, fine $'+fine+', bail $'+bail+'.';
+  if(typeof Jobs!=='undefined'&&Jobs.employed){ Jobs.quit(); msg+=' You were fired.'; }
+  if(lost.length) msg+=' Confiscated: '+lost.join(', ')+'.';
+  /* clean slate for the new sentence */
+  Police.wanted=0; const box=document.getElementById('wantedBox'); if(box) box.style.display='none';
+  PoliceAI.active=false; PoliceAI.cars.forEach(c=>{c.visible=false;c.position.set(9999,9999,9999);});
+  Crime.peak=0; Crime.coolT=0; Crime._stormT=0;
+  Expulsion.bans={};
+  setTimeout(()=>{ Crime.say(msg,6500); },300);
+  try{ Weapons.refreshHUD(); UI.refreshHUD(); }catch(_){}
+ };
+ Prison.release=function(){
+  release();
+  Crime.record={kills:0,assaults:0,illegalShots:0};
+  Crime.say('🔓 You are free. Stay out of trouble.',3500);
+ };
+})();

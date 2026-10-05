@@ -710,6 +710,7 @@ NPCPool.damage=function(n,dmg,opts){
  if(n.relationshipId&&typeof Relationships!=='undefined'&&Relationships.addAffinity)
   Relationships.addAffinity(n.relationshipId,-3,'hit');
 
+ if(typeof Crime!=='undefined'&&!n.hostile) Crime.assault(n);
  if(n.health<=0){ NPCPool.kill(n,headshot); return; }
 
  const ppos=Player.camera.position;
@@ -736,7 +737,7 @@ NPCPool.kill=function(n,headshot){
  const p=n.mesh.position;
  Blood.spray(new THREE.Vector3(p.x,p.y+1.1,p.z),null,headshot?20:14);
  Blood.pool(p.x,p.z,0.9+Math.random()*0.5);
- if(typeof Police!=='undefined'&&Police.addWanted) Police.addWanted(n.relationshipId?2:1);
+ if(typeof Crime!=='undefined') Crime.kill(n); else if(typeof Police!=='undefined'&&Police.addWanted) Police.addWanted(n.relationshipId?2:1);
  if(n.relationshipId&&typeof Relationships!=='undefined'&&Relationships.addAffinity)
   Relationships.addAffinity(n.relationshipId,-40,'killed');
  NPCPool.alertNear(p,26,n,true);

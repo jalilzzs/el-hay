@@ -138,6 +138,9 @@ Cutscenes.play = async function(camera, onDone) {
   csSkipped = false;
   if (window.World) World.cutsceneLock = true;
 
+  let done = false;
+  finishFn = () => { if (done) return; done = true; finish(); };
+
   const csLayer = getEl('csLayer');
   if (csLayer) csLayer.style.display = 'block';
 
@@ -145,12 +148,10 @@ Cutscenes.play = async function(camera, onDone) {
   setUIHidden(true);
 
   if (window.Player) {
-    if (Player.controls && typeof Player.controls.unlock === 'function') Player.controls.unlock();
+    try { if (Player.controls && typeof Player.controls.unlock === 'function') Player.controls.unlock(); } catch (e) {}
     Player.suspended = true;
   }
 
-  let done = false;
-  finishFn = () => { if (done) return; done = true; finish(); };
 
   function finish() {
     if (window.World) World.cutsceneLock = false;

@@ -1761,6 +1761,7 @@ Phone.renderCamera = function(body) {
 
   btn.onclick = () => {
     try {
+      try{ World.renderer.render(World.scene, Player.camera); }catch(_){}
       const dataUrl =
         World.renderer.domElement.toDataURL('image/png');
 

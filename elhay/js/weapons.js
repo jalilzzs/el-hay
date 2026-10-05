@@ -1,6 +1,5 @@
 /* ============ Weapons: arsenal, aiming/firing, ammo, and simple police pursuit AI ============ */
-/* Fictional, stylized gameplay only — no gore, no real-world weapon build info. Hits are numeric
-   health reductions with a brief reaction line; nothing graphic is rendered. */
+/* Stylised combat: hits damage NPCs (headshots x2), NPCs bleed, die, and react (see npc.js). */
 const ARSENAL={
  fists:{name:'Fists',type:'melee',dmg:12,range:2.2,rate:0.4},
  knife:{name:'Knife',type:'melee',dmg:16,range:2.2,rate:0.35},
@@ -73,6 +72,7 @@ Weapons.reload=function(){
  if(have>=w.maxAmmo){ Weapons.say('Magazine full'); return; }
  if(res<=0){ Weapons.say('No spare ammo'); return; }
  Weapons.reloading=true;
+ Audio.reload();
  Weapons.say('Reloading...');
  Weapons.refreshHUD();
  setTimeout(()=>{
@@ -96,6 +96,7 @@ Weapons.fire=function(camera){
  if(Weapons.reloading) return;
  if(w.type==='gun'){
   if((Weapons.ammo[id]||0)<=0){
+   Audio.empty();
    if((Weapons.reserve[id]||0)>0) Weapons.reload();
    else Weapons.say('Out of ammo');
    return;
@@ -104,15 +105,32 @@ Weapons.fire=function(camera){
  }
  Weapons._last=now;
  const dir=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+ const isGun=w.type==='gun';
+ if(isGun) Audio.gunshot(id);
  const ray=new THREE.Raycaster(camera.position,dir,0,w.range);
- const targets=NPCPool.pool.filter(n=>n.active&&n.mesh.visible).map(n=>n.mesh.children[0]); // body mesh
- const hits=ray.intersectObjects(targets);
+ const targets=NPCPool.pool.filter(n=>n.active&&n.mesh.visible&&!n.dead).map(n=>n.mesh);
+ const hits=ray.intersectObjects(targets,true).filter(h=>h.object.visible);
+ let npc=null,point=null;
  if(hits.length){
-  const hitMesh=hits[0].object;
-  const npc=NPCPool.pool.find(n=>n.mesh.children[0]===hitMesh);
-  if(npc) NPCPool.react(npc);
- } else if(w.type==='melee'){
-  const near=NPCPool.nearest(camera.position,w.range); if(near) NPCPool.react(near);
+  let o=hits[0].object;
+  while(o&&!npc){ const m=o; npc=NPCPool.pool.find(n=>n.mesh===m); o=o.parent; }
+  point=hits[0].point;
+ }
+ if(!npc&&w.type==='melee'){
+  /* swing: hit the nearest NPC that is roughly in front */
+  const near=NPCPool.nearest(camera.position,w.range);
+  if(near){
+   const to=new THREE.Vector3().subVectors(near.mesh.position,camera.position); to.y=0; to.normalize();
+   const fwd=dir.clone(); fwd.y=0; fwd.normalize();
+   if(to.dot(fwd)>0.3){ npc=near; point=new THREE.Vector3(near.mesh.position.x,near.mesh.position.y+1.2,near.mesh.position.z); }
+  }
+ }
+ if(npc){
+  if(!isGun) Audio.melee(true);
+  NPCPool.damage(npc,w.dmg,{point,dir,melee:!isGun,gun:isGun});
+ } else {
+  if(!isGun) Audio.melee(false);
+  else NPCPool.alertNear(camera.position,22,null); /* gunfire still scares people around */
  }
  /* auto reload when the magazine just emptied */
  if(w.type==='gun'&&(Weapons.ammo[id]||0)<=0&&(Weapons.reserve[id]||0)>0) Weapons.reload();

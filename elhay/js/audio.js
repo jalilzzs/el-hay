@@ -246,3 +246,68 @@ document.addEventListener('visibilitychange', function() {
     Audio.ctx.resume();
   }
 });
+
+
+/* ============ Weapon / combat sounds (procedural) ============ */
+Audio._noise = function(dur, decay) {
+  const c = Audio.ctx, n = Math.max(1, Math.floor(c.sampleRate * dur));
+  const b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (n * decay));
+  return b;
+};
+Audio._burst = function(opts) {
+  /* opts: dur, decay, type(filter), freq, q, vol, delay */
+  const c = Audio.ctx; if (!c) return;
+  const t = c.currentTime + (opts.delay || 0);
+  const src = c.createBufferSource(); src.buffer = Audio._noise(opts.dur, opts.decay || 0.3);
+  const f = c.createBiquadFilter(); f.type = opts.type || 'lowpass'; f.frequency.value = opts.freq || 1500; f.Q.value = opts.q || 0.7;
+  const g = c.createGain(); g.gain.setValueAtTime(opts.vol || 0.3, t); g.gain.exponentialRampToValueAtTime(0.001, t + opts.dur);
+  src.connect(f); f.connect(g); g.connect(Audio.masterGain); src.start(t);
+};
+Audio._tone = function(f0, f1, dur, vol, type, delay) {
+  const c = Audio.ctx; if (!c) return;
+  const t = c.currentTime + (delay || 0);
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(Audio.masterGain); o.start(t); o.stop(t + dur + 0.02);
+};
+/* gun: pistol | revolver | smg | shotgun | rifle | sniper */
+Audio.gunshot = function(id) {
+  if (!Audio.ctx) { if (Audio.unlock) Audio.unlock(); if (!Audio.ctx) return; }
+  const P = {
+    pistol:   {dur: .22, freq: 2800, vol: .55, thump: 150},
+    revolver: {dur: .34, freq: 2200, vol: .7,  thump: 110},
+    smg:      {dur: .14, freq: 3200, vol: .42, thump: 170},
+    shotgun:  {dur: .5,  freq: 1600, vol: .9,  thump: 80},
+    rifle:    {dur: .3,  freq: 2400, vol: .65, thump: 120},
+    sniper:   {dur: .8,  freq: 1400, vol: .95, thump: 70}
+  }[id] || {dur: .22, freq: 2800, vol: .5, thump: 150};
+  Audio._burst({dur: P.dur, decay: .25, type: 'lowpass', freq: P.freq, vol: P.vol});
+  Audio._burst({dur: P.dur * 2, decay: .5, type: 'lowpass', freq: 500, vol: P.vol * .6, delay: .02}); /* tail / echo */
+  Audio._tone(P.thump, 35, .18, P.vol * .8, 'sine');
+};
+Audio.melee = function(hit) {
+  if (!Audio.ctx) return;
+  Audio._burst({dur: .12, decay: .3, type: 'bandpass', freq: hit ? 700 : 2500, q: 1, vol: hit ? .45 : .18});
+  if (hit) Audio._tone(120, 50, .1, .35, 'triangle');
+};
+Audio.reload = function() {
+  if (!Audio.ctx) return;
+  Audio._burst({dur: .05, decay: .3, type: 'highpass', freq: 2500, vol: .3});
+  Audio._burst({dur: .06, decay: .3, type: 'highpass', freq: 3000, vol: .35, delay: .55});
+  Audio._tone(900, 400, .05, .12, 'square', .56);
+};
+Audio.empty = function() {
+  if (!Audio.ctx) return;
+  Audio._burst({dur: .04, decay: .3, type: 'highpass', freq: 3500, vol: .25});
+};
+Audio.hurt = function() { /* NPC grunt */
+  if (!Audio.ctx) return;
+  Audio._tone(260 + Math.random() * 80, 120, .22, .22, 'sawtooth');
+};
+Audio.thud = function() { /* body hits the ground */
+  if (!Audio.ctx) return;
+  Audio._tone(90, 30, .25, .5, 'sine');
+  Audio._burst({dur: .15, decay: .4, type: 'lowpass', freq: 400, vol: .3});
+};

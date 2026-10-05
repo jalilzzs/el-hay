@@ -16,18 +16,30 @@ const canvas=$('c');
 
 const renderer=new THREE.WebGLRenderer({
  canvas,
- antialias:true,
- preserveDrawingBuffer:true
+ antialias:!IS_TOUCH,
+ preserveDrawingBuffer:false,
+ powerPreference:'high-performance'
 });
 
+/* phones: lower pixel ratio avoids memory blow-ups / garbled frames on iOS Safari */
 renderer.setPixelRatio(
- Math.min(devicePixelRatio,2)
+ Math.min(devicePixelRatio,IS_TOUCH?1.5:2)
 );
 
+function viewW(){ return Math.round((window.visualViewport&&visualViewport.width)||innerWidth); }
+function viewH(){ return Math.round((window.visualViewport&&visualViewport.height)||innerHeight); }
+
 renderer.setSize(
- innerWidth,
- innerHeight
+ viewW(),
+ viewH(),
+ false
 );
+
+/* if iOS drops the WebGL context (memory), reload cleanly instead of showing a corrupted frame */
+canvas.addEventListener('webglcontextlost',e=>{
+ e.preventDefault();
+ setTimeout(()=>location.reload(),600);
+},false);
 
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -143,17 +155,20 @@ addEventListener(
  ()=>{
 
   camera.aspect=
-   innerWidth/
-   innerHeight;
+   viewW()/
+   viewH();
 
   camera.updateProjectionMatrix();
 
   renderer.setSize(
-   innerWidth,
-   innerHeight
+   viewW(),
+   viewH(),
+   false
   );
  }
 );
+addEventListener('orientationchange',()=>setTimeout(()=>dispatchEvent(new Event('resize')),300));
+if(window.visualViewport) visualViewport.addEventListener('resize',()=>dispatchEvent(new Event('resize')));
 
 
 /* ============ World / Player / Systems Init ============ */
